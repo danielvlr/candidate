@@ -1,17 +1,15 @@
-# Use uma imagem base oficial do OpenJDK
+FROM eclipse-temurin:22-jdk-jammy AS build
+ENV HOME=/usr/app
+RUN mkdir -p $HOME
+WORKDIR $HOME
+ADD . $HOME
+RUN --mount=type=cache,target=/root/.m2 ./mvnw -f $HOME/pom.xml clean package
+
+
+
 FROM alpine/java:22-jdk
-
-# Cria um diretório para a aplicação
 VOLUME /tmp
-
-# Define o argumento para o JAR_FILE
 ARG JAR_FILE=target/*.jar
-
-# Copia o JAR do Spring Boot para o diretório do contêiner
 COPY ${JAR_FILE} app.jar
-
-# Expõe a porta em que a aplicação vai rodar
 EXPOSE 8080
-
-# Comando para executar a aplicação
 ENTRYPOINT ["java","-jar","/app.jar"]
