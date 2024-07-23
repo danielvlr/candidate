@@ -1,15 +1,13 @@
 FROM eclipse-temurin:22-jdk-jammy AS build
-ENV HOME=/usr/app
-RUN mkdir -p $HOME
-WORKDIR $HOME
-ADD . $HOME
-RUN --mount=type=cache,target=/root/.m2 ./mvnw -f $HOME/pom.xml clean package
-
-
+WORKDIR /opt/app
+COPY .mvn/ .mvn
+COPY mvnw pom.xml ./
+RUN ./mvnw dependency:go-offline
+COPY ./src ./src
+RUN ./mvnw clean install -DskipTests
 
 FROM alpine/java:22-jdk
-VOLUME /tmp
-ARG JAR_FILE=target/*.jar
-COPY ${JAR_FILE} app.jar
+WORKDIR /opt/app
 EXPOSE 8080
-ENTRYPOINT ["java","-jar","/app.jar"]
+COPY --from=build /opt/app/target/*.jar /opt/app/app.jar
+ENTRYPOINT ["java","-jar","/opt/app/app.jar"]
