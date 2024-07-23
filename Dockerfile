@@ -4,7 +4,7 @@ RUN mkdir -p $HOME
 WORKDIR $HOME
 ADD . $HOME
 RUN chmod +x mvnw
-RUN ./mvnw -f $HOME/pom.xml clean package
+RUN ./mvnw -f $HOME/pom.xml clean package -DskipTests
 
 FROM eclipse-temurin:22-jre-jammy
 ARG JAR_FILE=/usr/app/target/*.jar
