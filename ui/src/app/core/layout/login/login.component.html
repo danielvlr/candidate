@@ -1,0 +1,51 @@
+<div class="l-login__wrapper">
+  <div class="l-login__main">
+    <div class="l-login__header">
+      <h2 class="l-login__title">Acessar sua conta</h2>
+      <span class="l-login__subtitle">Insira seu usuário e senha para acessar.</span>
+    </div>
+    <div class="l-login__form c-form my-4" [formGroup]="loginForm">
+      <div class="d-block">
+        <label class="c-form__label" for="username">Usuário</label>
+        <mat-form-field appearance="fill" class="w-100">
+          <mat-label>Insira seu usuário</mat-label>
+          <input id="username" matInput formControlName="username">
+          <div class="c-form__prefix" matPrefix>
+            <i class="fa-solid fa-user"></i>
+          </div>
+        </mat-form-field>
+      </div>
+      <div class="d-block my-3">
+        <label class="c-form__label" for="password">Senha</label>
+        <mat-form-field appearance="fill" class="w-100">
+          <mat-label>Insira sua senha</mat-label>
+          <input id="password" type="password" matInput formControlName="password">
+          <div class="c-form__prefix" matPrefix>
+            <i class="fa-solid fa-lock"></i>
+          </div>
+        </mat-form-field>
+      </div>
+      <div class="d-block">
+        <button
+          mat-flat-button
+          color="primary"
+          class="w-100"
+          [disabled]="(loading$ | async) === true"
+          (click)="login(loginForm.value)">
+          @if ((loading$ | async) === true) {
+            <div class="d-flex align-items-center">
+              <mat-spinner [diameter]="25" class="me-2"></mat-spinner>
+              <span>Acessando...</span>
+            </div>
+          } @else {
+            Acessar
+          }
+        </button>
+      </div>
+    </div>
+    <div class="l-login__create-account">
+      <span>Não tem conta?</span>
+      <button mat-button color="primary" (click)="register()">Criar conta</button>
+    </div>
+  </div>
+</div>

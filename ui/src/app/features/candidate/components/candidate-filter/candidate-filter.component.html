@@ -1,0 +1,14 @@
+<form class="c-form" [formGroup]="form">
+  <mat-form-field appearance="fill" class="w-100">
+    <div class="c-form__prefix" matPrefix>
+      <i class="fa-solid fa-magnifying-glass"></i>
+    </div>
+    <mat-label>Candidatos</mat-label>
+    <input aria-label="Pesquisar por candidatos" matInput formControlName="q">
+    @if (loading) {
+      <div class="c-form__suffix" matSuffix>
+        <mat-progress-spinner mode="indeterminate" [diameter]="25" color="primary"></mat-progress-spinner>
+      </div>
+    }
+  </mat-form-field>
+</form>

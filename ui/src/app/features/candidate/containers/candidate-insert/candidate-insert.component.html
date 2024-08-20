@@ -1,0 +1,86 @@
+<form class="c-form" [formGroup]="formGroup">
+  <div class="row">
+    <div class="col-md-6">
+      <label class="c-form__label" for="name">Nome</label>
+      <mat-form-field appearance="fill" class="w-100">
+        <mat-label>Insira seu nome</mat-label>
+        <input id="name" matInput formControlName="nome">
+        <div class="c-form__prefix" matPrefix>
+          <i class="fa-solid fa-user-large"></i>
+        </div>
+      </mat-form-field>
+    </div>
+
+    <div class="col-md-6">
+      <label class="c-form__label" for="pretensao">Pretensão salarial</label>
+      <mat-form-field appearance="fill" class="w-100">
+        <mat-label>Insira sua pretensão salarial</mat-label>
+        <input id="pretensao" matInput currencyMask formControlName="pretensaoSalarial">
+        <div class="c-form__prefix" matPrefix>
+          <i class="fa-solid fa-brazilian-real-sign"></i>
+        </div>
+      </mat-form-field>
+    </div>
+  </div>
+
+  <div class="row my-3">
+    <div class="col-md-6">
+      <label class="c-form__label" for="telefone">Telefone</label>
+      <mat-form-field appearance="fill" class="w-100">
+        <mat-label>Insira sua telefone</mat-label>
+        <input id="telefone" matInput formControlName="telefone" mask="(00) 0 0000-0000">
+        <div class="c-form__prefix" matPrefix>
+          <i class="fa-solid fa-mobile-screen-button"></i>
+        </div>
+      </mat-form-field>
+    </div>
+
+    <div class="col-md-6">
+      <label class="c-form__label" for="profissao">Profissão</label>
+      <mat-form-field appearance="fill" class="w-100">
+        <mat-label>Insira sua profissão</mat-label>
+        <input id="profissao" matInput formControlName="profissao">
+        <div class="c-form__prefix" matPrefix>
+          <i class="fa-solid fa-user-tie"></i>
+        </div>
+      </mat-form-field>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-12">
+      <label class="c-form__label" for="linkedin">Linkedin</label>
+      <mat-form-field appearance="fill" class="w-100">
+        <mat-label>Insira seu link do perfil</mat-label>
+        <input id="linkedin" matInput formControlName="linkedin">
+        <div class="c-form__prefix" matPrefix>
+          <i class="fa-brands fa-linkedin-in"></i>
+        </div>
+      </mat-form-field>
+    </div>
+  </div>
+
+  <div class="row my-3">
+    <div class="col-md-12">
+      <label class="c-form__label" for="habilidades">Habilidades</label>
+      <mat-form-field appearance="fill" class="w-100">
+        <textarea id="habilidades" [rows]="5" matInput formControlName="habilidades" placeholder="Insira algumas de suas habilidades"></textarea>
+        <div class="c-form__prefix" matPrefix>
+          <i class="fa-solid fa-gears"></i>
+        </div>
+      </mat-form-field>
+    </div>
+  </div>
+
+  <app-candidate-historic
+    [list]="historicControl.value"
+    [candidateID]="formGroup.get('id')?.value"
+    (historicUpdateEmit)="historicUpdate($event)" />
+
+  <div class="row mt-3">
+    <div class="col-md-12" align="end">
+      <button type="button" color="" mat-stroked-button mat-dialog-close aria-label="Cancelar cadastro" class="me-3">Cancelar</button>
+      <button type="button" color="primary" mat-flat-button aria-label="Adicionar candidato" (click)="onSave(formGroup.value)">Salvar</button>
+    </div>
+  </div>
+</form>

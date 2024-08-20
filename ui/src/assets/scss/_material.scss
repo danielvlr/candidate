@@ -1,0 +1,21 @@
+.mat-mdc {
+  &-fab,
+  &-unelevated-button.mat-primary:not(.mat-mdc-button-disabled) {
+    background-color: var(--color-theme-primary) !important;
+  }
+  &-fab {
+    transform: scale(.8);
+  }
+  &-unelevated-button,
+  &-outlined-button,
+  &-icon-button {
+    height: 48px !important;
+  }
+  &-form-field-subscript-wrapper { display: none; }
+  &-icon-button {
+    .mat-mdc-button-persistent-ripple::before {
+      content: '';
+      background-color: var(--color-theme-primary) !important;
+    }
+  }
+}

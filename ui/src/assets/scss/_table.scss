@@ -1,0 +1,19 @@
+$component-name: 'c-table';
+
+.#{$component-name} {
+  &__row {
+    cursor: pointer;
+    &:hover {
+      background-color: var(--bs-gray-100) !important;
+    }
+  }
+  &__no-data {
+    height: 65px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--bs-gray-500);
+    text-transform: uppercase;
+    letter-spacing: 3px;
+  }
+}

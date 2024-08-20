@@ -1,0 +1,13 @@
+$component-name: 'l-candidate';
+
+.#{$component-name} {
+  background-color: var(--color-theme-white);
+  padding: 20px;
+  border-radius: 5px;
+  &__title {
+    font-size: 22px;
+    padding-block-end: 25px;
+    margin-block-end: 50px;
+    border-block-end: 1px solid var(--bs-gray-500);
+  }
+}

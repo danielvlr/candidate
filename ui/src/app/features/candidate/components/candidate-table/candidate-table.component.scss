@@ -1,0 +1,14 @@
+.l-candidate {
+  &__paginator {
+    padding-block-start: 20px;
+    border-block-start: 1px solid
+      var(--mat-table-row-item-outline-color, rgba(0, 0, 0, 0.12));
+    ::ng-deep button {
+      border: 1px solid var(--bs-gray-400);
+      margin-inline: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+  }
+}

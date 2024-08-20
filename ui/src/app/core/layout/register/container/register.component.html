@@ -1,0 +1,54 @@
+<div class="l-login__wrapper">
+  <div class="l-login__main">
+    <div class="l-login__header">
+      <h2 class="l-login__title">Crie sua conta</h2>
+      <span class="l-login__subtitle">Faça seu cadastro e aguarde sua aprovação.</span>
+    </div>
+    <div class="l-login__form c-form my-4">
+      <div class="d-flex justify-content-between mb-3">
+        <div class="d-block me-3 w-50">
+          <label class="c-form__label" for="firstname">Nome</label>
+          <mat-form-field appearance="fill" class="w-100">
+            <input id="firstname" placeholder="Primeiro nome" matInput>
+            <div class="c-form__prefix" matPrefix>
+              <i class="fa-regular fa-user"></i>
+            </div>
+          </mat-form-field>
+        </div>
+        <div class="d-block w-50">
+          <label class="c-form__label" for="lastname">&nbsp;</label>
+          <mat-form-field appearance="fill" class="w-100">
+            <input id="lastname" placeholder="Sobrenome" matInput>
+          </mat-form-field>
+        </div>
+      </div>
+      <div class="d-block">
+        <label class="c-form__label" for="email">Email</label>
+        <mat-form-field appearance="fill" class="w-100">
+          <mat-label>Insira seu email</mat-label>
+          <input id="email" matInput>
+          <div class="c-form__prefix" matPrefix>
+            <i class="fa-solid fa-at"></i>
+          </div>
+        </mat-form-field>
+      </div>
+      <div class="d-block my-3">
+        <label class="c-form__label" for="password">Senha</label>
+        <mat-form-field appearance="fill" class="w-100">
+          <mat-label>Insira sua senha</mat-label>
+          <input id="password" type="password" matInput>
+          <div class="c-form__prefix" matPrefix>
+            <i class="fa-solid fa-lock"></i>
+          </div>
+        </mat-form-field>
+      </div>
+      <div class="d-block">
+        <button mat-flat-button color="primary" class="w-100">Cadastrar</button>
+      </div>
+    </div>
+    <div class="l-login__create-account">
+      <span>Já tem uma conta?</span>
+      <button mat-button color="primary" (click)="login()">Acessar</button>
+    </div>
+  </div>
+</div>

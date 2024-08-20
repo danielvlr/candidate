@@ -1,0 +1,20 @@
+<div class="c-topbar">
+  <div class="c-topbar__logo">CANDIDATOS</div>
+  <div class="spacer"></div>
+  <div class="c-topbar__today">
+    <span>{{ today | date: 'dd MMMM YYYY' }}</span>
+  </div>
+  <div class="c-topbar__profile">
+    <div class="c-topbar__avatar">J</div>
+    <div class="c-topbar__user" [matMenuTriggerFor]="menu">
+      <div class="c-topbar__name">{{ user.username }}</div>
+      <div class="c-topbar__type">{{ user.type }}</div>
+    </div>
+
+    <mat-menu #menu="matMenu" xPosition="before">
+      <button mat-menu-item *ngIf="isAdmin">Usuarios</button>
+      <button mat-menu-item (click)="logout()">
+        <i class="fa-solid fa-arrow-right-from-bracket"></i> Sair</button>
+    </mat-menu>
+  </div>
+</div>

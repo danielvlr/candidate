@@ -1,0 +1,12 @@
+<div class="c-modal">
+  <div class="c-modal__header" mat-dialog-title>
+    <h2 class="c-modal__title">{{ data.title }}</h2>
+    <div class="spacer"></div>
+    <button class="c-modal__close" mat-icon-button color="primary" matTooltip="Fechar" matTooltipPosition="before" mat-dialog-close aria-label="Fechar modal.">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+  </div>
+  <div class="c-modal__content" mat-dialog-content>
+    <ndc-dynamic [ndcDynamicComponent]="data.component" [ndcDynamicInputs]="inputs" [ndcDynamicOutputs]="outputs"></ndc-dynamic>
+  </div>
+</div>

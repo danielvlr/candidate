@@ -1,0 +1,18 @@
+@if (label) {
+  <label class="c-form__label" for="telefone">{{ label }}</label>
+}
+
+<mat-form-field appearance="fill" class="w-100">
+  <mat-label>{{ inputLabel }}</mat-label>
+  <input id="telefone" matInput />
+  @if (prefix) {
+    <div class="c-form__prefix" matPrefix>
+      <i [ngClass]="prefixIcon"></i>
+    </div>
+  }
+  @if (sufix) {
+    <div class="c-form__sufix" matSufix>
+      <i [ngClass]="sufixIcon"></i>
+    </div>
+  }
+</mat-form-field>

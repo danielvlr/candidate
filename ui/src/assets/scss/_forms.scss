@@ -1,0 +1,50 @@
+$component-name: "c-form";
+
+.#{$component-name} {
+  &__prefix,
+  &__suffix {
+    padding-inline: 20px;
+    i,
+    &--color {
+      .mat-mdc-icon-button[disabled], .mat-mdc-icon-button.mat-mdc-button-disabled {
+        color: var(--color-theme-primary) !important;
+      }
+      color: var(--color-theme-primary) !important;
+    }
+  }
+  &__label {
+    color: var(--color-theme-black);
+    margin-block-end: 10px;
+    font-weight: 500;
+  }
+
+  .mdc {
+    &-text-field {
+      &--filled {
+        border-radius: 10px !important;
+        background-color: var(--color-theme-secondary);
+        .mdc-text-field--focused .mdc-floating-label,
+        .mdc-text-field--focused .mdc-floating-label--float-above {
+          color: var(--color-theme-primary) !important;
+        }
+        &.mdc-text-field--disabled {
+          background: none !important;
+          .mdc-text-field {
+            &__input { color: var(--color-theme-black) !important; }
+          }
+        }
+      }
+      // .mdc-text-field--filled.mdc-text-field--disabled .mdc-text-field__input
+    }
+    &-line-ripple {
+      &::before {
+        content: "";
+        display: none;
+      }
+      &::after {
+        content: "";
+        border-block-end-color: var(--color-theme-primary) !important;
+      }
+    }
+  }
+}

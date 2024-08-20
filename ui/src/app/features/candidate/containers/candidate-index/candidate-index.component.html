@@ -1,0 +1,29 @@
+<div class="l-candidate">
+  <div class="row mb-3">
+    <div class="col-md-6">
+      <app-candidate-filter [form]=formFilter [loading]="searchLoading"/>
+    </div>
+    <div class="col-md-1 offset-5 d-flex justify-content-end">
+      <button
+        mat-fab
+        color="primary"
+        matTooltip="Novo"
+        matTooltipPosition="before"
+        aria-label="Acionar modal de novo cadastro de candidato."
+        (click)="openDetailsModal()"
+      >
+        <i class="fa-solid fa-plus"></i>
+      </button>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-12">
+      <app-candidate-table
+        [data]="dataCandidates"
+        [total]="totalCandidates"
+        (detailsEmit)="openDetailsModal($event)"
+        (pageEmit)="onPage($event)"/>
+    </div>
+  </div>
+</div>

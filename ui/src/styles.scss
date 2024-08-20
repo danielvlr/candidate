@@ -1,0 +1,30 @@
+/* You can add global styles to this file, and also import other style files */
+@import './assets/scss/material';
+@import './assets/scss/forms';
+@import './assets/scss/table';
+
+:root {
+  --color-theme-primary: #0378A6;
+  --color-theme-secondary: #DDF2FD;
+  --color-theme-black: #000000;
+  --color-theme-white: #FFFFFF;
+}
+
+.spacer {
+  flex: 1 auto;
+}
+
+.wrapper {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  overflow-y: scroll;
+  flex-direction: column;
+  background-color: var(--color-theme-secondary);
+  &__main {
+    padding: 20px;
+  }
+}
+
+html, body { height: 100%; }
+body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }

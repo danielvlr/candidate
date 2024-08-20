@@ -1,0 +1,28 @@
+<table class="c-table" mat-table [dataSource]="dataSource">
+  @for (column of columnsEnum; track $index) {
+    <ng-container [matColumnDef]="column.key">
+      <th mat-header-cell *matHeaderCellDef>{{ column.value }}</th>
+      <td mat-cell *matCellDef="let item">{{ item[column.key] }}</td>
+    </ng-container>
+  }
+
+  <tr mat-header-row *matHeaderRowDef="columns"></tr>
+  <tr
+    mat-row
+    *matRowDef="let item; columns: columns"
+    class="c-table__row"
+    [style.height]="'65px'"
+    (dblclick)="openDetailModal(item.id)">
+  </tr>
+</table>
+
+@if (dataSource.data.length === 0) {
+  <span class="c-table__no-data">Nenhum candidato encontrado.</span>
+}
+
+<mat-paginator
+  class="l-candidate__paginator"
+  [length]="total"
+  [pageSizeOptions]="pageSizeOptions"
+  (page)="pageHandle($event)"
+/>
