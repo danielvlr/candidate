@@ -245,6 +245,7 @@ export interface ClientDTO {
 export interface ClientSummaryDTO {
   id: number;
   companyName: string;
+  contactPersonName?: string;
   contactEmail?: string;
   contactPhone?: string;
   city?: string;

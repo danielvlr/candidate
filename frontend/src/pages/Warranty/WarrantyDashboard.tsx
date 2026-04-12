@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router';
 import { apiService } from '../../services/api';
 import { WarrantyDTO, WarrantyStatus } from '../../types/api';
 import {
-  Badge,
   Button,
   Card,
   CardBody,

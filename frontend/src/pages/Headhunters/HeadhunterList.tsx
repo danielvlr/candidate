@@ -13,15 +13,15 @@ import {
 } from '../../components/ui';
 
 interface Headhunter {
-  id: number;
+  id?: number;
   fullName: string;
   email: string;
-  phone: string;
-  status: 'ACTIVE' | 'INACTIVE';
-  specialties: string[];
-  candidatesCount: number;
-  placementsCount: number;
-  createdAt: string;
+  phone?: string;
+  status?: string;
+  specialties?: string[];
+  candidatesCount?: number;
+  placementsCount?: number;
+  createdAt?: string;
 }
 
 const getInitials = (name: string) =>
@@ -69,7 +69,7 @@ const HeadhunterList: React.FC = () => {
     (h) =>
       h.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       h.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      h.specialties.some((s) => s.toLowerCase().includes(searchTerm.toLowerCase()))
+      (h.specialties ?? []).some((s) => s.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const handleStatusToggle = (id: number) => {
@@ -157,7 +157,7 @@ const HeadhunterList: React.FC = () => {
               variant="secondary"
               size="sm"
               disabled={!single}
-              onClick={() => single && handleStatusToggle(single.id)}
+              onClick={() => single?.id && handleStatusToggle(single.id)}
             >
               {single?.status === 'ACTIVE' ? 'Desativar' : 'Ativar'}
             </Button>
@@ -246,7 +246,7 @@ const HeadhunterList: React.FC = () => {
                       {headhunter.email}
                     </p>
                     <div className="flex flex-wrap gap-1 mt-1">
-                      {headhunter.specialties.map((specialty, index) => (
+                      {(headhunter.specialties ?? []).map((specialty, index) => (
                         <Badge key={index} variant="info">
                           {specialty}
                         </Badge>
