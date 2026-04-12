@@ -23,7 +23,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/jobs")
-@CrossOrigin(origins = "*", maxAge = 3600)
 public class JobController {
 
     @Autowired
