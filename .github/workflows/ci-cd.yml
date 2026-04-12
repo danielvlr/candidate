@@ -1,0 +1,310 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  JAVA_VERSION: '21'
+  NODE_VERSION: '18'
+
+jobs:
+  # Job 1: Testes e validação do backend
+  backend-tests:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: talent_bank_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK ${{ env.JAVA_VERSION }}
+      uses: actions/setup-java@v3
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: 'temurin'
+
+    - name: Cache Maven dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-m2
+
+    - name: Run backend tests
+      run: ./mvnw clean test
+      env:
+        SPRING_PROFILES_ACTIVE: test
+        DB_URL: jdbc:postgresql://localhost:5432/talent_bank_test
+        DB_USER: postgres
+        DB_PASSWORD: postgres
+        REDIS_URL: redis://localhost:6379
+
+    - name: Run backend integration tests
+      run: ./mvnw verify -P integration-tests
+      env:
+        SPRING_PROFILES_ACTIVE: test
+        DB_URL: jdbc:postgresql://localhost:5432/talent_bank_test
+        DB_USER: postgres
+        DB_PASSWORD: postgres
+
+    - name: Generate test report
+      run: ./mvnw jacoco:report
+
+    - name: Upload test coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./target/site/jacoco/jacoco.xml
+        flags: backend
+
+    - name: Run security scan with SpotBugs
+      run: ./mvnw compile spotbugs:check
+
+    - name: Build backend
+      run: ./mvnw clean package -DskipTests
+
+  # Job 2: Testes e validação do frontend
+  frontend-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js ${{ env.NODE_VERSION }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install frontend dependencies
+      working-directory: ./frontend
+      run: npm ci
+
+    - name: Run ESLint
+      working-directory: ./frontend
+      run: npm run lint
+
+    - name: Run TypeScript check
+      working-directory: ./frontend
+      run: npx tsc --noEmit
+
+    - name: Run frontend tests
+      working-directory: ./frontend
+      run: npm run test -- --coverage --watchAll=false
+
+    - name: Upload frontend coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./frontend/coverage/lcov.info
+        flags: frontend
+
+    - name: Build frontend
+      working-directory: ./frontend
+      run: npm run build
+      env:
+        VITE_API_BASE_URL: /api/v1
+
+    - name: Upload frontend build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: frontend-dist
+        path: frontend/dist/
+
+  # Job 3: Análise de código e segurança
+  code-quality:
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Para análise completa do SonarCloud
+
+    - name: Set up JDK ${{ env.JAVA_VERSION }}
+      uses: actions/setup-java@v3
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: 'temurin'
+
+    - name: Cache SonarCloud packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.sonar/cache
+        key: ${{ runner.os }}-sonar
+        restore-keys: ${{ runner.os }}-sonar
+
+    - name: Cache Maven dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-m2
+
+    - name: Build and analyze with SonarCloud
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      run: ./mvnw clean verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=talent-bank
+
+    - name: Run OWASP Dependency Check
+      run: ./mvnw org.owasp:dependency-check-maven:check
+
+    - name: Upload OWASP report
+      uses: actions/upload-artifact@v3
+      with:
+        name: owasp-report
+        path: target/dependency-check-report.html
+
+  # Job 4: Build e push das imagens Docker
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests, code-quality]
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Login to Docker Hub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta-backend
+      uses: docker/metadata-action@v4
+      with:
+        images: ${{ secrets.DOCKERHUB_USERNAME }}/talent-bank-backend
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix=git-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push backend image
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.meta-backend.outputs.tags }}
+        labels: ${{ steps.meta-backend.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Extract metadata for frontend
+      id: meta-frontend
+      uses: docker/metadata-action@v4
+      with:
+        images: ${{ secrets.DOCKERHUB_USERNAME }}/talent-bank-frontend
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix=git-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push frontend image
+      uses: docker/build-push-action@v4
+      with:
+        context: ./frontend
+        push: true
+        tags: ${{ steps.meta-frontend.outputs.tags }}
+        labels: ${{ steps.meta-frontend.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  # Job 5: Deploy para ambiente de staging (apenas main branch)
+  deploy-staging:
+    runs-on: ubuntu-latest
+    needs: [docker-build]
+    if: github.ref == 'refs/heads/main'
+    environment: staging
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Deploy to staging
+      run: |
+        echo "🚀 Deploying to staging environment..."
+        # Aqui você pode adicionar scripts de deploy específicos
+        # Por exemplo: kubectl, docker-compose, terraform, etc.
+
+        # Exemplo com docker-compose remoto:
+        # scp docker-compose.staging.yml user@staging-server:/app/
+        # ssh user@staging-server "cd /app && docker-compose -f docker-compose.staging.yml up -d"
+
+    - name: Run staging health checks
+      run: |
+        echo "🏥 Running health checks..."
+        # Aguardar alguns segundos para os serviços subirem
+        sleep 30
+
+        # Verificar se a API está respondendo
+        # curl -f http://staging-server:8080/actuator/health
+
+        # Verificar se o frontend está acessível
+        # curl -f http://staging-server:3000/health
+
+    - name: Run basic smoke tests
+      run: |
+        echo "🔍 Running smoke tests..."
+        # Aqui você pode executar testes básicos para verificar
+        # se as funcionalidades principais estão funcionando
+        # npm run test:smoke || pytest tests/smoke/
+
+  # Job 6: Notificações
+  notify:
+    runs-on: ubuntu-latest
+    needs: [deploy-staging]
+    if: always()
+
+    steps:
+    - name: Notify team on success
+      if: success()
+      uses: 8398a7/action-slack@v3
+      with:
+        status: success
+        text: '✅ Pipeline executado com sucesso! Deploy para staging realizado.'
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+    - name: Notify team on failure
+      if: failure()
+      uses: 8398a7/action-slack@v3
+      with:
+        status: failure
+        text: '❌ Falha no pipeline! Verifique os logs.'
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

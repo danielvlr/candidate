@@ -1,0 +1,1153 @@
+openapi: 3.0.3
+info:
+  title: Sistema de Banco de Talentos API
+  description: API completa para gestão de candidatos, vagas e processo de recrutamento
+  version: 1.0.0
+  contact:
+    name: Equipe de Desenvolvimento
+    email: dev@empresa.com
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Servidor de Desenvolvimento
+  - url: https://api.talentos.empresa.com/v1
+    description: Servidor de Produção
+
+tags:
+  - name: auth
+    description: Autenticação e autorização
+  - name: candidates
+    description: Gestão de candidatos
+  - name: jobs
+    description: Gestão de vagas
+  - name: companies
+    description: Gestão de empresas
+  - name: headhunters
+    description: Gestão de headhunters
+  - name: messages
+    description: Envio de mensagens
+  - name: search
+    description: Busca inteligente
+  - name: reports
+    description: Relatórios
+  - name: lgpd
+    description: Conformidade LGPD
+
+security:
+  - bearerAuth: []
+
+paths:
+  # ===== AUTENTICAÇÃO =====
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Realizar login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: admin@empresa.com
+                password:
+                  type: string
+                  format: password
+                  example: senha123
+      responses:
+        '200':
+          description: Login realizado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                  user:
+                    $ref: '#/components/schemas/User'
+                  expiresIn:
+                    type: integer
+                    example: 3600
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/me:
+    get:
+      tags: [auth]
+      summary: Obter dados do usuário logado
+      responses:
+        '200':
+          description: Dados do usuário
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  # ===== CANDIDATOS =====
+  /candidates:
+    get:
+      tags: [candidates]
+      summary: Listar candidatos com filtros e busca
+      parameters:
+        - name: q
+          in: query
+          description: Termo de busca (nome, skills, posição)
+          schema:
+            type: string
+            example: "Java Spring Fortaleza"
+        - name: seniority
+          in: query
+          description: Nível de senioridade
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [ESTAGIARIO, JUNIOR, PLENO, SENIOR, ESPECIALISTA, LIDER]
+        - name: city
+          in: query
+          description: Cidade
+          schema:
+            type: string
+            example: "Fortaleza"
+        - name: availability
+          in: query
+          description: Status de disponibilidade
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [DISPONIVEL, EMPREGADO_ABERTO, EMPREGADO_FECHADO, INDISPONIVEL]
+        - name: skills
+          in: query
+          description: Skills requeridas (IDs separados por vírgula)
+          schema:
+            type: string
+            example: "1,5,10"
+        - name: minSalary
+          in: query
+          description: Salário mínimo esperado
+          schema:
+            type: number
+            example: 5000
+        - name: maxSalary
+          in: query
+          description: Salário máximo esperado
+          schema:
+            type: number
+            example: 15000
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+        - $ref: '#/components/parameters/Sort'
+      responses:
+        '200':
+          description: Lista de candidatos
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PageResponse'
+                  - type: object
+                    properties:
+                      content:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/CandidateListItem'
+
+    post:
+      tags: [candidates]
+      summary: Criar novo candidato
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CandidateCreateRequest'
+      responses:
+        '201':
+          description: Candidato criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Candidate'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /candidates/{id}:
+    get:
+      tags: [candidates]
+      summary: Obter detalhes de um candidato
+      parameters:
+        - $ref: '#/components/parameters/CandidateId'
+      responses:
+        '200':
+          description: Detalhes do candidato
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Candidate'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [candidates]
+      summary: Atualizar candidato
+      parameters:
+        - $ref: '#/components/parameters/CandidateId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CandidateUpdateRequest'
+      responses:
+        '200':
+          description: Candidato atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Candidate'
+
+    delete:
+      tags: [candidates]
+      summary: Excluir candidato (soft delete)
+      parameters:
+        - $ref: '#/components/parameters/CandidateId'
+      responses:
+        '204':
+          description: Candidato excluído
+
+  /candidates/{id}/contacts:
+    get:
+      tags: [candidates]
+      summary: Listar histórico de contatos
+      parameters:
+        - $ref: '#/components/parameters/CandidateId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Histórico de contatos
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PageResponse'
+                  - type: object
+                    properties:
+                      content:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ContactHistory'
+
+    post:
+      tags: [candidates]
+      summary: Adicionar contato ao histórico
+      parameters:
+        - $ref: '#/components/parameters/CandidateId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContactHistoryCreateRequest'
+      responses:
+        '201':
+          description: Contato adicionado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactHistory'
+
+  /candidates/{id}/resume:
+    post:
+      tags: [candidates]
+      summary: Upload de currículo
+      parameters:
+        - $ref: '#/components/parameters/CandidateId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Arquivo PDF do currículo
+      responses:
+        '201':
+          description: Currículo enviado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResumeFile'
+
+  # ===== VAGAS =====
+  /jobs:
+    get:
+      tags: [jobs]
+      summary: Listar vagas
+      parameters:
+        - name: q
+          in: query
+          description: Termo de busca
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: Status da vaga
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [RASCUNHO, ABERTA, EM_TRIAGEM, PAUSADA, FECHADA, CANCELADA]
+        - name: companyId
+          in: query
+          description: ID da empresa
+          schema:
+            type: string
+            format: uuid
+        - name: headhunterId
+          in: query
+          description: ID do headhunter
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+        - $ref: '#/components/parameters/Sort'
+      responses:
+        '200':
+          description: Lista de vagas
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PageResponse'
+                  - type: object
+                    properties:
+                      content:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/JobListItem'
+
+    post:
+      tags: [jobs]
+      summary: Criar nova vaga
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobCreateRequest'
+      responses:
+        '201':
+          description: Vaga criada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+
+  /jobs/{id}:
+    get:
+      tags: [jobs]
+      summary: Obter detalhes de uma vaga
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200':
+          description: Detalhes da vaga
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+
+    put:
+      tags: [jobs]
+      summary: Atualizar vaga
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobUpdateRequest'
+      responses:
+        '200':
+          description: Vaga atualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+
+  /jobs/{id}/candidates:
+    get:
+      tags: [jobs]
+      summary: Listar candidatos da vaga (kanban)
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200':
+          description: Candidatos por estágio
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  stages:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        stage:
+                          $ref: '#/components/schemas/JobStage'
+                        candidates:
+                          type: array
+                          items:
+                            $ref: '#/components/schemas/JobCandidate'
+
+    post:
+      tags: [jobs]
+      summary: Adicionar candidato à vaga
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [candidateId]
+              properties:
+                candidateId:
+                  type: string
+                  format: uuid
+                coverLetter:
+                  type: string
+                expectedSalary:
+                  type: number
+                availableStartDate:
+                  type: string
+                  format: date
+      responses:
+        '201':
+          description: Candidato adicionado à vaga
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobCandidate'
+
+  /jobs/{id}/candidates/{candidateId}/stage:
+    put:
+      tags: [jobs]
+      summary: Mover candidato para outro estágio
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+        - name: candidateId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [stageId]
+              properties:
+                stageId:
+                  type: integer
+                notes:
+                  type: string
+      responses:
+        '200':
+          description: Estágio atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobCandidate'
+
+  # ===== BUSCA INTELIGENTE =====
+  /search/candidates:
+    get:
+      tags: [search]
+      summary: Busca inteligente de candidatos
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: Query de busca com operadores AND/OR
+          schema:
+            type: string
+            example: "Java AND Spring AND (Fortaleza OR remoto)"
+        - name: boost
+          in: query
+          description: Campos para boost (skill_match, location_match, experience_match)
+          schema:
+            type: string
+            example: "skill_match:2.0,location_match:1.5"
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Resultados da busca com score de relevância
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PageResponse'
+                  - type: object
+                    properties:
+                      content:
+                        type: array
+                        items:
+                          allOf:
+                            - $ref: '#/components/schemas/CandidateListItem'
+                            - type: object
+                              properties:
+                                searchScore:
+                                  type: number
+                                  description: Score de relevância (0-1)
+                                matchedTerms:
+                                  type: array
+                                  items:
+                                    type: string
+                                  description: Termos que fizeram match
+
+  # ===== MENSAGENS =====
+  /messages/email:
+    post:
+      tags: [messages]
+      summary: Enviar email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [to, subject, content]
+              properties:
+                to:
+                  type: array
+                  items:
+                    type: string
+                    format: email
+                cc:
+                  type: array
+                  items:
+                    type: string
+                    format: email
+                subject:
+                  type: string
+                content:
+                  type: string
+                templateId:
+                  type: string
+                  format: uuid
+                templateVariables:
+                  type: object
+                relatedEntityType:
+                  type: string
+                  enum: [CANDIDATE, JOB, APPLICATION]
+                relatedEntityId:
+                  type: string
+                  format: uuid
+      responses:
+        '202':
+          description: Email enfileirado para envio
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messageId:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [QUEUED]
+
+  /messages/whatsapp:
+    post:
+      tags: [messages]
+      summary: Enviar WhatsApp
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [to, content]
+              properties:
+                to:
+                  type: string
+                  example: "+5585999999999"
+                content:
+                  type: string
+                templateId:
+                  type: string
+                  format: uuid
+                templateVariables:
+                  type: object
+                relatedEntityType:
+                  type: string
+                  enum: [CANDIDATE, JOB, APPLICATION]
+                relatedEntityId:
+                  type: string
+                  format: uuid
+      responses:
+        '202':
+          description: WhatsApp enfileirado para envio
+
+  # ===== IMPORT LINKEDIN =====
+  /import/linkedin:
+    post:
+      tags: [candidates]
+      summary: Importar dados do LinkedIn
+      description: |
+        Três métodos de importação suportados:
+        1. Upload de PDF do LinkedIn export
+        2. URL do perfil LinkedIn (com consentimento)
+        3. Dados estruturados via API autorizada
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                method:
+                  type: string
+                  enum: [PDF_UPLOAD, URL_WITH_CONSENT, API_DATA]
+                file:
+                  type: string
+                  format: binary
+                  description: PDF export do LinkedIn
+                linkedinUrl:
+                  type: string
+                  description: URL do perfil LinkedIn
+                consentConfirmed:
+                  type: boolean
+                  description: Confirmação de consentimento do candidato
+                apiData:
+                  type: string
+                  description: JSON com dados obtidos via API autorizada
+      responses:
+        '201':
+          description: Dados importados com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  candidateId:
+                    type: string
+                    format: uuid
+                  importedFields:
+                    type: array
+                    items:
+                      type: string
+                  warnings:
+                    type: array
+                    items:
+                      type: string
+        '400':
+          description: Erro na importação ou falta de consentimento
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    CandidateId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    JobId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Page:
+      name: page
+      in: query
+      description: Número da página (0-indexed)
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    Size:
+      name: size
+      in: query
+      description: Tamanho da página
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    Sort:
+      name: sort
+      in: query
+      description: Ordenação (campo,direção)
+      schema:
+        type: string
+        example: "firstName,asc"
+
+  schemas:
+    # ===== MODELOS BÁSICOS =====
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+        isActive:
+          type: boolean
+
+    PageResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items: {}
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+        totalPages:
+          type: integer
+        first:
+          type: boolean
+        last:
+          type: boolean
+
+    # ===== CANDIDATOS =====
+    CandidateListItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        currentPosition:
+          type: string
+        currentCompany:
+          type: string
+        seniorityLevel:
+          type: string
+        availabilityStatus:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        topSkills:
+          type: array
+          items:
+            type: string
+        lastContact:
+          type: string
+          format: date-time
+
+    Candidate:
+      allOf:
+        - $ref: '#/components/schemas/CandidateListItem'
+        - type: object
+          properties:
+            phone:
+              type: string
+            linkedinUrl:
+              type: string
+            githubUrl:
+              type: string
+            portfolioUrl:
+              type: string
+            summary:
+              type: string
+            yearsOfExperience:
+              type: integer
+            salaryExpectationMin:
+              type: number
+            salaryExpectationMax:
+              type: number
+            workModelPreference:
+              type: string
+            contractTypePreference:
+              type: string
+            skills:
+              type: array
+              items:
+                $ref: '#/components/schemas/CandidateSkill'
+            languages:
+              type: array
+              items:
+                $ref: '#/components/schemas/CandidateLanguage'
+            resumeFiles:
+              type: array
+              items:
+                $ref: '#/components/schemas/ResumeFile'
+            consentGiven:
+              type: boolean
+            consentDate:
+              type: string
+              format: date-time
+
+    CandidateCreateRequest:
+      type: object
+      required: [email, firstName, lastName]
+      properties:
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        phone:
+          type: string
+        currentPosition:
+          type: string
+        currentCompany:
+          type: string
+        seniorityLevel:
+          type: string
+        summary:
+          type: string
+        consentGiven:
+          type: boolean
+        consentSource:
+          type: string
+
+    CandidateUpdateRequest:
+      allOf:
+        - $ref: '#/components/schemas/CandidateCreateRequest'
+        - type: object
+          properties:
+            skills:
+              type: array
+              items:
+                type: object
+                properties:
+                  skillId:
+                    type: integer
+                  proficiencyLevel:
+                    type: string
+
+    CandidateSkill:
+      type: object
+      properties:
+        skill:
+          $ref: '#/components/schemas/Skill'
+        proficiencyLevel:
+          type: string
+        yearsOfExperience:
+          type: integer
+
+    CandidateLanguage:
+      type: object
+      properties:
+        language:
+          $ref: '#/components/schemas/Language'
+        proficiencyLevel:
+          type: string
+
+    Skill:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        category:
+          type: string
+
+    Language:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        code:
+          type: string
+
+    ResumeFile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        originalFilename:
+          type: string
+        filePath:
+          type: string
+        fileSize:
+          type: integer
+        uploadDate:
+          type: string
+          format: date-time
+
+    # ===== CONTATOS =====
+    ContactHistory:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        contactType:
+          type: object
+          properties:
+            id:
+              type: integer
+            name:
+              type: string
+            icon:
+              type: string
+            color:
+              type: string
+        contactedBy:
+          $ref: '#/components/schemas/User'
+        subject:
+          type: string
+        content:
+          type: string
+        contactDate:
+          type: string
+          format: date-time
+        deliveryStatus:
+          type: string
+
+    ContactHistoryCreateRequest:
+      type: object
+      required: [contactTypeId, content]
+      properties:
+        contactTypeId:
+          type: integer
+        subject:
+          type: string
+        content:
+          type: string
+        emailTo:
+          type: string
+        phoneNumber:
+          type: string
+
+    # ===== VAGAS =====
+    JobListItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        company:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+        contractType:
+          type: string
+        workModel:
+          type: string
+        status:
+          type: string
+        candidateCount:
+          type: integer
+        expectedHireDate:
+          type: string
+          format: date
+        createdAt:
+          type: string
+          format: date-time
+
+    Job:
+      allOf:
+        - $ref: '#/components/schemas/JobListItem'
+        - type: object
+          properties:
+            description:
+              type: string
+            requirements:
+              type: string
+            workCity:
+              type: string
+            workState:
+              type: string
+            salaryMin:
+              type: number
+            salaryMax:
+              type: number
+            startDate:
+              type: string
+              format: date
+            headhunter:
+              type: object
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                user:
+                  $ref: '#/components/schemas/User'
+                level:
+                  type: string
+            requiredSkills:
+              type: array
+              items:
+                type: object
+                properties:
+                  skill:
+                    $ref: '#/components/schemas/Skill'
+                  isRequired:
+                    type: boolean
+                  proficiencyLevel:
+                    type: string
+
+    JobCreateRequest:
+      type: object
+      required: [title, description, companyId, contractType, workModel]
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        requirements:
+          type: string
+        companyId:
+          type: string
+          format: uuid
+        headhunterId:
+          type: string
+          format: uuid
+        contractType:
+          type: string
+        workModel:
+          type: string
+        workCity:
+          type: string
+        expectedHireDate:
+          type: string
+          format: date
+        salaryMin:
+          type: number
+        salaryMax:
+          type: number
+
+    JobUpdateRequest:
+      allOf:
+        - $ref: '#/components/schemas/JobCreateRequest'
+
+    JobStage:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        orderPosition:
+          type: integer
+        color:
+          type: string
+        isFinal:
+          type: boolean
+
+    JobCandidate:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        candidate:
+          $ref: '#/components/schemas/CandidateListItem'
+        currentStage:
+          $ref: '#/components/schemas/JobStage'
+        applicationDate:
+          type: string
+          format: date-time
+        status:
+          type: string
+        expectedSalary:
+          type: number
+        hrRating:
+          type: integer
+        technicalRating:
+          type: integer
+        internalNotes:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Requisição inválida
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+              errors:
+                type: array
+                items:
+                  type: string
+
+    Unauthorized:
+      description: Não autorizado
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: "Token inválido ou expirado"
+
+    NotFound:
+      description: Recurso não encontrado
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: "Candidato não encontrado"

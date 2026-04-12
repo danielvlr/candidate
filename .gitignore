@@ -1,8 +1,22 @@
-HELP.md
-target/
-!.mvn/wrapper/maven-wrapper.jar
-!**/src/main/**/target/
-!**/src/test/**/target/
+# Backend
+backend/target/
+backend/!.mvn/wrapper/maven-wrapper.jar
+backend/!**/src/main/**/target/
+backend/!**/src/test/**/target/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+
+# Environment files (contain credentials)
+.env
+.env.local
+.env.production
+
+# Misc
+nul
+*.log
 
 ### STS ###
 .apt_generated
@@ -31,3 +45,16 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Claude / OMC local state
+.claude/
+.omc/
+backend/.omc/
+frontend/.omc/
+
+# Uploads (user data)
+uploads/
+backend/uploads/
+
+# Test artifacts
+frontend/test-results/
