@@ -7,10 +7,18 @@ services:
     dockerContext: ./backend
     plan: free
     envVars:
-      - key: DATABASE_URL
+      - key: DATABASE_HOST
         fromDatabase:
           name: camarmo-db
-          property: connectionString
+          property: host
+      - key: DATABASE_PORT
+        fromDatabase:
+          name: camarmo-db
+          property: port
+      - key: DATABASE_NAME
+        fromDatabase:
+          name: camarmo-db
+          property: database
       - key: DATABASE_USER
         fromDatabase:
           name: camarmo-db
