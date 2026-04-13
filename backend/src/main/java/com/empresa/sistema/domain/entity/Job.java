@@ -103,6 +103,9 @@ public class Job {
     @Column(name = "job_value")
     private BigDecimal jobValue;
 
+    @Column(name = "final_value")
+    private BigDecimal finalValue;
+
     @Column(name = "guarantee_days")
     private Integer guaranteeDays = 90; // Default 3 months
 
@@ -178,7 +181,7 @@ public class Job {
     }
 
     public enum JobStatus {
-        DRAFT, ACTIVE, PAUSED, CLOSED, EXPIRED
+        DRAFT, ACTIVE, PAUSED, CLOSED, EXPIRED, WARRANTY
     }
 
     public enum ServiceCategory {

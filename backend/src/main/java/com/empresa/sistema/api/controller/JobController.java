@@ -181,6 +181,18 @@ public class JobController {
         return ResponseEntity.ok().build();
     }
 
+    @GetMapping("/kanban")
+    public ResponseEntity<Map<String, List<JobResponse>>> getAllJobsKanbanByStatus() {
+        Map<String, List<JobResponse>> result = jobService.getAllJobsKanbanByStatus();
+        return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/kanban/pipeline")
+    public ResponseEntity<Map<String, List<JobResponse>>> getAllJobsKanbanByPipeline() {
+        Map<String, List<JobResponse>> result = jobService.getAllJobsKanbanByPipeline();
+        return ResponseEntity.ok(result);
+    }
+
     @GetMapping("/kanban/headhunter/{headhunterId}")
     public ResponseEntity<Map<String, List<JobResponse>>> getJobsKanbanByStatus(
             @PathVariable Long headhunterId,

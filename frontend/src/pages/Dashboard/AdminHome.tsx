@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router";
 import { Badge, Card, CardBody, CardHeader, EmptyState, SkeletonStatCard } from "../../components/ui";
 import { useClientFilter } from "../../context/ClientFilterContext";
+import { useHeadhunterFilter } from "../../context/HeadhunterFilterContext";
 import apiService from "../../services/api";
 import { JobHistoryDTO, HistoryType } from "../../types/api";
 
@@ -53,19 +54,21 @@ const HISTORY_DOT_COLOR: Partial<Record<HistoryType, { bg: string; dot: string }
 const DEFAULT_DOT = { bg: 'bg-gray-100 dark:bg-gray-700', dot: 'bg-gray-400' };
 
 function formatRelativeTime(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
+  const date = new Date(dateStr);
+  const diff = Date.now() - date.getTime();
   const minutes = Math.floor(diff / 60000);
-  if (minutes < 60) return `${minutes}min atrás`;
+  if (minutes < 60) return `${minutes}min atras`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h atrás`;
+  if (hours < 24) return `${hours}h atras`;
   const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d atrás`;
-  return new Date(dateStr).toLocaleDateString('pt-BR');
+  if (days < 30) return `${days}d atras`;
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 export default function AdminHome() {
   const navigate = useNavigate();
   const { selectedClientId, selectedClient } = useClientFilter();
+  const { selectedHeadhunterId, selectedHeadhunter } = useHeadhunterFilter();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentHistory, setRecentHistory] = useState<JobHistoryDTO[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,43 +77,45 @@ export default function AdminHome() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        if (selectedClientId) {
-          // Filtered mode: fetch company's jobs, then shortlists + history
-          const [jobs, clients] = await Promise.all([
-            apiService.getJobs({ page: 0, size: 100 }, { clientId: selectedClientId }),
-            apiService.getClients({ page: 0, size: 1 }),
-          ]);
+        if (selectedClientId || selectedHeadhunterId) {
+          // Filtered mode
+          const filters: any = {};
+          if (selectedClientId) filters.clientId = selectedClientId;
+          const jobs = await apiService.getJobs({ page: 0, size: 500 }, filters);
 
-          const jobIds = jobs.content
-            .map((j) => j.id)
-            .filter((id): id is number => id !== undefined);
-
-          let uniqueHeadhunters = 0;
-          let uniqueCandidates = 0;
-          let allHistory: JobHistoryDTO[] = [];
-
-          if (jobIds.length > 0) {
-            const [shortlistResults, historyResults] = await Promise.all([
-              Promise.all(jobIds.map((id) => apiService.getShortlistsByJob(id).catch(() => []))),
-              Promise.all(jobIds.map((id) => apiService.getJobHistory(id).catch(() => []))),
-            ]);
-
-            const allShortlists = shortlistResults.flat();
-            uniqueHeadhunters = new Set(allShortlists.map((s) => s.headhunterId)).size;
-            uniqueCandidates = new Set(allShortlists.map((s) => s.candidateId)).size;
-
-            allHistory = historyResults.flat();
+          let filteredJobs = jobs.content;
+          if (selectedHeadhunterId) {
+            filteredJobs = filteredJobs.filter((j: any) => j.headhunterId === selectedHeadhunterId);
           }
 
-          // Sort newest first and take top 10
+          const jobIds = filteredJobs.map((j) => j.id).filter((id): id is number => id !== undefined);
+
+          // Fetch applications + history for filtered jobs
+          const jobIdsForFetch = jobIds.slice(0, 30);
+          let allHistory: JobHistoryDTO[] = [];
+          let uniqueCandidateIds = new Set<number>();
+
+          if (jobIdsForFetch.length > 0) {
+            const [historyResults, appResults] = await Promise.all([
+              Promise.all(jobIdsForFetch.map((id) => apiService.getJobHistory(id).catch(() => []))),
+              Promise.all(jobIdsForFetch.map((id) => apiService.getApplicationsByJob(id, { page: 0, size: 100 }).then(r => r.content || []).catch(() => []))),
+            ]);
+            allHistory = historyResults.flat();
+            appResults.flat().forEach((a: any) => {
+              if (a.candidate?.id) uniqueCandidateIds.add(a.candidate.id);
+            });
+          }
           allHistory.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
           setRecentHistory(allHistory.slice(0, 10));
 
+          const uniqueHhIds = new Set(filteredJobs.map((j: any) => j.headhunterId).filter(Boolean));
+          const uniqueClientIds = new Set(filteredJobs.map((j: any) => j.clientId).filter(Boolean));
+
           setStats({
-            activeJobs: jobs.totalElements,
-            totalCandidates: uniqueCandidates,
-            totalClients: clients.totalElements,
-            totalHeadhunters: uniqueHeadhunters,
+            activeJobs: filteredJobs.length,
+            totalCandidates: uniqueCandidateIds.size,
+            totalClients: uniqueClientIds.size,
+            totalHeadhunters: uniqueHhIds.size,
           });
         } else {
           // Global mode: fetch totals + recent jobs for history
@@ -159,7 +164,7 @@ export default function AdminHome() {
     };
 
     fetchData();
-  }, [selectedClientId]);
+  }, [selectedClientId, selectedHeadhunterId]);
 
   const subtitle = selectedClient
     ? `Dados filtrados por: ${selectedClient.companyName}`
@@ -191,7 +196,7 @@ export default function AdminHome() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <Card hover>
           <CardBody>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 cursor-pointer" onClick={() => navigate('/headhunters')}>
               <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-brand-50 dark:bg-brand-500/10 flex-shrink-0">
                 <svg className="w-6 h-6 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
@@ -210,7 +215,7 @@ export default function AdminHome() {
 
         <Card hover>
           <CardBody>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 cursor-pointer" onClick={() => navigate('/jobs')}>
               <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-success-50 dark:bg-success-500/10 flex-shrink-0">
                 <svg className="w-6 h-6 text-success-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m8 0V6a2 2 0 012 2v6a2 2 0 01-2 2H8a2 2 0 01-2-2V8a2 2 0 012-2V6" />
@@ -229,7 +234,7 @@ export default function AdminHome() {
 
         <Card hover>
           <CardBody>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 cursor-pointer" onClick={() => navigate('/candidates')}>
               <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-purple-50 dark:bg-purple-500/10 flex-shrink-0">
                 <svg className="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -248,7 +253,7 @@ export default function AdminHome() {
 
         <Card hover>
           <CardBody>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 cursor-pointer" onClick={() => navigate('/clients')}>
               <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-warning-50 dark:bg-warning-500/10 flex-shrink-0">
                 <svg className="w-6 h-6 text-warning-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />

@@ -885,16 +885,16 @@ export default function JobDetailView({ jobId, onBack }: JobDetailViewProps) {
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <form onSubmit={handleHistorySubmit}>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Adicionar Histórico</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Adicionar Histórico</h3>
 
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Tipo
                 </label>
                 <select
                   value={historyForm.type}
                   onChange={(e) => setHistoryForm({...historyForm, type: e.target.value})}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full p-2 border border-gray-300 rounded-md bg-white text-gray-800 focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:focus:ring-brand-500 dark:focus:border-brand-500"
                   required
                 >
                   <option value="NOTE">Anotação</option>
@@ -910,38 +910,38 @@ export default function JobDetailView({ jobId, onBack }: JobDetailViewProps) {
               </div>
 
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Título
                 </label>
                 <input
                   type="text"
                   value={historyForm.title}
                   onChange={(e) => setHistoryForm({...historyForm, title: e.target.value})}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full p-2 border border-gray-300 rounded-md bg-white text-gray-800 focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:focus:ring-brand-500 dark:focus:border-brand-500"
                   required
                 />
               </div>
 
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Descrição
                 </label>
                 <textarea
                   value={historyForm.description}
                   onChange={(e) => setHistoryForm({...historyForm, description: e.target.value})}
                   rows={3}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full p-2 border border-gray-300 rounded-md bg-white text-gray-800 focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:focus:ring-brand-500 dark:focus:border-brand-500"
                 />
               </div>
 
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Candidato (opcional)
                 </label>
                 <select
                   value={historyForm.candidateId}
                   onChange={(e) => setHistoryForm({...historyForm, candidateId: e.target.value})}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full p-2 border border-gray-300 rounded-md bg-white text-gray-800 focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:focus:ring-brand-500 dark:focus:border-brand-500"
                 >
                   <option value="">Selecione um candidato</option>
                   {jobDetail.applications.map((app) => (
@@ -953,14 +953,14 @@ export default function JobDetailView({ jobId, onBack }: JobDetailViewProps) {
               </div>
 
               <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Data agendada (opcional)
                 </label>
                 <input
                   type="datetime-local"
                   value={historyForm.scheduledDate}
                   onChange={(e) => setHistoryForm({...historyForm, scheduledDate: e.target.value})}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full p-2 border border-gray-300 rounded-md bg-white text-gray-800 focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:focus:ring-brand-500 dark:focus:border-brand-500"
                 />
               </div>
 
@@ -989,16 +989,16 @@ export default function JobDetailView({ jobId, onBack }: JobDetailViewProps) {
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <form onSubmit={handleQuickHistorySubmit}>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Adicionar Histórico Rápido</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Adicionar Histórico Rápido</h3>
 
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Tipo
                 </label>
                 <select
                   value={quickHistoryForm.type}
                   onChange={(e) => setQuickHistoryForm({...quickHistoryForm, type: e.target.value})}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full p-2 border border-gray-300 rounded-md bg-white text-gray-800 focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:focus:ring-brand-500 dark:focus:border-brand-500"
                   required
                 >
                   <option value="NOTE">Anotação</option>
@@ -1010,28 +1010,28 @@ export default function JobDetailView({ jobId, onBack }: JobDetailViewProps) {
               </div>
 
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Título
                 </label>
                 <input
                   type="text"
                   value={quickHistoryForm.title}
                   onChange={(e) => setQuickHistoryForm({...quickHistoryForm, title: e.target.value})}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full p-2 border border-gray-300 rounded-md bg-white text-gray-800 focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:focus:ring-brand-500 dark:focus:border-brand-500"
                   required
                   placeholder="Ex: Cliente deu feedback positivo"
                 />
               </div>
 
               <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Descrição (opcional)
                 </label>
                 <textarea
                   value={quickHistoryForm.description}
                   onChange={(e) => setQuickHistoryForm({...quickHistoryForm, description: e.target.value})}
                   rows={2}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full p-2 border border-gray-300 rounded-md bg-white text-gray-800 focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:focus:ring-brand-500 dark:focus:border-brand-500"
                   placeholder="Detalhes adicionais..."
                 />
               </div>
@@ -1250,13 +1250,13 @@ export default function JobDetailView({ jobId, onBack }: JobDetailViewProps) {
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border w-[500px] shadow-lg rounded-md bg-white">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                 Criar Shortlist ({selectedCandidatesForShortlist.length} candidatos)
               </h3>
 
               {/* Selected candidates preview */}
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Candidatos Selecionados
                 </label>
                 <div className="max-h-32 overflow-y-auto border border-gray-200 rounded-md p-2">
@@ -1276,27 +1276,27 @@ export default function JobDetailView({ jobId, onBack }: JobDetailViewProps) {
               </div>
 
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Texto de Apresentação
                 </label>
                 <textarea
                   value={shortlistForm.presentationText}
                   onChange={(e) => setShortlistForm({...shortlistForm, presentationText: e.target.value})}
                   rows={3}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
+                  className="w-full p-2 border border-gray-300 rounded-md bg-white text-gray-800 focus:ring-purple-500 focus:border-purple-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:placeholder:text-gray-500"
                   placeholder="Como você apresentaria estes candidatos ao cliente?"
                 />
               </div>
 
               <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Observações Internas
                 </label>
                 <textarea
                   value={shortlistForm.notes}
                   onChange={(e) => setShortlistForm({...shortlistForm, notes: e.target.value})}
                   rows={2}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
+                  className="w-full p-2 border border-gray-300 rounded-md bg-white text-gray-800 focus:ring-purple-500 focus:border-purple-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:placeholder:text-gray-500"
                   placeholder="Anotações para uso interno..."
                 />
               </div>

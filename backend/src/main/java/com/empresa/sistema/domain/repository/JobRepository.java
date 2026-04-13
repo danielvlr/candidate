@@ -18,7 +18,11 @@ public interface JobRepository extends JpaRepository<Job, Long> {
 
     List<Job> findByStatus(Job.JobStatus status);
 
-    Page<Job> findByStatusOrderByCreatedAtDesc(Job.JobStatus status, Pageable pageable);
+    @Query("SELECT j FROM Job j LEFT JOIN FETCH j.client WHERE j.status = :status ORDER BY j.createdAt DESC")
+    Page<Job> findByStatusOrderByCreatedAtDesc(@Param("status") Job.JobStatus status, Pageable pageable);
+
+    @Query("SELECT j FROM Job j LEFT JOIN FETCH j.client ORDER BY j.createdAt DESC")
+    Page<Job> findAllWithClientOrderByCreatedAtDesc(Pageable pageable);
 
     @Query("SELECT j FROM Job j WHERE " +
            "LOWER(j.title) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
@@ -36,7 +40,7 @@ public interface JobRepository extends JpaRepository<Job, Long> {
            "(:minSalary IS NULL OR j.salaryMin >= :minSalary) AND " +
            "(:maxSalary IS NULL OR j.salaryMax <= :maxSalary) AND " +
            "(:clientId IS NULL OR j.client.id = :clientId) AND " +
-           "j.status = :status")
+           "(:status IS NULL OR j.status = :status)")
     Page<Job> findWithFilters(
         @Param("location") String location,
         @Param("companyName") String companyName,

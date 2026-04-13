@@ -20,6 +20,9 @@ public interface JobMapper {
 
     // Response mappings
     @Mapping(target = "client", source = "client")
+    @Mapping(target = "clientId", source = "client.id")
+    @Mapping(target = "headhunterId", source = "headhunter.id")
+    @Mapping(target = "headhunterName", source = "headhunter.fullName")
     JobResponse toResponse(Job job);
 
     // Detailed job response

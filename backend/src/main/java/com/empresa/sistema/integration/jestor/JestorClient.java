@@ -13,7 +13,7 @@ import java.util.*;
 public class JestorClient {
 
     private static final Logger log = LoggerFactory.getLogger(JestorClient.class);
-    private static final int PAGE_SIZE = 100;
+    private static final int PAGE_SIZE = 500;
 
     private final JestorConfig config;
     private final RestTemplate restTemplate;
@@ -57,14 +57,22 @@ public class JestorClient {
 
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
 
-        ResponseEntity<JestorListResponse> response = restTemplate.exchange(
-            config.getApiUrl() + "/object/list",
-            HttpMethod.POST,
-            entity,
-            JestorListResponse.class
-        );
-
-        return response.getBody();
+        for (int attempt = 0; attempt < 3; attempt++) {
+            try {
+                ResponseEntity<JestorListResponse> response = restTemplate.exchange(
+                    config.getApiUrl() + "/object/list",
+                    HttpMethod.POST,
+                    entity,
+                    JestorListResponse.class
+                );
+                return response.getBody();
+            } catch (Exception e) {
+                if (attempt == 2) throw e;
+                log.warn("Jestor API attempt {} failed for table {} page {}: {}. Retrying...", attempt + 1, objectType, page, e.getMessage());
+                try { Thread.sleep(2000L * (attempt + 1)); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); throw new RuntimeException(ie); }
+            }
+        }
+        return null; // unreachable
     }
 
     /**

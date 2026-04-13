@@ -19,7 +19,10 @@ public class JobResponse {
     private String title;
     private String description;
     private String companyName;
+    private Long clientId;
     private ClientSummaryResponse client;
+    private Long headhunterId;
+    private String headhunterName;
     private String location;
     private Double salaryMin;
     private Double salaryMax;
@@ -41,6 +44,10 @@ public class JobResponse {
     private Boolean isFeatured;
     private Integer viewsCount;
     private Integer applicationsCount;
+    private java.math.BigDecimal jobValue;
+    private java.math.BigDecimal finalValue;
+    private Integer guaranteeDays;
+    private LocalDateTime closedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

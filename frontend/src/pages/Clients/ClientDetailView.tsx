@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiService } from '../../services/api';
-import { ClientDTO, ClientStatus, ClientType } from '../../types/api';
+import { ClientDTO, ClientStatus, ClientType, JobDTO, JobHistoryDTO, PageResponse } from '../../types/api';
 import { Badge, Button, Card, CardBody } from '../../components/ui';
 
 const getInitials = (name: string) =>
@@ -54,12 +54,70 @@ const ClientDetailView: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [clientJobs, setClientJobs] = useState<JobDTO[]>([]);
+  const [jobsLoading, setJobsLoading] = useState(false);
+  const [jobHistories, setJobHistories] = useState<(JobHistoryDTO & { jobTitle?: string })[]>([]);
+  const [historiesLoading, setHistoriesLoading] = useState(false);
+  const [notesText, setNotesText] = useState('');
+  const [editingNotes, setEditingNotes] = useState(false);
+  const [savingNotes, setSavingNotes] = useState(false);
+  const [activeTab, setActiveTab] = useState<'info' | 'vagas' | 'historico' | 'notas'>('info');
 
   useEffect(() => {
     if (id) {
-      loadClient(parseInt(id));
+      const clientId = parseInt(id);
+      loadClient(clientId);
+      loadClientJobs(clientId);
     }
   }, [id]);
+
+  const loadClientJobs = async (clientId: number) => {
+    try {
+      setJobsLoading(true);
+      const result = await apiService.getJobs({ page: 0, size: 100 }, { clientId });
+      const jobs = result.content || [];
+      setClientJobs(jobs);
+      loadJobHistories(jobs);
+    } catch (err) {
+      console.error('Error loading client jobs:', err);
+    } finally {
+      setJobsLoading(false);
+    }
+  };
+
+  const loadJobHistories = async (jobs: JobDTO[]) => {
+    if (jobs.length === 0) return;
+    try {
+      setHistoriesLoading(true);
+      const allHistories: (JobHistoryDTO & { jobTitle?: string })[] = [];
+      const promises = jobs.slice(0, 50).map(async (job) => {
+        if (!job.id) return;
+        const histories = await apiService.getJobHistory(job.id);
+        histories.forEach((h: JobHistoryDTO) => allHistories.push({ ...h, jobTitle: job.title }));
+      });
+      await Promise.all(promises);
+      allHistories.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      setJobHistories(allHistories);
+    } catch (err) {
+      console.error('Error loading job histories:', err);
+    } finally {
+      setHistoriesLoading(false);
+    }
+  };
+
+  const handleSaveNotes = async () => {
+    if (!client?.id) return;
+    try {
+      setSavingNotes(true);
+      await apiService.updateClient(client.id, { ...client, notes: notesText });
+      setClient({ ...client, notes: notesText });
+      setEditingNotes(false);
+    } catch (err) {
+      console.error('Error saving notes:', err);
+    } finally {
+      setSavingNotes(false);
+    }
+  };
 
   const loadClient = async (clientId: number) => {
     try {
@@ -250,234 +308,268 @@ const ClientDetailView: React.FC = () => {
           </CardBody>
         </Card>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          {/* Contact Info */}
-          <Card>
-            <CardBody>
-              <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
-                Informacoes de Contato
-              </h2>
-              <dl className="space-y-3">
-                {client.contactPersonName && (
-                  <div>
-                    <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                      Contato Principal
-                    </dt>
-                    <dd className="text-sm text-gray-900 dark:text-white/90 mt-0.5">
-                      {client.contactPersonName}
-                    </dd>
-                  </div>
-                )}
-                {client.contactEmail && (
-                  <div>
-                    <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                      Email
-                    </dt>
-                    <dd className="text-sm text-gray-900 dark:text-white/90 mt-0.5">
-                      <a
-                        href={`mailto:${client.contactEmail}`}
-                        className="text-brand-600 dark:text-brand-400 hover:underline"
-                      >
-                        {client.contactEmail}
-                      </a>
-                    </dd>
-                  </div>
-                )}
-                {client.contactPhone && (
-                  <div>
-                    <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                      Telefone
-                    </dt>
-                    <dd className="text-sm text-gray-900 dark:text-white/90 mt-0.5">
-                      {client.contactPhone}
-                    </dd>
-                  </div>
-                )}
-                {client.website && (
-                  <div>
-                    <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                      Website
-                    </dt>
-                    <dd className="text-sm mt-0.5">
-                      <a
-                        href={client.website}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-brand-600 dark:text-brand-400 hover:underline"
-                      >
-                        {client.website}
-                      </a>
-                    </dd>
-                  </div>
-                )}
-                {client.linkedinUrl && (
-                  <div>
-                    <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                      LinkedIn
-                    </dt>
-                    <dd className="text-sm mt-0.5">
-                      <a
-                        href={client.linkedinUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-brand-600 dark:text-brand-400 hover:underline"
-                      >
-                        {client.linkedinUrl}
-                      </a>
-                    </dd>
-                  </div>
-                )}
-                {client.cnpj && (
-                  <div>
-                    <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                      CNPJ
-                    </dt>
-                    <dd className="text-sm text-gray-900 dark:text-white/90 mt-0.5">
-                      {client.cnpj}
-                    </dd>
-                  </div>
-                )}
-                {client.companySize && (
-                  <div>
-                    <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                      Porte
-                    </dt>
-                    <dd className="text-sm text-gray-900 dark:text-white/90 mt-0.5">
-                      {client.companySize}
-                    </dd>
-                  </div>
-                )}
-              </dl>
-            </CardBody>
-          </Card>
-
-          {/* Address */}
-          <Card>
-            <CardBody>
-              <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
-                Endereco
-              </h2>
-              {client.address || client.city || client.state ? (
-                <dl className="space-y-3">
-                  {client.address && (
-                    <div>
-                      <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                        Logradouro
-                      </dt>
-                      <dd className="text-sm text-gray-900 dark:text-white/90 mt-0.5">
-                        {client.address}
-                      </dd>
-                    </div>
-                  )}
-                  {(client.city || client.state) && (
-                    <div>
-                      <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                        Cidade / Estado
-                      </dt>
-                      <dd className="text-sm text-gray-900 dark:text-white/90 mt-0.5">
-                        {[client.city, client.state].filter(Boolean).join(', ')}
-                      </dd>
-                    </div>
-                  )}
-                  {client.zipCode && (
-                    <div>
-                      <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                        CEP
-                      </dt>
-                      <dd className="text-sm text-gray-900 dark:text-white/90 mt-0.5">
-                        {client.zipCode}
-                      </dd>
-                    </div>
-                  )}
-                  {client.country && (
-                    <div>
-                      <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                        Pais
-                      </dt>
-                      <dd className="text-sm text-gray-900 dark:text-white/90 mt-0.5">
-                        {client.country}
-                      </dd>
-                    </div>
-                  )}
-                </dl>
-              ) : (
-                <p className="text-sm text-gray-400 dark:text-gray-500">
-                  Endereco nao informado.
-                </p>
-              )}
-            </CardBody>
-          </Card>
+        {/* Tabs */}
+        <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
+          <nav className="flex gap-6 -mb-px">
+            {([
+              { key: 'info', label: 'Informacoes' },
+              { key: 'vagas', label: `Vagas (${clientJobs.length})` },
+              { key: 'historico', label: `Historico (${jobHistories.length})` },
+              { key: 'notas', label: 'Notas' },
+            ] as const).map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === tab.key
+                    ? 'border-brand-500 text-brand-600 dark:text-brand-400'
+                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </nav>
         </div>
 
-        {/* Description */}
-        {(client.description || client.notes) && (
-          <Card className="mb-6">
+        {/* Tab: Informacoes */}
+        {activeTab === 'info' && (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <Card>
+                <CardBody>
+                  <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">Contato</h2>
+                  <dl className="space-y-3">
+                    {client.contactPersonName && (
+                      <div>
+                        <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Contato Principal</dt>
+                        <dd className="text-sm text-gray-900 dark:text-white/90 mt-0.5">{client.contactPersonName}</dd>
+                      </div>
+                    )}
+                    {client.contactEmail && (
+                      <div>
+                        <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Email</dt>
+                        <dd className="text-sm mt-0.5"><a href={`mailto:${client.contactEmail}`} className="text-brand-600 dark:text-brand-400 hover:underline">{client.contactEmail}</a></dd>
+                      </div>
+                    )}
+                    {client.contactPhone && (
+                      <div>
+                        <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Telefone</dt>
+                        <dd className="text-sm text-gray-900 dark:text-white/90 mt-0.5">{client.contactPhone}</dd>
+                      </div>
+                    )}
+                    {client.website && (
+                      <div>
+                        <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Website</dt>
+                        <dd className="text-sm mt-0.5"><a href={client.website} target="_blank" rel="noopener noreferrer" className="text-brand-600 dark:text-brand-400 hover:underline">{client.website}</a></dd>
+                      </div>
+                    )}
+                    {client.linkedinUrl && (
+                      <div>
+                        <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">LinkedIn</dt>
+                        <dd className="text-sm mt-0.5"><a href={client.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-brand-600 dark:text-brand-400 hover:underline">{client.linkedinUrl}</a></dd>
+                      </div>
+                    )}
+                    {client.cnpj && (
+                      <div>
+                        <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">CNPJ</dt>
+                        <dd className="text-sm text-gray-900 dark:text-white/90 mt-0.5">{client.cnpj}</dd>
+                      </div>
+                    )}
+                    {client.companySize && (
+                      <div>
+                        <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Porte</dt>
+                        <dd className="text-sm text-gray-900 dark:text-white/90 mt-0.5">{client.companySize}</dd>
+                      </div>
+                    )}
+                  </dl>
+                </CardBody>
+              </Card>
+
+              <Card>
+                <CardBody>
+                  <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">Endereco</h2>
+                  {client.address || client.city || client.state ? (
+                    <dl className="space-y-3">
+                      {client.address && (
+                        <div>
+                          <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Logradouro</dt>
+                          <dd className="text-sm text-gray-900 dark:text-white/90 mt-0.5">{client.address}</dd>
+                        </div>
+                      )}
+                      {(client.city || client.state) && (
+                        <div>
+                          <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Cidade / Estado</dt>
+                          <dd className="text-sm text-gray-900 dark:text-white/90 mt-0.5">{[client.city, client.state].filter(Boolean).join(', ')}</dd>
+                        </div>
+                      )}
+                      {client.zipCode && (
+                        <div>
+                          <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">CEP</dt>
+                          <dd className="text-sm text-gray-900 dark:text-white/90 mt-0.5">{client.zipCode}</dd>
+                        </div>
+                      )}
+                      {client.country && (
+                        <div>
+                          <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Pais</dt>
+                          <dd className="text-sm text-gray-900 dark:text-white/90 mt-0.5">{client.country}</dd>
+                        </div>
+                      )}
+                    </dl>
+                  ) : (
+                    <p className="text-sm text-gray-400 dark:text-gray-500">Endereco nao informado.</p>
+                  )}
+                </CardBody>
+              </Card>
+            </div>
+            {client.description && (
+              <Card>
+                <CardBody>
+                  <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">Sobre a Empresa</h2>
+                  <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{client.description}</p>
+                </CardBody>
+              </Card>
+            )}
+          </>
+        )}
+
+        {/* Tab: Vagas */}
+        {activeTab === 'vagas' && (
+          <Card>
             <CardBody>
-              <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
-                Descricao
-              </h2>
-              {client.description && (
-                <div className="mb-4">
-                  <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
-                    Sobre a Empresa
-                  </h3>
-                  <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                    {client.description}
-                  </p>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+                  Vagas desta Empresa ({clientJobs.length})
+                </h2>
+                <Button variant="outline" size="sm" onClick={() => navigate('/jobs')}>Ver todas</Button>
+              </div>
+              {jobsLoading ? (
+                <div className="text-center py-4 text-sm text-gray-500">Carregando vagas...</div>
+              ) : clientJobs.length === 0 ? (
+                <div className="rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700 p-6 text-center">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Nenhuma vaga associada a esta empresa.</p>
                 </div>
-              )}
-              {client.notes && (
-                <div>
-                  <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
-                    Notas Internas
-                  </h3>
-                  <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                    {client.notes}
-                  </p>
+              ) : (
+                <div className="space-y-2">
+                  {clientJobs.map((job) => (
+                    <div
+                      key={job.id}
+                      className="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors"
+                      onClick={() => navigate(`/jobs/${job.id}`)}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{job.title}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{job.location || 'Sem localidade'}</p>
+                      </div>
+                      <Badge variant={
+                        job.status === 'ACTIVE' ? 'active' :
+                        job.status === 'CLOSED' ? 'inactive' :
+                        job.status === 'PAUSED' ? 'info' : 'default'
+                      }>
+                        {job.status === 'ACTIVE' ? 'Aberta' :
+                         job.status === 'CLOSED' ? 'Fechada' :
+                         job.status === 'PAUSED' ? 'Pausada' :
+                         job.status === 'DRAFT' ? 'Rascunho' : job.status}
+                      </Badge>
+                    </div>
+                  ))}
                 </div>
               )}
             </CardBody>
           </Card>
         )}
 
-        {/* Vagas desta Empresa - Placeholder */}
-        <Card>
-          <CardBody>
-            <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
-              Vagas desta Empresa
-            </h2>
-            <div className="rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700 p-8 text-center">
-              <svg
-                className="mx-auto h-10 w-10 text-gray-300 dark:text-gray-600 mb-3"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={1.5}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 00.75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 00-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0112 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 01-.673-.38m0 0A2.18 2.18 0 013 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 013.413-.387m7.5 0V5.25A2.25 2.25 0 0013.5 3h-3a2.25 2.25 0 00-2.25 2.25v.894m7.5 0a48.667 48.667 0 00-7.5 0M12 12.75h.008v.008H12v-.008z"
-                />
-              </svg>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                Vagas associadas a esta empresa serao exibidas aqui.
-              </p>
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                Funcionalidade em desenvolvimento.
-              </p>
-              <div className="mt-4">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate('/jobs')}
-                >
-                  Ver todas as vagas
-                </Button>
+        {/* Tab: Historico */}
+        {activeTab === 'historico' && (
+          <Card>
+            <CardBody>
+              <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
+                Historico das Vagas ({jobHistories.length})
+              </h2>
+              {historiesLoading ? (
+                <div className="text-center py-4 text-sm text-gray-500">Carregando historico...</div>
+              ) : jobHistories.length === 0 ? (
+                <div className="rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700 p-6 text-center">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Nenhum historico disponivel.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {jobHistories.slice(0, 100).map((h, idx) => (
+                    <div
+                      key={h.id || idx}
+                      className="flex items-start gap-3 p-3 rounded-lg border border-gray-100 dark:border-gray-700"
+                    >
+                      <div className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${
+                        h.type === 'STATUS_CHANGED' ? 'bg-blue-500' :
+                        h.type === 'SHORTLIST_SENT' ? 'bg-purple-500' :
+                        h.type === 'INTERVIEW_SCHEDULED' ? 'bg-yellow-500' :
+                        h.type === 'OFFER_MADE' ? 'bg-green-500' :
+                        h.type === 'CANDIDATE_CONTACTED' ? 'bg-teal-500' :
+                        'bg-gray-400'
+                      }`} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{h.title}</p>
+                          <Badge variant="default">{h.jobTitle || `Vaga #${h.jobId}`}</Badge>
+                        </div>
+                        {h.description && h.description !== h.title && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{h.description}</p>
+                        )}
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                          {new Date(h.createdAt).toLocaleString('pt-BR')}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardBody>
+          </Card>
+        )}
+
+        {/* Tab: Notas */}
+        {activeTab === 'notas' && (
+          <Card>
+            <CardBody>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base font-semibold text-gray-900 dark:text-white">Notas Internas</h2>
+                {!editingNotes && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => { setNotesText(client.notes || ''); setEditingNotes(true); }}
+                  >
+                    {client.notes ? 'Editar' : 'Adicionar nota'}
+                  </Button>
+                )}
               </div>
-            </div>
-          </CardBody>
-        </Card>
+              {editingNotes ? (
+                <div>
+                  <textarea
+                    value={notesText}
+                    onChange={(e) => setNotesText(e.target.value)}
+                    rows={6}
+                    className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white p-3 focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                    placeholder="Escreva notas internas sobre esta empresa..."
+                  />
+                  <div className="flex gap-2 mt-3 justify-end">
+                    <Button variant="outline" size="sm" onClick={() => setEditingNotes(false)} disabled={savingNotes}>Cancelar</Button>
+                    <Button variant="primary" size="sm" onClick={handleSaveNotes} loading={savingNotes} disabled={savingNotes}>Salvar</Button>
+                  </div>
+                </div>
+              ) : client.notes ? (
+                <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{client.notes}</p>
+              ) : (
+                <div className="rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700 p-6 text-center">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Nenhuma nota adicionada.</p>
+                  <Button variant="outline" size="sm" className="mt-3" onClick={() => { setNotesText(''); setEditingNotes(true); }}>
+                    Adicionar primeira nota
+                  </Button>
+                </div>
+              )}
+            </CardBody>
+          </Card>
+        )}
       </div>
     </div>
   );

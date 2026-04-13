@@ -16,4 +16,6 @@ public interface WarrantyRuleRepository extends JpaRepository<WarrantyRule, Long
     List<WarrantyRule> findByActiveTrue();
 
     boolean existsByServiceCategory(Job.ServiceCategory serviceCategory);
+
+    Optional<WarrantyRule> findByJestorId(String jestorId);
 }

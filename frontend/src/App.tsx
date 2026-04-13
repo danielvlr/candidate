@@ -9,12 +9,14 @@ import { ScrollToTop } from "./components/common/ScrollToTop";
 import AdminHome from "./pages/Dashboard/AdminHome";
 import HeadhunterDashboard from "./pages/Dashboard/HeadhunterDashboard";
 import CandidateList from "./pages/Candidates/CandidateList";
+import CandidateDetailView from "./pages/Candidates/CandidateDetailView";
 import CandidateForm from "./pages/Candidates/CandidateForm";
 import JobList from "./pages/Jobs/JobList";
 import JobCreateForm from "./pages/Jobs/JobCreateForm";
 import JobDetailView from "./pages/Jobs/JobDetailView";
 import HeadhunterKanban from "./pages/Jobs/HeadhunterKanban";
 import HeadhunterList from "./pages/Headhunters/HeadhunterList";
+import HeadhunterDetailView from "./pages/Headhunters/HeadhunterDetailView";
 import ClientList from "./pages/Clients/ClientList";
 import ClientForm from "./pages/Clients/ClientForm";
 import ClientDetailView from "./pages/Clients/ClientDetailView";
@@ -24,6 +26,7 @@ import AssessoradoForm from "./pages/Assessorados/AssessoradoForm";
 import AssessoradoDetailView from "./pages/Assessorados/AssessoradoDetailView";
 import { UserRoleProvider, useUserRole } from "./context/UserRoleContext";
 import { ClientFilterProvider } from "./context/ClientFilterContext";
+import { HeadhunterFilterProvider } from "./context/HeadhunterFilterContext";
 import RoleBasedRoute from "./components/auth/RoleBasedRoute";
 import WarrantyDashboard from "./pages/Warranty/WarrantyDashboard";
 import WarrantyRules from "./pages/Warranty/WarrantyRules";
@@ -46,6 +49,7 @@ export default function App() {
     <>
       <UserRoleProvider>
         <ClientFilterProvider>
+        <HeadhunterFilterProvider>
         <Router>
           <ScrollToTop />
           <Routes>
@@ -54,6 +58,7 @@ export default function App() {
               <Route index path="/" element={<DashboardRoute />} />
               <Route path="/candidates" element={<CandidateList />} />
               <Route path="/candidates/new" element={<CandidateForm mode="create" />} />
+              <Route path="/candidates/:id" element={<CandidateDetailView />} />
               <Route path="/candidates/:id/edit" element={<CandidateForm mode="edit" />} />
               <Route path="/jobs" element={<JobList />} />
               <Route
@@ -61,14 +66,6 @@ export default function App() {
                 element={
                   <RoleBasedRoute allowedRoles={['admin']}>
                     <JobCreateForm />
-                  </RoleBasedRoute>
-                }
-              />
-              <Route
-                path="/jobs/kanban"
-                element={
-                  <RoleBasedRoute allowedRoles={['admin', 'senior', 'headhunter']}>
-                    <HeadhunterKanban />
                   </RoleBasedRoute>
                 }
               />
@@ -118,18 +115,10 @@ export default function App() {
                 }
               />
               <Route
-                path="/warranties"
-                element={
-                  <RoleBasedRoute allowedRoles={['admin', 'senior']}>
-                    <WarrantyDashboard />
-                  </RoleBasedRoute>
-                }
-              />
-              <Route
-                path="/warranty-rules"
+                path="/headhunters/:id"
                 element={
                   <RoleBasedRoute allowedRoles={['admin']}>
-                    <WarrantyRules />
+                    <HeadhunterDetailView />
                   </RoleBasedRoute>
                 }
               />
@@ -154,6 +143,7 @@ export default function App() {
             <Route path="*" element={<Blank />} />
           </Routes>
         </Router>
+        </HeadhunterFilterProvider>
         </ClientFilterProvider>
       </UserRoleProvider>
     </>

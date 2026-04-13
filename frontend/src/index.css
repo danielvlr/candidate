@@ -288,18 +288,53 @@ layer(base);
   }
 
   &::-webkit-scrollbar-track {
-    @apply rounded-full;
+    @apply rounded-full bg-transparent dark:bg-gray-800;
   }
 
   &::-webkit-scrollbar-thumb {
-    @apply bg-gray-200 rounded-full dark:bg-gray-700;
+    @apply bg-gray-300 rounded-full dark:bg-gray-500;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-400 dark:bg-gray-400;
   }
 }
-.dark .custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: #344054;
+
+/* Global dark mode scrollbar styling */
+.dark * {
+  scrollbar-color: #6b7280 transparent; /* gray-500 thumb, transparent track */
+}
+
+.dark *::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.dark *::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 9999px;
+}
+
+.dark *::-webkit-scrollbar-thumb {
+  background-color: #6b7280; /* gray-500 */
+  border-radius: 9999px;
+}
+
+.dark *::-webkit-scrollbar-thumb:hover {
+  background-color: #9ca3af; /* gray-400 */
 }
 
 @layer utilities {
+  /* Dark mode select dropdown options */
+  .dark select option {
+    background-color: #1f2937; /* gray-800 */
+    color: #e5e7eb; /* gray-200 */
+  }
+
+  .dark select {
+    color-scheme: dark;
+  }
+
   /* For Remove Date Icon */
   input[type="date"]::-webkit-inner-spin-button,
   input[type="time"]::-webkit-inner-spin-button,
@@ -785,11 +820,11 @@ span.flatpickr-weekday,
 }
 
 .simplebar-scrollbar::before {
-  @apply !bg-gray-200 !rounded-full dark:!bg-gray-700 !opacity-100;
+  @apply !bg-gray-300 !rounded-full dark:!bg-gray-500 !opacity-100;
 }
 
 .dark .simplebar-scrollbar::before {
-  @apply !bg-gray-700;
+  @apply !bg-gray-500;
 }
 
 .simplebar-scrollbar.simplebar-visible:before {

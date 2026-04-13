@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router';
+import { useParams, useNavigate, useSearchParams } from 'react-router';
 import { apiService } from '../../services/api';
-import { JobDTO, WarrantyDTO, WarrantyStatus } from '../../types/api';
+import { JobDTO, JobApplicationDTO, WarrantyDTO, WarrantyStatus } from '../../types/api';
 import { useUserRole } from '../../context/UserRoleContext';
 import {
   Badge,
@@ -21,6 +21,143 @@ import { SendCandidatesModal } from '../../components/job/SendCandidatesModal';
 import WarrantyBreachModal from '../Warranty/WarrantyBreachModal';
 
 type ActiveTab = 'detalhes' | 'candidatos' | 'historico';
+
+const STATUS_LABELS: Record<string, { label: string; color: string }> = {
+  APPLIED: { label: 'Mapeado', color: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300' },
+  SHORTLISTED: { label: 'Apresentado', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+  INTERVIEW_SCHEDULED: { label: 'Entrevista', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
+  UNDER_REVIEW: { label: 'Checagem', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' },
+  HIRED: { label: 'Aprovado', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
+  REJECTED: { label: 'Rejeitado', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
+};
+
+const JobApplicationsList: React.FC<{ jobId: number }> = ({ jobId }) => {
+  const [apps, setApps] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showLink, setShowLink] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [linking, setLinking] = useState(false);
+  const navigate = useNavigate();
+
+  const loadApps = () => {
+    apiService.getApplicationsByJob(jobId, { page: 0, size: 50 })
+      .then(res => setApps(res.content || []))
+      .catch(() => setApps([]))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { loadApps(); }, [jobId]);
+
+  const handleSearch = async (query: string) => {
+    setSearchQuery(query);
+    if (query.trim().length < 2) { setSearchResults([]); return; }
+    setSearching(true);
+    try {
+      const res = await apiService.searchCandidates(query, { page: 0, size: 10 });
+      const existingIds = new Set(apps.map(a => a.candidate?.id).filter(Boolean));
+      setSearchResults((res.content || []).filter(c => c.id && !existingIds.has(c.id)));
+    } catch { setSearchResults([]); }
+    finally { setSearching(false); }
+  };
+
+  const handleLink = async (candidateId: number) => {
+    setLinking(true);
+    try {
+      await apiService.linkCandidateToJob(candidateId, jobId);
+      setSearchQuery('');
+      setSearchResults([]);
+      setShowLink(false);
+      setLoading(true);
+      loadApps();
+    } catch (err) {
+      console.error('Error linking candidate:', err);
+    } finally { setLinking(false); }
+  };
+
+  return (
+    <Card>
+      <CardHeader action={
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-500">{apps.length} candidatos</span>
+          <Button variant="primary" size="sm" onClick={() => setShowLink(!showLink)}
+            icon={<svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>}>
+            Vincular
+          </Button>
+        </div>
+      }>
+        <h2 className="text-sm font-semibold text-gray-900 dark:text-white/90">Candidatos Vinculados</h2>
+      </CardHeader>
+
+      {showLink && (
+        <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-800">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => handleSearch(e.target.value)}
+            placeholder="Buscar candidato por nome..."
+            autoFocus
+            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500"
+          />
+          {searching && <p className="text-xs text-gray-400 mt-2">Buscando...</p>}
+          {searchResults.length > 0 && (
+            <div className="mt-2 max-h-48 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+              {searchResults.map((c) => (
+                <div key={c.id} className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer" onClick={() => !linking && handleLink(c.id!)}>
+                  <div className="w-7 h-7 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center flex-shrink-0">
+                    <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400">
+                      {c.fullName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{c.fullName}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{c.headline || c.email}</p>
+                  </div>
+                  <span className="text-xs text-brand-500 font-medium">{linking ? '...' : 'Vincular'}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {searchQuery.length >= 2 && !searching && searchResults.length === 0 && (
+            <p className="text-xs text-gray-400 mt-2">Nenhum candidato encontrado.</p>
+          )}
+        </div>
+      )}
+
+      {loading ? (
+        <CardBody><p className="text-sm text-gray-400 text-center py-4">Carregando candidatos...</p></CardBody>
+      ) : apps.length === 0 ? (
+        <CardBody><EmptyState title="Nenhum candidato vinculado" description="Clique em 'Vincular' para associar candidatos a esta vaga." /></CardBody>
+      ) : (
+        <div className="divide-y divide-gray-100 dark:divide-gray-800">
+          {apps.map((app) => {
+            const candidate = app.candidate || {};
+            const st = STATUS_LABELS[app.status] || STATUS_LABELS.APPLIED;
+            return (
+              <div
+                key={app.id}
+                className="flex items-center gap-4 px-5 py-3 hover:bg-gray-50 dark:hover:bg-white/[0.02] cursor-pointer transition-colors"
+                onClick={() => candidate.id && navigate(`/candidates/${candidate.id}`)}
+              >
+                <div className="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center flex-shrink-0">
+                  <span className="text-xs font-bold text-brand-600 dark:text-brand-400">
+                    {(candidate.fullName || '?').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+                  </span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{candidate.fullName || 'Candidato'}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{candidate.headline || candidate.email || ''}</p>
+                </div>
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${st.color}`}>{st.label}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Card>
+  );
+};
 
 const backArrowSVG = (
   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -53,6 +190,7 @@ const getStatusLabel = (status: string) => {
 const JobDetailView: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { userRole } = useUserRole();
   const { addToast } = useToast();
   const [job, setJob] = useState<JobDTO | null>(null);
@@ -60,11 +198,16 @@ const JobDetailView: React.FC = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmModal, setConfirmModal] = useState<{ action: string; jobId: number } | null>(null);
-  const [activeTab, setActiveTab] = useState<ActiveTab>('detalhes');
+  const [activeTab, setActiveTab] = useState<ActiveTab>(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'historico' || tab === 'candidatos') return tab;
+    return 'detalhes';
+  });
   const [shortlistCount, setShortlistCount] = useState(0);
   const [historyCount, setHistoryCount] = useState(0);
   const [showAddActivity, setShowAddActivity] = useState(false);
   const [showSendCandidates, setShowSendCandidates] = useState(false);
+  const [closingFinalValue, setClosingFinalValue] = useState<string>('');
   const [tabRefreshKey, setTabRefreshKey] = useState(0);
   const [warranty, setWarranty] = useState<WarrantyDTO | null>(null);
   const [showBreachModal, setShowBreachModal] = useState(false);
@@ -137,8 +280,12 @@ const JobDetailView: React.FC = () => {
           addToast({ type: 'success', title: 'Vaga pausada com sucesso' });
           break;
         case 'close':
+          if (closingFinalValue) {
+            await apiService.updateJob(job.id, { ...job, finalValue: parseFloat(closingFinalValue) } as any);
+          }
           await apiService.closeJob(job.id);
           addToast({ type: 'success', title: 'Vaga fechada com sucesso' });
+          setClosingFinalValue('');
           break;
       }
 
@@ -409,11 +556,7 @@ const JobDetailView: React.FC = () => {
 
         {/* Tab: Candidatos */}
         {activeTab === 'candidatos' && (
-          <JobShortlist
-            jobId={job.id!}
-            onSendCandidates={() => setShowSendCandidates(true)}
-            refreshKey={tabRefreshKey}
-          />
+          <JobApplicationsList jobId={job.id!} />
         )}
 
         {/* Tab: Historico */}
@@ -747,7 +890,7 @@ const JobDetailView: React.FC = () => {
       {/* Confirmation Modal for destructive actions */}
       <Modal
         isOpen={confirmModal !== null}
-        onClose={() => setConfirmModal(null)}
+        onClose={() => { setConfirmModal(null); setClosingFinalValue(''); }}
         title={
           confirmModal?.action === 'close'
             ? 'Fechar Vaga'
@@ -757,7 +900,7 @@ const JobDetailView: React.FC = () => {
         }
         description={
           confirmModal?.action === 'close'
-            ? 'Tem certeza que deseja fechar esta vaga? Esta acao nao pode ser desfeita.'
+            ? 'Informe o valor final da vaga e confirme o fechamento.'
             : confirmModal?.action === 'pause'
             ? 'Tem certeza que deseja pausar esta vaga? Ela ficará invisível para candidatos.'
             : 'Tem certeza que deseja ativar esta vaga? Ela ficará visível para candidatos.'
@@ -773,7 +916,33 @@ const JobDetailView: React.FC = () => {
         onConfirm={handleConfirmAction}
         variant={confirmModal?.action === 'close' ? 'danger' : 'default'}
         loading={actionLoading}
-      />
+      >
+        {confirmModal?.action === 'close' && (
+          <div className="mt-4 space-y-3">
+            {job?.jobValue && (
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500 dark:text-gray-400">Valor previsto:</span>
+                <span className="font-medium text-gray-900 dark:text-white">
+                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(job.jobValue)}
+                </span>
+              </div>
+            )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Valor final da vaga (R$)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                placeholder="Ex: 8500.00"
+                value={closingFinalValue}
+                onChange={(e) => setClosingFinalValue(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500"
+              />
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };

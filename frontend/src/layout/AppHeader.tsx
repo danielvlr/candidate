@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 
-import { Link, useLocation } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 import { useSidebar } from "../context/SidebarContext";
+import { apiService } from "../services/api";
 import { ThemeToggleButton } from "../components/common/ThemeToggleButton";
 import NotificationDropdown from "../components/header/NotificationDropdown";
 import UserDropdown from "../components/header/UserDropdown";
 import RoleSelector from "../components/development/RoleSelector";
 import ClientSelector from "../components/header/ClientSelector";
+import HeadhunterSelector from "../components/header/HeadhunterSelector";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 
 const routeTitleMap: Record<string, string> = {
@@ -21,11 +23,23 @@ const routeTitleMap: Record<string, string> = {
   "/blank": "Em Branco",
 };
 
+interface SearchResult {
+  type: 'job' | 'candidate' | 'client';
+  id: number;
+  title: string;
+  subtitle: string;
+}
+
 const AppHeader: React.FC = () => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const pageTitle = (() => {
     if (routeTitleMap[location.pathname]) return routeTitleMap[location.pathname];
@@ -47,6 +61,38 @@ const AppHeader: React.FC = () => {
   };
 
   const inputRef = useRef<HTMLInputElement>(null);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  const handleSearch = async (query: string) => {
+    setSearchQuery(query);
+    if (query.trim().length < 2) { setSearchResults([]); setSearchOpen(false); return; }
+
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const results: SearchResult[] = [];
+        const [jobs, candidates, clients] = await Promise.all([
+          apiService.searchJobs(query, { page: 0, size: 5 }),
+          apiService.searchCandidates(query, { page: 0, size: 5 }),
+          apiService.getActiveClients(),
+        ]);
+        (jobs.content || []).forEach(j => results.push({ type: 'job', id: j.id!, title: j.title, subtitle: j.companyName || 'Vaga' }));
+        (candidates.content || []).forEach(c => results.push({ type: 'candidate', id: c.id!, title: c.fullName, subtitle: c.headline || c.email }));
+        const q = query.toLowerCase();
+        clients.filter(c => c.companyName.toLowerCase().includes(q)).slice(0, 5).forEach(c => results.push({ type: 'client', id: c.id!, title: c.companyName, subtitle: c.industry || 'Empresa' }));
+        setSearchResults(results);
+        setSearchOpen(results.length > 0);
+      } catch { setSearchResults([]); }
+    }, 300);
+  };
+
+  const handleResultClick = (result: SearchResult) => {
+    setSearchOpen(false);
+    setSearchQuery('');
+    if (result.type === 'job') navigate(`/jobs/${result.id}`);
+    else if (result.type === 'candidate') navigate(`/candidates/${result.id}`);
+    else navigate(`/clients/${result.id}`);
+  };
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -54,12 +100,18 @@ const AppHeader: React.FC = () => {
         event.preventDefault();
         inputRef.current?.focus();
       }
+      if (event.key === 'Escape') { setSearchOpen(false); }
+    };
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) setSearchOpen(false);
     };
 
     document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("mousedown", handleClickOutside);
 
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
 
@@ -107,16 +159,9 @@ const AppHeader: React.FC = () => {
           </button>
 
           <Link to="/" className="lg:hidden">
-            <img
-              className="dark:hidden"
-              src="./images/logo/logo.svg"
-              alt="Logo"
-            />
-            <img
-              className="hidden dark:block"
-              src="./images/logo/logo-dark.svg"
-              alt="Logo"
-            />
+            <span className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">
+              Camarmo
+            </span>
           </Link>
 
           <button
@@ -139,39 +184,54 @@ const AppHeader: React.FC = () => {
             </svg>
           </button>
 
-          <div className="hidden lg:block">
-            <form>
-              <div className="relative">
-                <span className="absolute -translate-y-1/2 pointer-events-none left-4 top-1/2">
-                  <svg
-                    className="fill-gray-500 dark:fill-gray-400"
-                    width="20"
-                    height="20"
-                    viewBox="0 0 20 20"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      clipRule="evenodd"
-                      d="M3.04175 9.37363C3.04175 5.87693 5.87711 3.04199 9.37508 3.04199C12.8731 3.04199 15.7084 5.87693 15.7084 9.37363C15.7084 12.8703 12.8731 15.7053 9.37508 15.7053C5.87711 15.7053 3.04175 12.8703 3.04175 9.37363ZM9.37508 1.54199C5.04902 1.54199 1.54175 5.04817 1.54175 9.37363C1.54175 13.6991 5.04902 17.2053 9.37508 17.2053C11.2674 17.2053 13.003 16.5344 14.357 15.4176L17.177 18.238C17.4699 18.5309 17.9448 18.5309 18.2377 18.238C18.5306 17.9451 18.5306 17.4703 18.2377 17.1774L15.418 14.3573C16.5365 13.0033 17.2084 11.2669 17.2084 9.37363C17.2084 5.04817 13.7011 1.54199 9.37508 1.54199Z"
-                      fill=""
-                    />
-                  </svg>
-                </span>
-                <input
-                  ref={inputRef}
-                  type="text"
-                  placeholder="Buscar candidatos, vagas..."
-                  className="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-200 bg-transparent py-2.5 pl-12 pr-14 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:bg-white/[0.03] dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 xl:w-[430px]"
-                />
+          <div className="hidden lg:block relative" ref={searchContainerRef}>
+            <div className="relative">
+              <span className="absolute -translate-y-1/2 pointer-events-none left-4 top-1/2">
+                <svg className="fill-gray-500 dark:fill-gray-400" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path fillRule="evenodd" clipRule="evenodd" d="M3.04175 9.37363C3.04175 5.87693 5.87711 3.04199 9.37508 3.04199C12.8731 3.04199 15.7084 5.87693 15.7084 9.37363C15.7084 12.8703 12.8731 15.7053 9.37508 15.7053C5.87711 15.7053 3.04175 12.8703 3.04175 9.37363ZM9.37508 1.54199C5.04902 1.54199 1.54175 5.04817 1.54175 9.37363C1.54175 13.6991 5.04902 17.2053 9.37508 17.2053C11.2674 17.2053 13.003 16.5344 14.357 15.4176L17.177 18.238C17.4699 18.5309 17.9448 18.5309 18.2377 18.238C18.5306 17.9451 18.5306 17.4703 18.2377 17.1774L15.418 14.3573C16.5365 13.0033 17.2084 11.2669 17.2084 9.37363C17.2084 5.04817 13.7011 1.54199 9.37508 1.54199Z" fill="" />
+                </svg>
+              </span>
+              <input
+                ref={inputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => handleSearch(e.target.value)}
+                onFocus={() => searchResults.length > 0 && setSearchOpen(true)}
+                placeholder="Buscar candidatos, vagas, empresas..."
+                className="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-200 bg-transparent py-2.5 pl-12 pr-14 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:bg-white/[0.03] dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 xl:w-[430px]"
+              />
+              <button className="absolute right-2.5 top-1/2 inline-flex -translate-y-1/2 items-center gap-0.5 rounded-lg border border-gray-200 bg-gray-50 px-[7px] py-[4.5px] text-xs -tracking-[0.2px] text-gray-500 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-400">
+                <span> ⌘ </span>
+                <span> K </span>
+              </button>
+            </div>
 
-                <button className="absolute right-2.5 top-1/2 inline-flex -translate-y-1/2 items-center gap-0.5 rounded-lg border border-gray-200 bg-gray-50 px-[7px] py-[4.5px] text-xs -tracking-[0.2px] text-gray-500 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-400">
-                  <span> ⌘ </span>
-                  <span> K </span>
-                </button>
+            {searchOpen && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
+                {searchResults.map((r, i) => (
+                  <div
+                    key={`${r.type}-${r.id}-${i}`}
+                    onClick={() => handleResultClick(r)}
+                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
+                  >
+                    <div className={`w-6 h-6 rounded flex items-center justify-center flex-shrink-0 text-[10px] font-bold ${
+                      r.type === 'job' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' :
+                      r.type === 'candidate' ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400' :
+                      'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400'
+                    }`}>
+                      {r.type === 'job' ? 'V' : r.type === 'candidate' ? 'C' : 'E'}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{r.title}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{r.subtitle}</p>
+                    </div>
+                    <span className="text-[10px] text-gray-400 dark:text-gray-500 flex-shrink-0">
+                      {r.type === 'job' ? 'Vaga' : r.type === 'candidate' ? 'Candidato' : 'Empresa'}
+                    </span>
+                  </div>
+                ))}
               </div>
-            </form>
+            )}
           </div>
         </div>
         <div
@@ -182,6 +242,8 @@ const AppHeader: React.FC = () => {
           <div className="flex items-center gap-2 2xsm:gap-3">
             {/* <!-- Client Filter --> */}
             <ClientSelector />
+            {/* <!-- Headhunter Filter --> */}
+            <HeadhunterSelector />
             {/* <!-- Role Selector (Development Only) --> */}
             <RoleSelector />
             {/* <!-- Dark Mode Toggler --> */}

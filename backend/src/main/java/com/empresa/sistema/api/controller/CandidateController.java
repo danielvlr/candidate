@@ -4,6 +4,8 @@ import com.empresa.sistema.api.dto.request.CandidateCreateRequest;
 import com.empresa.sistema.api.dto.request.CandidateUpdateRequest;
 import com.empresa.sistema.api.dto.response.CandidateResponse;
 import com.empresa.sistema.domain.entity.Candidate;
+import com.empresa.sistema.domain.entity.CandidateStatusLog;
+import com.empresa.sistema.domain.repository.CandidateStatusLogRepository;
 import com.empresa.sistema.domain.service.CandidateService;
 import com.empresa.sistema.domain.service.LinkedInService;
 import com.empresa.sistema.domain.service.FileUploadService;
@@ -28,6 +30,7 @@ public class CandidateController {
     private final CandidateService candidateService;
     private final LinkedInService linkedInService;
     private final FileUploadService fileUploadService;
+    private final CandidateStatusLogRepository candidateStatusLogRepository;
 
     @GetMapping
     public ResponseEntity<Page<CandidateResponse>> getAllCandidates(
@@ -181,5 +184,10 @@ public class CandidateController {
             return ResponseEntity.badRequest()
                 .body(Map.of("error", e.getMessage()));
         }
+    }
+
+    @GetMapping("/{id}/status-history")
+    public ResponseEntity<List<CandidateStatusLog>> getCandidateStatusHistory(@PathVariable Long id) {
+        return ResponseEntity.ok(candidateStatusLogRepository.findByCandidateIdOrderByCreatedAtDesc(id));
     }
 }

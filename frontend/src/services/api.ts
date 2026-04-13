@@ -89,6 +89,10 @@ class ApiService {
     return this.request<CandidateDTO>(`/candidates/${id}`);
   }
 
+  async getCandidateStatusHistory(id: number): Promise<{ id: number; status: string; candidateName: string; createdAt: string }[]> {
+    return this.request(`/candidates/${id}/status-history`);
+  }
+
   async getCandidateByEmail(email: string): Promise<CandidateDTO> {
     return this.request<CandidateDTO>(`/candidates/email/${encodeURIComponent(email)}`);
   }
@@ -308,17 +312,29 @@ class ApiService {
     pagination: PaginationParams = {}
   ): Promise<PageResponse<JobApplicationDTO>> {
     const queryString = this.buildQueryParams(pagination);
-    return this.request<PageResponse<JobApplicationDTO>>(`/job-applications?${queryString}`);
+    return this.request<PageResponse<JobApplicationDTO>>(`/applications?${queryString}`);
   }
 
   async getJobApplicationById(id: number): Promise<JobApplicationDTO> {
-    return this.request<JobApplicationDTO>(`/job-applications/${id}`);
+    return this.request<JobApplicationDTO>(`/applications/${id}`);
+  }
+
+  async getApplicationsByJob(jobId: number, pagination: PaginationParams = {}): Promise<PageResponse<JobApplicationDTO>> {
+    const queryString = this.buildQueryParams(pagination);
+    return this.request<PageResponse<JobApplicationDTO>>(`/applications/job/${jobId}?${queryString}`);
   }
 
   async createJobApplication(application: JobApplicationDTO): Promise<JobApplicationDTO> {
-    return this.request<JobApplicationDTO>('/job-applications', {
+    return this.request<JobApplicationDTO>('/applications', {
       method: 'POST',
       body: JSON.stringify(application),
+    });
+  }
+
+  async linkCandidateToJob(candidateId: number, jobId: number): Promise<any> {
+    return this.request('/applications', {
+      method: 'POST',
+      body: JSON.stringify({ candidateId, jobId }),
     });
   }
 
@@ -580,6 +596,14 @@ class ApiService {
   // =====================
   // Kanban API methods
   // =====================
+  async getAllJobsKanban(): Promise<Record<string, JobDTO[]>> {
+    return this.request<Record<string, JobDTO[]>>('/jobs/kanban');
+  }
+
+  async getAllJobsKanbanPipeline(): Promise<Record<string, JobDTO[]>> {
+    return this.request<Record<string, JobDTO[]>>('/jobs/kanban/pipeline');
+  }
+
   async getJobsKanban(
     headhunterId: number,
     params?: { createdAfter?: string; deadlineBefore?: string; warrantyExpiringIn?: number }

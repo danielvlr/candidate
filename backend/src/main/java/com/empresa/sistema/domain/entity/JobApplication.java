@@ -1,5 +1,6 @@
 package com.empresa.sistema.domain.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import java.time.LocalDateTime;
@@ -13,14 +14,16 @@ public class JobApplication {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "candidate_id", nullable = false)
     @NotNull(message = "Candidato é obrigatório")
+    @JsonIgnoreProperties({"applications", "experiences", "education", "hibernateLazyInitializer"})
     private Candidate candidate;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "job_id", nullable = false)
     @NotNull(message = "Vaga é obrigatória")
+    @JsonIgnoreProperties({"applications", "headhunter", "client", "hibernateLazyInitializer"})
     private Job job;
 
     @Enumerated(EnumType.STRING)

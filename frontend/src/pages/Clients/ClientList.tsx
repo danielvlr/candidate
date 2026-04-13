@@ -4,6 +4,7 @@ import { ClientDTO, ClientStatus, ClientType } from '../../types/api';
 import { Badge, Button, Card, CardHeader, CardBody, EmptyState, Pagination, SkeletonCard } from '../../components/ui';
 import { useListSelection } from '../../hooks/useListSelection';
 import { useToast } from '../../components/ui';
+import { useHeadhunterFilter } from '../../context/HeadhunterFilterContext';
 import apiService from '../../services/api';
 
 const getInitials = (name: string) =>
@@ -47,6 +48,7 @@ const clientTypeLabel: Record<ClientType, string> = {
 const ClientList: React.FC = () => {
   const navigate = useNavigate();
   const { addToast } = useToast();
+  const { selectedHeadhunterId } = useHeadhunterFilter();
   const { selectedId: selectedClientIdRow, selectedCount, handleRowClick, handleRowMouseDown, clearSelection, isSelected } = useListSelection<ClientDTO>();
   const [clients, setClients] = useState<ClientDTO[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,11 +59,27 @@ const ClientList: React.FC = () => {
   const pageSize = 20;
 
   useEffect(() => {
-    apiService.getActiveClients()
-      .then(setClients)
-      .catch(err => { console.error('Error loading clients:', err); setClients([]); })
-      .finally(() => setLoading(false));
-  }, []);
+    const load = async () => {
+      setLoading(true);
+      try {
+        const allClients = await apiService.getActiveClients();
+        if (selectedHeadhunterId) {
+          const jobs = await apiService.getJobs({ page: 0, size: 500 });
+          const hhJobs = (jobs.content || []).filter((j: any) => j.headhunterId === selectedHeadhunterId);
+          const clientIds = new Set(hhJobs.map((j: any) => j.clientId).filter(Boolean));
+          setClients(allClients.filter(c => c.id && clientIds.has(c.id)));
+        } else {
+          setClients(allClients);
+        }
+      } catch (err) {
+        console.error('Error loading clients:', err);
+        setClients([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [selectedHeadhunterId]);
 
   const filteredClients = useMemo(() => {
     let result = clients;

@@ -6,9 +6,11 @@ import com.empresa.sistema.api.dto.response.JobResponse;
 import com.empresa.sistema.api.dto.response.JobDetailResponse;
 import com.empresa.sistema.api.mapper.JobMapper;
 import com.empresa.sistema.domain.entity.Job;
+import com.empresa.sistema.domain.entity.JobHistory;
 import com.empresa.sistema.domain.entity.Client;
 import com.empresa.sistema.domain.entity.Shortlist;
 import com.empresa.sistema.domain.repository.JobRepository;
+import com.empresa.sistema.domain.repository.JobHistoryRepository;
 import com.empresa.sistema.domain.repository.ClientRepository;
 import com.empresa.sistema.domain.service.exception.ResourceNotFoundException;
 import com.empresa.sistema.domain.service.exception.BusinessException;
@@ -29,6 +31,7 @@ import java.util.stream.Collectors;
 public class JobService {
 
     private final JobRepository jobRepository;
+    private final JobHistoryRepository jobHistoryRepository;
     private final ClientRepository clientRepository;
     private final JobMapper jobMapper;
     private final ShortlistService shortlistService;
@@ -36,11 +39,10 @@ public class JobService {
 
     @Transactional(readOnly = true)
     public Page<JobResponse> findAll(Pageable pageable) {
-        Page<Job> jobs = jobRepository.findByStatusOrderByCreatedAtDesc(Job.JobStatus.ACTIVE, pageable);
+        Page<Job> jobs = jobRepository.findAllWithClientOrderByCreatedAtDesc(pageable);
         return jobs.map(jobMapper::toResponse);
     }
 
-    @Transactional(readOnly = true)
     public JobResponse findById(Long id) {
         Job job = jobRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Vaga não encontrada com ID: " + id));
@@ -51,7 +53,6 @@ public class JobService {
         return jobMapper.toResponse(job);
     }
 
-    @Transactional(readOnly = true)
     public JobDetailResponse findDetailById(Long id) {
         Job job = jobRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Vaga não encontrada com ID: " + id));
@@ -95,7 +96,7 @@ public class JobService {
                                         Double minSalary, Double maxSalary, Long clientId, Pageable pageable) {
         Page<Job> jobs = jobRepository.findWithFilters(
             location, companyName, jobType, workMode, experienceLevel,
-            minSalary, maxSalary, clientId, Job.JobStatus.ACTIVE, pageable);
+            minSalary, maxSalary, clientId, null, pageable);
         return jobs.map(jobMapper::toResponse);
     }
 
@@ -164,6 +165,7 @@ public class JobService {
         }
 
         Job savedJob = jobRepository.save(job);
+        recordHistory(savedJob, JobHistory.HistoryType.STATUS_CHANGED, "Vaga criada");
         return jobMapper.toResponse(savedJob);
     }
 
@@ -200,6 +202,7 @@ public class JobService {
 
         job.setStatus(Job.JobStatus.PAUSED);
         jobRepository.save(job);
+        recordHistory(job, JobHistory.HistoryType.STATUS_CHANGED, "Vaga pausada");
     }
 
     public void activate(Long id) {
@@ -208,6 +211,7 @@ public class JobService {
 
         job.setStatus(Job.JobStatus.ACTIVE);
         jobRepository.save(job);
+        recordHistory(job, JobHistory.HistoryType.STATUS_CHANGED, "Vaga ativada");
     }
 
     public void close(Long id) {
@@ -216,6 +220,7 @@ public class JobService {
 
         job.setStatus(Job.JobStatus.CLOSED);
         jobRepository.save(job);
+        recordHistory(job, JobHistory.HistoryType.STATUS_CHANGED, "Vaga fechada");
     }
 
     public void markAsFeatured(Long id, boolean featured) {
@@ -247,6 +252,24 @@ public class JobService {
                 jobRepository.save(job);
             }
         }
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, List<JobResponse>> getAllJobsKanbanByStatus() {
+        List<Job> jobs = jobRepository.findAll();
+        return jobs.stream()
+            .collect(Collectors.groupingBy(
+                j -> j.getStatus().name(),
+                Collectors.mapping(jobMapper::toResponse, Collectors.toList())));
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, List<JobResponse>> getAllJobsKanbanByPipeline() {
+        List<Job> jobs = jobRepository.findAll();
+        return jobs.stream()
+            .collect(Collectors.groupingBy(
+                j -> j.getPipelineStage() != null ? j.getPipelineStage().name() : "SOURCING",
+                Collectors.mapping(jobMapper::toResponse, Collectors.toList())));
     }
 
     @Transactional(readOnly = true)
@@ -296,15 +319,32 @@ public class JobService {
     public Job updatePipelineStage(Long jobId, Job.PipelineStage newStage) {
         Job job = jobRepository.findById(jobId)
             .orElseThrow(() -> new ResourceNotFoundException("Vaga não encontrada com ID: " + jobId));
+        String oldStage = job.getPipelineStage() != null ? job.getPipelineStage().name() : "N/A";
         job.setPipelineStage(newStage);
-        return jobRepository.save(job);
+        Job saved = jobRepository.save(job);
+        recordHistory(saved, JobHistory.HistoryType.STATUS_CHANGED, "Pipeline atualizado de " + oldStage + " para " + newStage.name());
+        return saved;
     }
 
     public Job updateJobStatus(Long jobId, Job.JobStatus newStatus) {
         Job job = jobRepository.findById(jobId)
             .orElseThrow(() -> new ResourceNotFoundException("Vaga não encontrada com ID: " + jobId));
+        String oldStatus = job.getStatus() != null ? job.getStatus().name() : "N/A";
         JobStatusTransition.validate(job.getStatus(), newStatus);
         job.setStatus(newStatus);
-        return jobRepository.save(job);
+        Job saved = jobRepository.save(job);
+        recordHistory(saved, JobHistory.HistoryType.STATUS_CHANGED, "Status alterado de " + oldStatus + " para " + newStatus.name());
+        return saved;
+    }
+
+    private void recordHistory(Job job, JobHistory.HistoryType type, String description) {
+        JobHistory history = JobHistory.builder()
+            .job(job)
+            .type(type)
+            .title(description)
+            .description(description)
+            .headhunter(job.getHeadhunter())
+            .build();
+        jobHistoryRepository.save(history);
     }
 }

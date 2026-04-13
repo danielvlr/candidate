@@ -19,12 +19,14 @@ public class JestorConfig {
     private String clientsTable;
     private String candidatesTable;
     private String headhuntersTable;
+    private String warrantyRulesTable;
+    private String candidateStatusLogsTable;
 
     @Bean
     public RestTemplate jestorRestTemplate(RestTemplateBuilder builder) {
         return builder
-            .setConnectTimeout(Duration.ofSeconds(10))
-            .setReadTimeout(Duration.ofSeconds(30))
+            .setConnectTimeout(Duration.ofSeconds(15))
+            .setReadTimeout(Duration.ofSeconds(60))
             .build();
     }
 
@@ -48,6 +50,12 @@ public class JestorConfig {
 
     public String getHeadhuntersTable() { return headhuntersTable; }
     public void setHeadhuntersTable(String headhuntersTable) { this.headhuntersTable = headhuntersTable; }
+
+    public String getWarrantyRulesTable() { return warrantyRulesTable; }
+    public void setWarrantyRulesTable(String warrantyRulesTable) { this.warrantyRulesTable = warrantyRulesTable; }
+
+    public String getCandidateStatusLogsTable() { return candidateStatusLogsTable; }
+    public void setCandidateStatusLogsTable(String candidateStatusLogsTable) { this.candidateStatusLogsTable = candidateStatusLogsTable; }
 
     public boolean isConfigured() {
         return apiUrl != null && !apiUrl.isBlank()

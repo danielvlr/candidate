@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiService } from '../../services/api';
+import { JobHistoryDTO } from '../../types/api';
+import { useHeadhunterFilter } from '../../context/HeadhunterFilterContext';
 import {
   Badge,
   Card,
@@ -39,27 +41,55 @@ const formatCurrency = (value: number) =>
 
 export default function HeadhunterDashboard() {
   const navigate = useNavigate();
+  const { selectedHeadhunterId } = useHeadhunterFilter();
   const [openJobs, setOpenJobs] = useState<OpenJob[]>([]);
   const [closedJobs, setClosedJobs] = useState<ClosedJob[]>([]);
+  const [recentHistory, setRecentHistory] = useState<(JobHistoryDTO & { jobTitle?: string })[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    apiService.getJobs()
-      .then(res => {
-        const jobs = res.content || [];
-        setOpenJobs(jobs.filter((j: any) => j.status === 'ACTIVE' || j.status === 'DRAFT' || j.status === 'PAUSED').map((j: any) => ({
+    apiService.getJobs({ page: 0, size: 200 })
+      .then(async (res) => {
+        let jobs = res.content || [];
+        if (selectedHeadhunterId) {
+          jobs = jobs.filter((j: any) => j.headhunterId === selectedHeadhunterId);
+        }
+        const open = jobs.filter((j: any) => j.status === 'ACTIVE' || j.status === 'DRAFT' || j.status === 'PAUSED').map((j: any) => ({
           id: j.id, title: j.title, companyName: j.companyName, createdAt: j.createdAt,
           daysOpen: Math.floor((Date.now() - new Date(j.createdAt).getTime()) / 86400000),
           applicationsCount: j.applicationsCount || 0,
-        })));
-        setClosedJobs(jobs.filter((j: any) => j.status === 'CLOSED').map((j: any) => ({
-          id: j.id, title: j.title, companyName: j.companyName, closedAt: j.closedAt || j.updatedAt,
-          jobValue: j.jobValue || 0, guaranteeDays: 90, daysUntilGuaranteeEnd: 0,
-        })));
+        }));
+        setOpenJobs(open);
+        setClosedJobs(jobs.filter((j: any) => j.status === 'CLOSED').map((j: any) => {
+          const gDays = j.guaranteeDays || 90;
+          const closed = j.closedAt || j.updatedAt;
+          const closedDate = closed ? new Date(closed) : new Date();
+          const daysElapsed = Math.floor((Date.now() - closedDate.getTime()) / 86400000);
+          const remaining = Math.max(0, gDays - daysElapsed);
+          return {
+            id: j.id, title: j.title, companyName: j.companyName, closedAt: closed,
+            jobValue: j.jobValue || 0, guaranteeDays: gDays, daysUntilGuaranteeEnd: remaining,
+          };
+        }));
+
+        // Fetch history for recent jobs
+        const recentJobIds = jobs.slice(0, 20).map((j: any) => j.id).filter(Boolean);
+        if (recentJobIds.length > 0) {
+          const histResults = await Promise.all(
+            recentJobIds.map((id: number) =>
+              apiService.getJobHistory(id)
+                .then(h => h.map(e => ({ ...e, jobTitle: jobs.find((j: any) => j.id === id)?.title })))
+                .catch(() => [])
+            )
+          );
+          const all = histResults.flat() as (JobHistoryDTO & { jobTitle?: string })[];
+          all.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          setRecentHistory(all.slice(0, 10));
+        }
       })
       .catch(err => console.error('Error loading jobs:', err))
       .finally(() => setLoading(false));
-  }, []);
+  }, [selectedHeadhunterId]);
 
   const totalJobs = openJobs.length + closedJobs.length;
   const totalCandidates = openJobs.reduce((sum, j) => sum + j.applicationsCount, 0);
@@ -182,6 +212,56 @@ export default function HeadhunterDashboard() {
         </Card>
       </div>
 
+      {/* Recent History */}
+      <div className="mb-8">
+        <Card>
+          <CardHeader>
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-white/90">
+              Ultimas Atualizacoes
+            </h2>
+          </CardHeader>
+          {recentHistory.length === 0 ? (
+            <CardBody>
+              <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">Nenhuma atualizacao recente.</p>
+            </CardBody>
+          ) : (
+            <div className="divide-y divide-gray-100 dark:divide-gray-800">
+              {recentHistory.map((h, idx) => (
+                <div
+                  key={h.id || idx}
+                  className="flex items-start gap-3 px-5 py-3 hover:bg-gray-50 dark:hover:bg-white/[0.02] cursor-pointer transition-colors"
+                  onClick={() => navigate(`/jobs/${h.jobId}?tab=historico`)}
+                >
+                  <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${
+                    h.type === 'STATUS_CHANGED' ? 'bg-blue-500' :
+                    h.type === 'SHORTLIST_SENT' ? 'bg-purple-500' :
+                    h.type === 'INTERVIEW_SCHEDULED' ? 'bg-amber-500' :
+                    h.type === 'OFFER_MADE' ? 'bg-green-500' :
+                    h.type === 'CANDIDATE_CONTACTED' ? 'bg-teal-500' :
+                    'bg-gray-400'
+                  }`} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{h.title}</p>
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs text-brand-600 dark:text-brand-400">{h.jobTitle || `Vaga #${h.jobId}`}</span>
+                      <span className="text-xs text-gray-300 dark:text-gray-600">·</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500">
+                        {new Date(h.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  </div>
+                  <svg className="h-4 w-4 text-gray-300 flex-shrink-0 mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
+
       {/* Open Jobs */}
       <div className="mb-8">
         <Card>
@@ -275,40 +355,54 @@ export default function HeadhunterDashboard() {
           </CardBody>
         ) : (
           <div className="divide-y divide-gray-100 dark:divide-gray-800">
-            {closedJobs.map((job) => (
-              <div
-                key={job.id}
-                className="flex items-center justify-between px-6 py-4 hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors"
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-semibold text-gray-900 dark:text-white/90">
-                      {job.title}
-                    </span>
-                    <Badge variant="hired">Fechada</Badge>
-                    <Badge
-                      variant={
-                        job.daysUntilGuaranteeEnd <= 7
-                          ? 'urgent'
-                          : job.daysUntilGuaranteeEnd <= 30
-                          ? 'paused'
-                          : 'active'
-                      }
-                    >
-                      {job.daysUntilGuaranteeEnd}d garantia
-                    </Badge>
+            {closedJobs.map((job) => {
+              const pct = job.guaranteeDays > 0 ? Math.max(0, Math.min(100, ((job.guaranteeDays - job.daysUntilGuaranteeEnd) / job.guaranteeDays) * 100)) : 100;
+              const expired = job.daysUntilGuaranteeEnd === 0;
+              const urgent = !expired && job.daysUntilGuaranteeEnd <= 10;
+              const warning = !expired && !urgent && job.daysUntilGuaranteeEnd <= 30;
+              return (
+                <div
+                  key={job.id}
+                  className="px-5 py-4 hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors cursor-pointer"
+                  onClick={() => navigate(`/jobs/${job.id}`)}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span className="text-sm font-medium text-gray-900 dark:text-white/90 truncate">{job.title}</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">{job.companyName}</span>
+                    </div>
+                    {job.jobValue > 0 && (
+                      <span className="text-xs font-medium text-brand-600 dark:text-brand-400 flex-shrink-0 ml-2">{formatCurrency(job.jobValue)}</span>
+                    )}
                   </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    {job.companyName} &bull; Fechada em {formatDate(job.closedAt)}
-                  </p>
-                  {job.jobValue && (
-                    <p className="text-xs text-brand-600 dark:text-brand-400 mt-0.5">
-                      {formatCurrency(job.jobValue)}
-                    </p>
-                  )}
+
+                  {/* Guarantee Progress */}
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${expired ? 'bg-gray-400' : urgent ? 'bg-red-500' : warning ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <span className={`text-xs font-semibold flex-shrink-0 min-w-[100px] text-right ${expired ? 'text-gray-400' : urgent ? 'text-red-600 dark:text-red-400' : warning ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                      {expired
+                        ? 'Garantia expirada'
+                        : `${job.daysUntilGuaranteeEnd}/${job.guaranteeDays} dias`}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                      Fechada em {formatDate(job.closedAt)}
+                    </span>
+                    <span className="text-[10px] text-gray-300 dark:text-gray-600">·</span>
+                    <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                      Garantia: {job.guaranteeDays} dias
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </Card>

@@ -19,11 +19,15 @@ spring:
   jpa:
     hibernate:
       ddl-auto: create-drop
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.H2Dialect
+        jdbc:
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
 
   mail:
     host: smtp.gmail.com
@@ -39,13 +43,15 @@ spring:
             required: true
 
 jestor:
-  api-url: ${JESTOR_API_URL:}
-  api-token: ${JESTOR_API_TOKEN:}
+  api-url: ${JESTOR_API_URL:https://b13f0dd1a22d45898b1b79eed549be20.api.jestor.com}
+  api-token: ${JESTOR_API_TOKEN:MThkNTA1NTEwNmU0Zjdh5a84fa96c6MTcyNjY2ODY5MWZhNzkw}
   sync-cron: ${JESTOR_SYNC_CRON:0 */30 * * * *}
-  jobs-table: ${JESTOR_JOBS_TABLE:}
-  clients-table: ${JESTOR_CLIENTS_TABLE:}
-  candidates-table: ${JESTOR_CANDIDATES_TABLE:}
-  headhunters-table: ${JESTOR_HEADHUNTERS_TABLE:}
+  jobs-table: ${JESTOR_JOBS_TABLE:1qsbzdrzg3ca0srnvins_}
+  clients-table: ${JESTOR_CLIENTS_TABLE:hxinwt2e5xz2cxmp___2d}
+  candidates-table: ${JESTOR_CANDIDATES_TABLE:a3m7z8bs7swvw9ipyey11}
+  headhunters-table: ${JESTOR_HEADHUNTERS_TABLE:z9mmnrx_2t8n83dnlbrdt}
+  warranty-rules-table: ${JESTOR_WARRANTY_RULES_TABLE:jmvvn0on6in_39ft61na5}
+  candidate-status-logs-table: ${JESTOR_CANDIDATE_STATUS_LOGS_TABLE:qhdl1u0f9qz4cepqb9214}
 
 warranty:
   notification:

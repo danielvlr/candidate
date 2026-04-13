@@ -71,6 +71,11 @@ export interface JobDTO {
   urgent: boolean;
   applicationDeadline?: string;
   guaranteeDays?: number;
+  jobValue?: number;
+  finalValue?: number;
+  closedAt?: string;
+  headhunterId?: number;
+  headhunterName?: string;
   applicationsCount?: number;
   viewsCount?: number;
   createdAt?: string;

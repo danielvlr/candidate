@@ -4,6 +4,8 @@ import { apiService } from '../../services/api';
 import { CandidateDTO, PageResponse, CandidateFilters, PaginationParams } from '../../types/api';
 import { Badge, Button, Card, CardHeader, CardBody, EmptyState, Pagination, SkeletonCard } from '../../components/ui';
 import { useListSelection } from '../../hooks/useListSelection';
+import { useHeadhunterFilter } from '../../context/HeadhunterFilterContext';
+import { useClientFilter } from '../../context/ClientFilterContext';
 
 const getInitials = (name: string) =>
   name
@@ -26,6 +28,8 @@ const getGradient = (name: string) =>
 
 const CandidateList: React.FC = () => {
   const navigate = useNavigate();
+  const { selectedHeadhunterId } = useHeadhunterFilter();
+  const { selectedClientId } = useClientFilter();
   const { selectedId: selectedCandidateId, selectedCount, handleRowClick, handleRowMouseDown, clearSelection, isSelected } = useListSelection<CandidateDTO>();
   const [candidates, setCandidates] = useState<PageResponse<CandidateDTO> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,22 +47,51 @@ const CandidateList: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      const pagination: PaginationParams = {
-        page,
-        size: 20,
-        sort: 'createdAt,desc',
-      };
+      if (selectedHeadhunterId || selectedClientId) {
+        // Filtered mode: get candidates via job applications
+        const jobFilters: any = {};
+        if (selectedClientId) jobFilters.clientId = selectedClientId;
+        const jobsResult = await apiService.getJobs({ page: 0, size: 500 }, jobFilters);
+        let jobs = jobsResult.content || [];
+        if (selectedHeadhunterId) {
+          jobs = jobs.filter((j: any) => j.headhunterId === selectedHeadhunterId);
+        }
+        const jobIds = jobs.map((j: any) => j.id).filter(Boolean).slice(0, 50);
 
-      let result: PageResponse<CandidateDTO>;
+        const candidateIds = new Set<number>();
+        if (jobIds.length > 0) {
+          const appResults = await Promise.all(
+            jobIds.map((id: number) => apiService.getApplicationsByJob(id, { page: 0, size: 100 }).then(r => r.content || []).catch(() => []))
+          );
+          appResults.flat().forEach((a: any) => {
+            if (a.candidate?.id) candidateIds.add(a.candidate.id);
+          });
+        }
 
-      if (searchQuery.trim()) {
-        result = await apiService.searchCandidates(searchQuery, pagination);
+        // Fetch all candidates and filter by IDs
+        const allCandidates = await apiService.getCandidates({ page: 0, size: 500 }, filters);
+        const filtered = (allCandidates.content || []).filter(c => c.id && candidateIds.has(c.id));
+
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase();
+          const searched = filtered.filter(c => c.fullName.toLowerCase().includes(q) || (c.email || '').toLowerCase().includes(q));
+          setCandidates({ ...allCandidates, content: searched, totalElements: searched.length, totalPages: 1 });
+        } else {
+          setCandidates({ ...allCandidates, content: filtered, totalElements: filtered.length, totalPages: 1 });
+        }
+        setCurrentPage(0);
       } else {
-        result = await apiService.getCandidates(pagination, filters);
+        // Normal mode
+        const pagination: PaginationParams = { page, size: 20, sort: 'createdAt,desc' };
+        let result: PageResponse<CandidateDTO>;
+        if (searchQuery.trim()) {
+          result = await apiService.searchCandidates(searchQuery, pagination);
+        } else {
+          result = await apiService.getCandidates(pagination, filters);
+        }
+        setCandidates(result);
+        setCurrentPage(page);
       }
-
-      setCandidates(result);
-      setCurrentPage(page);
     } catch (err) {
       setError('Erro ao carregar candidatos');
       console.error('Error fetching candidates:', err);
@@ -69,7 +102,7 @@ const CandidateList: React.FC = () => {
 
   useEffect(() => {
     fetchCandidates(0);
-  }, [filters, searchQuery]);
+  }, [filters, searchQuery, selectedHeadhunterId, selectedClientId]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
