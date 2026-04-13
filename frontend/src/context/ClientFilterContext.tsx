@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { ClientDTO, JobDTO } from '../types/api';
+import { ClientDTO } from '../types/api';
 import { apiService } from '../services/api';
 
 interface ClientFilterContextType {
@@ -23,15 +23,9 @@ export const ClientFilterProvider: React.FC<{ children: ReactNode }> = ({ childr
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([
-      apiService.getActiveClients(),
-      apiService.getJobs({ page: 0, size: 500 }),
-    ]).then(([clientList, jobsResult]) => {
-      const jobs = jobsResult.content || [];
-      const activeClientIds = new Set(jobs.map((j: JobDTO) => j.clientId).filter(Boolean));
-
-      setClients(clientList.filter(c => c.id && activeClientIds.has(c.id)));
-    }).catch(() => setClients([]))
+    apiService.getActiveClients()
+      .then(setClients)
+      .catch(() => setClients([]))
       .finally(() => setLoading(false));
   }, []);
 

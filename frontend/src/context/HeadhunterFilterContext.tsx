@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { HeadhunterDTO, JobDTO } from '../types/api';
+import { HeadhunterDTO } from '../types/api';
 import { apiService } from '../services/api';
 import { useUserRole } from './UserRoleContext';
 
@@ -29,16 +29,12 @@ export const HeadhunterFilterProvider: React.FC<{ children: ReactNode }> = ({ ch
   const locked = userRole === 'headhunter';
 
   useEffect(() => {
-    Promise.all([
-      apiService.getHeadhunters({ page: 0, size: 100 }),
-      apiService.getJobs({ page: 0, size: 500 }),
-    ]).then(([hhResult, jobsResult]) => {
-      const jobs = jobsResult.content || [];
-      const activeHhIds = new Set(jobs.map((j: JobDTO) => j.headhunterId).filter(Boolean));
-
-      const active = (hhResult.content || []).filter(h => h.status === 'ACTIVE' && h.id && activeHhIds.has(h.id));
-      setHeadhunters(active);
-    }).catch(() => setHeadhunters([]))
+    apiService.getHeadhunters({ page: 0, size: 100 })
+      .then((result) => {
+        const active = (result.content || []).filter(h => h.status === 'ACTIVE');
+        setHeadhunters(active);
+      })
+      .catch(() => setHeadhunters([]))
       .finally(() => setLoading(false));
   }, []);
 
