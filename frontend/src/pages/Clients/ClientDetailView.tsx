@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiService } from '../../services/api';
-import { ClientDTO, ClientStatus, ClientType, JobDTO, JobHistoryDTO, PageResponse } from '../../types/api';
+import { ClientDTO, ClientStatus, ClientType, JobDTO, JobHistoryDTO } from '../../types/api';
 import { Badge, Button, Card, CardBody } from '../../components/ui';
 
 const getInitials = (name: string) =>
@@ -510,7 +510,7 @@ const ClientDetailView: React.FC = () => {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{h.title}</p>
-                          <Badge variant="default">{h.jobTitle || `Vaga #${h.jobId}`}</Badge>
+                          <Badge variant="inactive">{h.jobTitle || `Vaga #${h.jobId}`}</Badge>
                         </div>
                         {h.description && h.description !== h.title && (
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{h.description}</p>

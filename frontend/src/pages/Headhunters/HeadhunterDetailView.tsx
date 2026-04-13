@@ -236,7 +236,7 @@ const HeadhunterDetailView: React.FC = () => {
                       <Badge variant={
                         job.status === 'ACTIVE' ? 'active' :
                         job.status === 'CLOSED' ? 'inactive' :
-                        job.status === 'PAUSED' ? 'info' : 'default'
+                        job.status === 'PAUSED' ? 'info' : 'inactive'
                       }>
                         {job.status === 'ACTIVE' ? 'Aberta' :
                          job.status === 'CLOSED' ? 'Fechada' :

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router';
 import { apiService } from '../../services/api';
-import { JobDTO, JobApplicationDTO, WarrantyDTO, WarrantyStatus } from '../../types/api';
+import { JobDTO, WarrantyDTO, WarrantyStatus } from '../../types/api';
 import { useUserRole } from '../../context/UserRoleContext';
 import {
   Badge,
@@ -15,7 +15,7 @@ import {
   useToast,
 } from '../../components/ui';
 import { JobTimeline } from '../../components/job/JobTimeline';
-import { JobShortlist } from '../../components/job/JobShortlist';
+// import { JobShortlist } from '../../components/job/JobShortlist';
 import { AddActivityModal } from '../../components/job/AddActivityModal';
 import { SendCandidatesModal } from '../../components/job/SendCandidatesModal';
 import WarrantyBreachModal from '../Warranty/WarrantyBreachModal';

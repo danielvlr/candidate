@@ -371,8 +371,8 @@ export default function HeadhunterDashboard() {
                       <span className="text-sm font-medium text-gray-900 dark:text-white/90 truncate">{job.title}</span>
                       <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">{job.companyName}</span>
                     </div>
-                    {job.jobValue > 0 && (
-                      <span className="text-xs font-medium text-brand-600 dark:text-brand-400 flex-shrink-0 ml-2">{formatCurrency(job.jobValue)}</span>
+                    {(job.jobValue ?? 0) > 0 && (
+                      <span className="text-xs font-medium text-brand-600 dark:text-brand-400 flex-shrink-0 ml-2">{formatCurrency(job.jobValue!)}</span>
                     )}
                   </div>
 

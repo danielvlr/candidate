@@ -68,7 +68,7 @@ function formatRelativeTime(dateStr: string): string {
 export default function AdminHome() {
   const navigate = useNavigate();
   const { selectedClientId, selectedClient } = useClientFilter();
-  const { selectedHeadhunterId, selectedHeadhunter } = useHeadhunterFilter();
+  const { selectedHeadhunterId } = useHeadhunterFilter();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentHistory, setRecentHistory] = useState<JobHistoryDTO[]>([]);
   const [loading, setLoading] = useState(true);

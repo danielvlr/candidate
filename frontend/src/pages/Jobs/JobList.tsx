@@ -5,7 +5,7 @@ import { useUserRole } from '../../context/UserRoleContext';
 import { useClientFilter } from '../../context/ClientFilterContext';
 import { useHeadhunterFilter } from '../../context/HeadhunterFilterContext';
 import { useNavigate } from 'react-router';
-import { Badge, Button, Card, CardHeader, CardBody, EmptyState, Pagination, SkeletonCard } from '../../components/ui';
+import { Button, Card, CardHeader, CardBody, EmptyState, SkeletonCard } from '../../components/ui';
 import { useListSelection } from '../../hooks/useListSelection';
 
 type ViewMode = 'list' | 'kanban';
@@ -56,7 +56,7 @@ const JobList: React.FC = () => {
   const [listItems, setListItems] = useState<JobDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
@@ -228,7 +228,7 @@ const JobList: React.FC = () => {
   }
 
   const totalFiltered = jobs?.totalElements || 0;
-  const totalAll = Object.values(statusCounts).reduce((a, b) => a + b, 0);
+  const _totalAll = Object.values(statusCounts).reduce((a, b) => a + b, 0); void _totalAll;
 
   return (
     <div className="space-y-0">
@@ -479,7 +479,7 @@ const JobList: React.FC = () => {
                           {(() => {
                             const lastHist = job.id && jobHistoryCache[job.id]?.[0]?.createdAt;
                             if (lastHist) return formatDate(lastHist);
-                            if (job.startDate) return formatDate(job.startDate);
+                            if ((job as any).startDate) return formatDate((job as any).startDate);
                             return '';
                           })()}
                         </span>

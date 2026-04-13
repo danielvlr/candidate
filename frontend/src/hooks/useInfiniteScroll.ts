@@ -17,7 +17,7 @@ interface UseInfiniteScrollResult<T> {
   reset: () => void;
 }
 
-export function useInfiniteScroll<T>({ fetchFn, pageSize = 20, deps = [] }: UseInfiniteScrollOptions<T>): UseInfiniteScrollResult<T> {
+export function useInfiniteScroll<T>({ fetchFn, deps = [] }: UseInfiniteScrollOptions<T>): UseInfiniteScrollResult<T> {
   const [items, setItems] = useState<T[]>([]);
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);

@@ -14,7 +14,7 @@ import CandidateForm from "./pages/Candidates/CandidateForm";
 import JobList from "./pages/Jobs/JobList";
 import JobCreateForm from "./pages/Jobs/JobCreateForm";
 import JobDetailView from "./pages/Jobs/JobDetailView";
-import HeadhunterKanban from "./pages/Jobs/HeadhunterKanban";
+// import HeadhunterKanban from "./pages/Jobs/HeadhunterKanban";
 import HeadhunterList from "./pages/Headhunters/HeadhunterList";
 import HeadhunterDetailView from "./pages/Headhunters/HeadhunterDetailView";
 import ClientList from "./pages/Clients/ClientList";
@@ -28,8 +28,8 @@ import { UserRoleProvider, useUserRole } from "./context/UserRoleContext";
 import { ClientFilterProvider } from "./context/ClientFilterContext";
 import { HeadhunterFilterProvider } from "./context/HeadhunterFilterContext";
 import RoleBasedRoute from "./components/auth/RoleBasedRoute";
-import WarrantyDashboard from "./pages/Warranty/WarrantyDashboard";
-import WarrantyRules from "./pages/Warranty/WarrantyRules";
+// import WarrantyDashboard from "./pages/Warranty/WarrantyDashboard";
+// import WarrantyRules from "./pages/Warranty/WarrantyRules";
 import JestorSyncPage from "./pages/Settings/JestorSyncPage";
 
 // Component to determine which dashboard to show based on role

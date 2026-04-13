@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiService } from '../../services/api';
-import { CandidateDTO, CandidateStatus } from '../../types/api';
+import { CandidateDTO } from '../../types/api';
 import { Badge, Button, Card, CardBody } from '../../components/ui';
 
 const getInitials = (name: string) =>
