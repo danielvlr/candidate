@@ -48,6 +48,17 @@ public class JobResponse {
     private java.math.BigDecimal finalValue;
     private Integer guaranteeDays;
     private LocalDateTime closedAt;
+    private LocalDateTime lastDeliveryAt;
+    private LocalDateTime firstDeliveryAt;
+    private LocalDateTime frozenAt;
+    private String commissionType;
+    private String seniorityLabel;
+    private String state;
+    private Boolean isReplacement;
+    private Boolean isConfidential;
+    private Boolean contactMade;
+    private Boolean closedOnFirstSend;
+    private Boolean initialCheckin;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

@@ -47,6 +47,15 @@ export interface CandidateDTO {
   workPreference?: WorkPreference;
   createdAt?: string;
   updatedAt?: string;
+  // Invitation / self-signup fields
+  origin?: CandidateOrigin;
+  invitedByHeadhunterId?: number;
+  approvedByHeadhunterId?: number;
+  approvedAt?: string;
+  rejectedAt?: string;
+  rejectionReason?: string;
+  consentAcceptedAt?: string;
+  consentVersion?: string;
 }
 
 export interface JobDTO {
@@ -74,6 +83,17 @@ export interface JobDTO {
   jobValue?: number;
   finalValue?: number;
   closedAt?: string;
+  lastDeliveryAt?: string;
+  firstDeliveryAt?: string;
+  frozenAt?: string;
+  commissionType?: string;
+  seniorityLabel?: string;
+  state?: string;
+  isReplacement?: boolean;
+  isConfidential?: boolean;
+  contactMade?: boolean;
+  closedOnFirstSend?: boolean;
+  initialCheckin?: boolean;
   headhunterId?: number;
   headhunterName?: string;
   applicationsCount?: number;
@@ -98,7 +118,17 @@ export enum CandidateStatus {
   ACTIVE = 'ACTIVE',
   INACTIVE = 'INACTIVE',
   HIRED = 'HIRED',
-  BLACKLISTED = 'BLACKLISTED'
+  BLACKLISTED = 'BLACKLISTED',
+  INVITED = 'INVITED',
+  PENDING_APPROVAL = 'PENDING_APPROVAL',
+  REJECTED = 'REJECTED',
+  EXPIRED_INVITE = 'EXPIRED_INVITE'
+}
+
+export enum CandidateOrigin {
+  MANUAL = 'MANUAL',
+  JESTOR = 'JESTOR',
+  SELF_REGISTERED = 'SELF_REGISTERED'
 }
 
 export enum WorkPreference {
@@ -592,4 +622,37 @@ export interface ClientHistoryUpdateRequest {
   scheduledDate?: string;
   status?: HistoryStatus;
   metadata?: string;
+}
+
+// Invitation / Self-signup Types
+export interface InviteCandidateRequest {
+  email: string;
+  fullName?: string;
+}
+
+export interface InvitationCreatedResponse {
+  invitationId: number;
+  status: 'PENDING' | 'EMAIL_FAILED';
+  email: string;
+  expiresAt: string;
+  message: string;
+}
+
+export interface PublicInvitationResponse {
+  fullName: string;
+  email: string;
+  invitedByHeadhunterName: string;
+  expiresAt: string;
+  consentVersion: string;
+}
+
+export interface SelfRegisterRequest {
+  fullName: string;
+  headline?: string;
+  city?: string;
+  state?: string;
+  linkedinUrl?: string;
+  summary?: string;
+  consentAccepted: true;
+  consentVersion: string;
 }

@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { apiService } from '../../services/api';
 import { HeadhunterDTO, JobDTO } from '../../types/api';
 import { Badge, Button, Card, CardBody } from '../../components/ui';
+import { JobHistoryPreview } from './JobHistoryPreview';
 
 const getInitials = (name: string) =>
   name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
@@ -222,27 +223,30 @@ const HeadhunterDetailView: React.FC = () => {
                   {jobs.map((job) => (
                     <div
                       key={job.id}
-                      className="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors"
+                      className="p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors"
                       onClick={() => navigate(`/jobs/${job.id}`)}
                     >
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                          {job.title}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                          {job.companyName || 'Sem empresa'}
-                        </p>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                            {job.title}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            {job.companyName || 'Sem empresa'}
+                          </p>
+                        </div>
+                        <Badge variant={
+                          job.status === 'ACTIVE' ? 'active' :
+                          job.status === 'CLOSED' ? 'inactive' :
+                          job.status === 'PAUSED' ? 'info' : 'inactive'
+                        }>
+                          {job.status === 'ACTIVE' ? 'Aberta' :
+                           job.status === 'CLOSED' ? 'Fechada' :
+                           job.status === 'PAUSED' ? 'Pausada' :
+                           job.status === 'DRAFT' ? 'Rascunho' : job.status}
+                        </Badge>
                       </div>
-                      <Badge variant={
-                        job.status === 'ACTIVE' ? 'active' :
-                        job.status === 'CLOSED' ? 'inactive' :
-                        job.status === 'PAUSED' ? 'info' : 'inactive'
-                      }>
-                        {job.status === 'ACTIVE' ? 'Aberta' :
-                         job.status === 'CLOSED' ? 'Fechada' :
-                         job.status === 'PAUSED' ? 'Pausada' :
-                         job.status === 'DRAFT' ? 'Rascunho' : job.status}
-                      </Badge>
+                      {job.id !== undefined && <JobHistoryPreview jobId={job.id} />}
                     </div>
                   ))}
                 </div>

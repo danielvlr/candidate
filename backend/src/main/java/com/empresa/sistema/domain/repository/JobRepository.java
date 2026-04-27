@@ -95,4 +95,6 @@ public interface JobRepository extends JpaRepository<Job, Long> {
     List<Job> findByClient_Id(Long clientId);
 
     Optional<Job> findByJestorId(String jestorId);
+
+    List<Job> findByPipelineStage(Job.PipelineStage pipelineStage);
 }

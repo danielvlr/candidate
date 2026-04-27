@@ -16,6 +16,9 @@ public class Candidate {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Version
+    private Long version;
+
     @NotBlank(message = "Nome é obrigatório")
     @Size(max = 100, message = "Nome deve ter no máximo 100 caracteres")
     @Column(name = "full_name", nullable = false)
@@ -94,6 +97,31 @@ public class Candidate {
     @Column(name = "jestor_id", unique = true)
     private String jestorId;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "origin")
+    private CandidateOrigin origin;
+
+    @Column(name = "invited_by_headhunter_id")
+    private Long invitedByHeadhunterId;
+
+    @Column(name = "approved_by_headhunter_id")
+    private Long approvedByHeadhunterId;
+
+    @Column(name = "approved_at")
+    private LocalDateTime approvedAt;
+
+    @Column(name = "rejected_at")
+    private LocalDateTime rejectedAt;
+
+    @Column(name = "rejection_reason", columnDefinition = "TEXT")
+    private String rejectionReason;
+
+    @Column(name = "consent_accepted_at")
+    private LocalDateTime consentAcceptedAt;
+
+    @Column(name = "consent_version", length = 32)
+    private String consentVersion;
+
     @Column(length = 30)
     private String phone;
 
@@ -111,11 +139,17 @@ public class Candidate {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
+        if (this.origin == null) {
+            this.origin = (this.jestorId != null) ? CandidateOrigin.JESTOR : CandidateOrigin.MANUAL;
+        }
     }
 
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
+        if (this.origin == null) {
+            this.origin = (this.jestorId != null) ? CandidateOrigin.JESTOR : CandidateOrigin.MANUAL;
+        }
     }
 
     // Constructors
@@ -129,6 +163,9 @@ public class Candidate {
     // Getters and Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+
+    public Long getVersion() { return version; }
+    public void setVersion(Long version) { this.version = version; }
 
     public String getFullName() { return fullName; }
     public void setFullName(String fullName) { this.fullName = fullName; }
@@ -209,12 +246,36 @@ public class Candidate {
     public String getJestorId() { return jestorId; }
     public void setJestorId(String jestorId) { this.jestorId = jestorId; }
 
+    public CandidateOrigin getOrigin() { return origin; }
+    public void setOrigin(CandidateOrigin origin) { this.origin = origin; }
+
+    public Long getInvitedByHeadhunterId() { return invitedByHeadhunterId; }
+    public void setInvitedByHeadhunterId(Long invitedByHeadhunterId) { this.invitedByHeadhunterId = invitedByHeadhunterId; }
+
+    public Long getApprovedByHeadhunterId() { return approvedByHeadhunterId; }
+    public void setApprovedByHeadhunterId(Long approvedByHeadhunterId) { this.approvedByHeadhunterId = approvedByHeadhunterId; }
+
+    public LocalDateTime getApprovedAt() { return approvedAt; }
+    public void setApprovedAt(LocalDateTime approvedAt) { this.approvedAt = approvedAt; }
+
+    public LocalDateTime getRejectedAt() { return rejectedAt; }
+    public void setRejectedAt(LocalDateTime rejectedAt) { this.rejectedAt = rejectedAt; }
+
+    public String getRejectionReason() { return rejectionReason; }
+    public void setRejectionReason(String rejectionReason) { this.rejectionReason = rejectionReason; }
+
+    public LocalDateTime getConsentAcceptedAt() { return consentAcceptedAt; }
+    public void setConsentAcceptedAt(LocalDateTime consentAcceptedAt) { this.consentAcceptedAt = consentAcceptedAt; }
+
+    public String getConsentVersion() { return consentVersion; }
+    public void setConsentVersion(String consentVersion) { this.consentVersion = consentVersion; }
+
     public String getPhone() { return phone; }
     public void setPhone(String phone) { this.phone = phone; }
 
     // Enums
     public enum CandidateStatus {
-        ACTIVE, INACTIVE, HIRED, BLACKLISTED
+        ACTIVE, INACTIVE, HIRED, BLACKLISTED, INVITED, PENDING_APPROVAL, REJECTED, EXPIRED_INVITE
     }
 
     public enum WorkPreference {

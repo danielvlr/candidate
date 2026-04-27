@@ -3,6 +3,7 @@ package com.empresa.sistema.config;
 import com.empresa.sistema.domain.entity.Headhunter;
 import com.empresa.sistema.domain.entity.Warranty;
 import com.empresa.sistema.domain.service.EmailService;
+import com.empresa.sistema.domain.service.JobService;
 import com.empresa.sistema.domain.service.WarrantyService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +22,7 @@ public class NotificationScheduler {
 
     private final WarrantyService warrantyService;
     private final EmailService emailService;
+    private final JobService jobService;
 
     @Value("${warranty.notification.days-before:10}")
     private int daysBefore;
@@ -75,6 +77,7 @@ public class NotificationScheduler {
     public void expireWarranties() {
         log.info("Running warranty expiration update...");
         warrantyService.expireWarranties();
+        jobService.promoteExpiredWarrantyJobs();
     }
 
     private String resolveRecipientEmail(Warranty warranty) {

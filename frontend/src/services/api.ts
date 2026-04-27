@@ -30,6 +30,10 @@ import {
   ClientHistoryResponse,
   ClientHistoryCreateRequest,
   ClientHistoryUpdateRequest,
+  InviteCandidateRequest,
+  InvitationCreatedResponse,
+  PublicInvitationResponse,
+  SelfRegisterRequest,
 } from '../types/api';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
@@ -261,10 +265,24 @@ class ApiService {
     });
   }
 
-  async closeJob(id: number): Promise<void> {
-    return this.request<void>(`/jobs/${id}/close`, {
-      method: 'PATCH',
+  async closeJobWithValue(
+    id: number,
+    body: { finalValue: number; closedAt?: string; notes?: string },
+  ): Promise<JobDTO> {
+    return this.request<JobDTO>(`/jobs/${id}/close`, {
+      method: 'POST',
+      body: JSON.stringify(body),
     });
+  }
+
+  async probeJestor(table?: string, sampleSize: number = 5): Promise<{
+    table: string;
+    sampleCount: number;
+    allKeys: string[];
+    sampleRecord: Record<string, unknown> | null;
+  }> {
+    const query = this.buildQueryParams({ table, sampleSize });
+    return this.request(`/jestor/probe${query ? '?' + query : ''}`);
   }
 
   async toggleJobFeatured(id: number, featured: boolean): Promise<void> {
@@ -770,6 +788,130 @@ class ApiService {
     return this.request<void>(`/client-history/${id}`, {
       method: 'DELETE',
     });
+  }
+
+  // =====================
+  // Public Invitation API (no auth headers)
+  // =====================
+  async getPublicInvitation(token: string): Promise<PublicInvitationResponse> {
+    const url = `${API_BASE_URL}/public/invitations/${encodeURIComponent(token)}`;
+    const res = await fetch(url, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) {
+      if (res.status === 410 || res.status === 404) {
+        throw new Error('INVITATION_INVALID');
+      }
+      throw new Error(`Failed to fetch invitation: ${res.status}`);
+    }
+    return res.json();
+  }
+
+  async submitSelfRegister(token: string, body: SelfRegisterRequest): Promise<void> {
+    const url = `${API_BASE_URL}/public/invitations/${encodeURIComponent(token)}/register`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      if (res.status === 410) throw new Error('INVITATION_EXPIRED');
+      throw new Error(`Failed to register: ${res.status}`);
+    }
+  }
+
+  // =====================
+  // Candidate Invitation Admin API
+  // =====================
+  async inviteCandidate(
+    req: InviteCandidateRequest,
+    headhunterId: number
+  ): Promise<{ status: number; data: InvitationCreatedResponse }> {
+    const url = `${API_BASE_URL}/candidate-invitations`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Headhunter-Id': String(headhunterId),
+      },
+      body: JSON.stringify(req),
+    });
+    const data = await res.json();
+    if (!res.ok && res.status !== 202) {
+      throw new Error(data?.message ?? `Failed: ${res.status}`);
+    }
+    return { status: res.status, data };
+  }
+
+  async resendInvitation(
+    candidateId: number,
+    headhunterId: number
+  ): Promise<{ status: number; data: InvitationCreatedResponse }> {
+    const url = `${API_BASE_URL}/candidate-invitations/resend?candidateId=${candidateId}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Headhunter-Id': String(headhunterId),
+      },
+    });
+    const data = await res.json();
+    if (!res.ok && res.status !== 202) {
+      throw new Error(data?.message ?? `Failed: ${res.status}`);
+    }
+    return { status: res.status, data };
+  }
+
+  async revokeInvitation(invitationId: number, headhunterId: number): Promise<void> {
+    const url = `${API_BASE_URL}/candidate-invitations/${invitationId}`;
+    const res = await fetch(url, {
+      method: 'DELETE',
+      headers: { 'X-Headhunter-Id': String(headhunterId) },
+    });
+    if (!res.ok) throw new Error(`Failed to revoke: ${res.status}`);
+  }
+
+  async approveCandidate(candidateId: number, headhunterId: number): Promise<CandidateDTO> {
+    const url = `${API_BASE_URL}/candidate-invitations/candidates/${candidateId}/approve`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Headhunter-Id': String(headhunterId),
+      },
+    });
+    if (res.status === 409) {
+      const data = await res.json().catch(() => ({}));
+      const err = new Error(data?.message ?? 'Conflict');
+      (err as Error & { status: number }).status = 409;
+      throw err;
+    }
+    if (!res.ok) throw new Error(`Failed: ${res.status}`);
+    return res.json();
+  }
+
+  async rejectCandidate(
+    candidateId: number,
+    reason: string,
+    headhunterId: number
+  ): Promise<CandidateDTO> {
+    const url = `${API_BASE_URL}/candidate-invitations/candidates/${candidateId}/reject`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Headhunter-Id': String(headhunterId),
+      },
+      body: JSON.stringify({ reason }),
+    });
+    if (res.status === 409) {
+      const data = await res.json().catch(() => ({}));
+      const err = new Error(data?.message ?? 'Conflict');
+      (err as Error & { status: number }).status = 409;
+      throw err;
+    }
+    if (!res.ok) throw new Error(`Failed: ${res.status}`);
+    return res.json();
   }
 }
 

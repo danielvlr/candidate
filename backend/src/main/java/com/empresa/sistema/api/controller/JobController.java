@@ -181,15 +181,38 @@ public class JobController {
         return ResponseEntity.ok().build();
     }
 
+    @PostMapping("/promote-expired-warranty")
+    public ResponseEntity<Void> promoteExpiredWarrantyJobs() {
+        jobService.promoteExpiredWarrantyJobs();
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{id}/close")
+    public ResponseEntity<JobResponse> closeJobWithValue(
+            @PathVariable Long id,
+            @Valid @RequestBody com.empresa.sistema.api.dto.request.CloseJobRequest request) {
+        Job updated = jobService.closeJobWithValue(
+            id, request.getFinalValue(), request.getClosedAt(), request.getNotes());
+        return ResponseEntity.ok(jobMapper.toResponse(updated));
+    }
+
     @GetMapping("/kanban")
-    public ResponseEntity<Map<String, List<JobResponse>>> getAllJobsKanbanByStatus() {
-        Map<String, List<JobResponse>> result = jobService.getAllJobsKanbanByStatus();
+    public ResponseEntity<Map<String, List<JobResponse>>> getAllJobsKanbanByStatus(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate createdAfter,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate deadlineBefore,
+            @RequestParam(required = false) Integer warrantyExpiringIn) {
+        Map<String, List<JobResponse>> result = jobService.getAllJobsKanbanByStatus(
+            createdAfter, deadlineBefore, warrantyExpiringIn);
         return ResponseEntity.ok(result);
     }
 
     @GetMapping("/kanban/pipeline")
-    public ResponseEntity<Map<String, List<JobResponse>>> getAllJobsKanbanByPipeline() {
-        Map<String, List<JobResponse>> result = jobService.getAllJobsKanbanByPipeline();
+    public ResponseEntity<Map<String, List<JobResponse>>> getAllJobsKanbanByPipeline(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate createdAfter,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate deadlineBefore,
+            @RequestParam(required = false) Integer warrantyExpiringIn) {
+        Map<String, List<JobResponse>> result = jobService.getAllJobsKanbanByPipeline(
+            createdAfter, deadlineBefore, warrantyExpiringIn);
         return ResponseEntity.ok(result);
     }
 

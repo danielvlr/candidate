@@ -51,6 +51,7 @@ const ClientList: React.FC = () => {
   const { selectedHeadhunterId } = useHeadhunterFilter();
   const { selectedId: selectedClientIdRow, selectedCount, handleRowClick, handleRowMouseDown, clearSelection, isSelected } = useListSelection<ClientDTO>();
   const [clients, setClients] = useState<ClientDTO[]>([]);
+  const [jobsCountByClient, setJobsCountByClient] = useState<Record<number, number>>({});
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
@@ -62,18 +63,33 @@ const ClientList: React.FC = () => {
     const load = async () => {
       setLoading(true);
       try {
-        const allClients = await apiService.getActiveClients();
+        const [allClients, jobsPage] = await Promise.all([
+          apiService.getActiveClients(),
+          apiService.getJobs({ page: 0, size: 500 }),
+        ]);
+        const allJobs = jobsPage.content || [];
+        const scoped = selectedHeadhunterId
+          ? allJobs.filter((j) => j.headhunterId === selectedHeadhunterId)
+          : allJobs;
+
+        // Conta apenas vagas em aberto (status ACTIVE).
+        const counts: Record<number, number> = {};
+        for (const j of scoped) {
+          if (j.status !== 'ACTIVE') continue;
+          if (j.clientId != null) counts[j.clientId] = (counts[j.clientId] ?? 0) + 1;
+        }
+        setJobsCountByClient(counts);
+
         if (selectedHeadhunterId) {
-          const jobs = await apiService.getJobs({ page: 0, size: 500 });
-          const hhJobs = (jobs.content || []).filter((j: any) => j.headhunterId === selectedHeadhunterId);
-          const clientIds = new Set(hhJobs.map((j: any) => j.clientId).filter(Boolean));
-          setClients(allClients.filter(c => c.id && clientIds.has(c.id)));
+          const clientIds = new Set(Object.keys(counts).map((k) => Number(k)));
+          setClients(allClients.filter((c) => c.id && clientIds.has(c.id)));
         } else {
           setClients(allClients);
         }
       } catch (err) {
         console.error('Error loading clients:', err);
         setClients([]);
+        setJobsCountByClient({});
       } finally {
         setLoading(false);
       }
@@ -111,8 +127,15 @@ const ClientList: React.FC = () => {
     if (filters.type) {
       result = result.filter(c => c.type === filters.type);
     }
+    // Ordena por quantidade de vagas (desc), com nome como desempate.
+    result = [...result].sort((a, b) => {
+      const ca = a.id != null ? jobsCountByClient[a.id] ?? 0 : 0;
+      const cb = b.id != null ? jobsCountByClient[b.id] ?? 0 : 0;
+      if (cb !== ca) return cb - ca;
+      return a.companyName.localeCompare(b.companyName, 'pt-BR');
+    });
     return result;
-  }, [clients, searchQuery, filters]);
+  }, [clients, searchQuery, filters, jobsCountByClient]);
 
   const totalPages = Math.ceil(filteredClients.length / pageSize);
   const paginatedClients = filteredClients.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
@@ -245,7 +268,13 @@ const ClientList: React.FC = () => {
 
       {/* Results */}
       <Card>
-        <CardHeader action={<span className="text-sm text-gray-500 dark:text-gray-400">{filteredClients.length} empresas</span>}>
+        <CardHeader
+          action={
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              {filteredClients.length} empresas · ordenadas por vagas em aberto ↓
+            </span>
+          }
+        >
           <h2 className="text-sm font-semibold text-gray-900 dark:text-white/90">Resultados</h2>
         </CardHeader>
 
@@ -279,6 +308,21 @@ const ClientList: React.FC = () => {
                       <h3 className="text-sm font-semibold text-gray-900 dark:text-white/90 truncate">{client.companyName}</h3>
                       {client.status && (<Badge variant={clientStatusVariant[client.status] as any}>{clientStatusLabel[client.status]}</Badge>)}
                       {client.type && (<Badge variant="info">{clientTypeLabel[client.type]}</Badge>)}
+                      {(() => {
+                        const count = client.id != null ? jobsCountByClient[client.id] ?? 0 : 0;
+                        return (
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                              count > 0
+                                ? 'bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-300'
+                                : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+                            }`}
+                            title={`${count} ${count === 1 ? 'vaga em aberto' : 'vagas em aberto'}`}
+                          >
+                            💼 {count} {count === 1 ? 'vaga em aberto' : 'vagas em aberto'}
+                          </span>
+                        );
+                      })()}
                     </div>
                     {client.industry && (<p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">{client.industry}</p>)}
                     {(client.city || client.state) && (<p className="text-xs text-gray-500 dark:text-gray-400 truncate">{[client.city, client.state].filter(Boolean).join(', ')}</p>)}

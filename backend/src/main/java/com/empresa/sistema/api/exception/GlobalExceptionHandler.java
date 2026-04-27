@@ -2,6 +2,9 @@ package com.empresa.sistema.api.exception;
 
 import com.empresa.sistema.domain.service.exception.BusinessException;
 import com.empresa.sistema.domain.service.exception.ResourceNotFoundException;
+import com.empresa.sistema.domain.service.exception.InvalidInvitationException;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -13,6 +16,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -55,6 +59,41 @@ public class GlobalExceptionHandler {
             errors
         );
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(validationError);
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalState(IllegalStateException ex) {
+        log.warn("illegal_state: {}", ex.getMessage());
+        ErrorResponse error = new ErrorResponse(
+            HttpStatus.CONFLICT.value(),
+            "Conflict",
+            ex.getMessage(),
+            LocalDateTime.now()
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+    }
+
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleOptimisticLock(OptimisticLockingFailureException ex) {
+        log.warn("optimistic_lock: {}", ex.getMessage());
+        ErrorResponse error = new ErrorResponse(
+            HttpStatus.CONFLICT.value(),
+            "Conflict",
+            "Recurso foi modificado por outra operação. Tente novamente.",
+            LocalDateTime.now()
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+    }
+
+    @ExceptionHandler(InvalidInvitationException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidInvitation(InvalidInvitationException ex) {
+        ErrorResponse error = new ErrorResponse(
+            HttpStatus.GONE.value(),
+            "Gone",
+            ex.getMessage(),
+            LocalDateTime.now()
+        );
+        return ResponseEntity.status(HttpStatus.GONE).body(error);
     }
 
     @ExceptionHandler(Exception.class)

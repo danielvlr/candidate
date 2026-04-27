@@ -1,10 +1,22 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router";
-import { Badge, Card, CardBody, CardHeader, EmptyState, SkeletonStatCard } from "../../components/ui";
+import { Card, CardBody, CardHeader, SkeletonStatCard } from "../../components/ui";
 import { useClientFilter } from "../../context/ClientFilterContext";
 import { useHeadhunterFilter } from "../../context/HeadhunterFilterContext";
 import apiService from "../../services/api";
-import { JobHistoryDTO, HistoryType } from "../../types/api";
+import {
+  CandidateDTO,
+  ClientDTO,
+  HeadhunterDTO,
+  JobDTO,
+  JobFilters,
+  JobHistoryDTO,
+  ShortlistDTO,
+  WarrantyDTO,
+  WarrantyStatus,
+} from "../../types/api";
+import { ActivityDigest, ActivityEvent, buildActivityFeed, buildDigest } from "./activityFeed";
+import { RecentActivityCard } from "./RecentActivityCard";
 
 interface DashboardStats {
   totalHeadhunters: number;
@@ -13,56 +25,179 @@ interface DashboardStats {
   totalClients: number;
 }
 
-const HISTORY_TYPE_LABEL: Record<HistoryType, string> = {
-  [HistoryType.NOTE]: 'Nota',
-  [HistoryType.INTERVIEW_SCHEDULED]: 'Entrevista Agendada',
-  [HistoryType.INTERVIEW_COMPLETED]: 'Entrevista Realizada',
-  [HistoryType.FEEDBACK_RECEIVED]: 'Feedback',
-  [HistoryType.STATUS_CHANGED]: 'Status Alterado',
-  [HistoryType.SHORTLIST_SENT]: 'Shortlist Enviada',
-  [HistoryType.CANDIDATE_APPLIED]: 'Candidato Inscrito',
-  [HistoryType.CANDIDATE_CONTACTED]: 'Candidato Contatado',
-  [HistoryType.CLIENT_MEETING]: 'Reunião com Cliente',
-  [HistoryType.TECHNICAL_TEST]: 'Teste Técnico',
-  [HistoryType.REFERENCE_CHECK]: 'Checagem de Referências',
-  [HistoryType.OFFER_MADE]: 'Proposta Enviada',
-  [HistoryType.OFFER_ACCEPTED]: 'Proposta Aceita',
-  [HistoryType.OFFER_REJECTED]: 'Proposta Recusada',
-  [HistoryType.CONTRACT_SIGNED]: 'Contrato Assinado',
-  [HistoryType.CANDIDATE_STARTED]: 'Candidato Contratado',
-  [HistoryType.GUARANTEE_PERIOD]: 'Período de Garantia',
-  [HistoryType.OTHER]: 'Outro',
-};
+const ACTIVITY_WINDOW_DAYS = 30;
+const RECENT_JOBS_FOR_HISTORY = 30;
 
-const HISTORY_DOT_COLOR: Partial<Record<HistoryType, { bg: string; dot: string }>> = {
-  [HistoryType.SHORTLIST_SENT]: { bg: 'bg-blue-50 dark:bg-blue-500/10', dot: 'bg-blue-500' },
-  [HistoryType.CANDIDATE_APPLIED]: { bg: 'bg-blue-50 dark:bg-blue-500/10', dot: 'bg-blue-500' },
-  [HistoryType.CANDIDATE_CONTACTED]: { bg: 'bg-blue-50 dark:bg-blue-500/10', dot: 'bg-blue-500' },
-  [HistoryType.INTERVIEW_SCHEDULED]: { bg: 'bg-purple-50 dark:bg-purple-500/10', dot: 'bg-purple-500' },
-  [HistoryType.INTERVIEW_COMPLETED]: { bg: 'bg-purple-50 dark:bg-purple-500/10', dot: 'bg-purple-500' },
-  [HistoryType.TECHNICAL_TEST]: { bg: 'bg-purple-50 dark:bg-purple-500/10', dot: 'bg-purple-500' },
-  [HistoryType.FEEDBACK_RECEIVED]: { bg: 'bg-success-50 dark:bg-success-500/10', dot: 'bg-success-500' },
-  [HistoryType.OFFER_MADE]: { bg: 'bg-success-50 dark:bg-success-500/10', dot: 'bg-success-500' },
-  [HistoryType.OFFER_ACCEPTED]: { bg: 'bg-success-50 dark:bg-success-500/10', dot: 'bg-success-500' },
-  [HistoryType.CONTRACT_SIGNED]: { bg: 'bg-success-50 dark:bg-success-500/10', dot: 'bg-success-500' },
-  [HistoryType.CANDIDATE_STARTED]: { bg: 'bg-success-50 dark:bg-success-500/10', dot: 'bg-success-500' },
-  [HistoryType.OFFER_REJECTED]: { bg: 'bg-red-50 dark:bg-red-500/10', dot: 'bg-red-500' },
-  [HistoryType.CLIENT_MEETING]: { bg: 'bg-amber-50 dark:bg-amber-500/10', dot: 'bg-amber-500' },
-  [HistoryType.GUARANTEE_PERIOD]: { bg: 'bg-amber-50 dark:bg-amber-500/10', dot: 'bg-amber-500' },
-};
+async function fetchScopedJobs(
+  selectedClientId: number | null,
+  selectedHeadhunterId: number | null,
+): Promise<JobDTO[]> {
+  const filters: JobFilters = {};
+  if (selectedClientId) filters.clientId = selectedClientId;
+  const page = await apiService.getJobs({ page: 0, size: 500 }, filters);
+  let jobs = page.content;
+  if (selectedHeadhunterId) {
+    jobs = jobs.filter((j) => j.headhunterId === selectedHeadhunterId);
+  }
+  return jobs;
+}
 
-const DEFAULT_DOT = { bg: 'bg-gray-100 dark:bg-gray-700', dot: 'bg-gray-400' };
+async function fetchHistoryForJobs(jobs: JobDTO[]): Promise<JobHistoryDTO[]> {
+  const ids = jobs
+    .map((j) => j.id)
+    .filter((id): id is number => id !== undefined)
+    .slice(0, RECENT_JOBS_FOR_HISTORY);
+  if (ids.length === 0) return [];
+  const results = await Promise.all(
+    ids.map((id) => apiService.getJobHistory(id).catch(() => [] as JobHistoryDTO[])),
+  );
+  return results.flat();
+}
 
-function formatRelativeTime(dateStr: string): string {
-  const date = new Date(dateStr);
-  const diff = Date.now() - date.getTime();
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 60) return `${minutes}min atras`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h atras`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d atras`;
-  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+async function fetchShortlistsForJobs(
+  jobs: JobDTO[],
+): Promise<{ sl: ShortlistDTO; jobTitle?: string; clientName?: string }[]> {
+  const recent = jobs.slice(0, RECENT_JOBS_FOR_HISTORY);
+  if (recent.length === 0) return [];
+  const results = await Promise.all(
+    recent.map((j) =>
+      j.id
+        ? apiService.getShortlistsByJob(j.id).catch(() => [] as ShortlistDTO[])
+        : Promise.resolve([] as ShortlistDTO[]),
+    ),
+  );
+  return results.flatMap((sls, idx) =>
+    sls.map((sl) => ({
+      sl,
+      jobTitle: recent[idx].title,
+      clientName: recent[idx].client?.companyName ?? recent[idx].companyName,
+    })),
+  );
+}
+
+async function fetchWarranties(
+  selectedClientId: number | null,
+  selectedHeadhunterId: number | null,
+): Promise<WarrantyDTO[]> {
+  const [expiring, breached, expired] = await Promise.all([
+    apiService.getWarranties(WarrantyStatus.EXPIRING_SOON).catch(() => [] as WarrantyDTO[]),
+    apiService.getWarranties(WarrantyStatus.BREACHED).catch(() => [] as WarrantyDTO[]),
+    apiService.getWarranties(WarrantyStatus.EXPIRED).catch(() => [] as WarrantyDTO[]),
+  ]);
+  let merged = [...expiring, ...breached, ...expired];
+  if (selectedHeadhunterId) {
+    merged = merged.filter((w) => w.headhunterId === selectedHeadhunterId);
+  }
+  if (selectedClientId) {
+    merged = merged.filter((w) => w.clientName != null);
+  }
+  return merged;
+}
+
+interface FetchAllResult {
+  stats: DashboardStats;
+  events: ActivityEvent[];
+  digest: ActivityDigest;
+}
+
+async function fetchDashboardData(
+  selectedClientId: number | null,
+  selectedHeadhunterId: number | null,
+): Promise<FetchAllResult> {
+  if (selectedClientId || selectedHeadhunterId) {
+    const jobs = await fetchScopedJobs(selectedClientId, selectedHeadhunterId);
+
+    const [histories, shortlists, warranties] = await Promise.all([
+      fetchHistoryForJobs(jobs),
+      fetchShortlistsForJobs(jobs),
+      fetchWarranties(selectedClientId, selectedHeadhunterId),
+    ]);
+
+    const candidateIds = new Set<number>();
+    const clientIds = new Set<number>();
+    const headhunterIds = new Set<number>();
+    jobs.forEach((j) => {
+      if (j.clientId) clientIds.add(j.clientId);
+      if (j.headhunterId) headhunterIds.add(j.headhunterId);
+    });
+    shortlists.forEach((s) => candidateIds.add(s.sl.candidateId));
+
+    const events = buildActivityFeed({
+      histories,
+      warranties,
+      shortlists,
+      newJobs: jobs,
+      newCandidates: [],
+      newClients: [],
+      newHeadhunters: [],
+      windowDays: ACTIVITY_WINDOW_DAYS,
+    });
+
+    return {
+      stats: {
+        activeJobs: jobs.length,
+        totalCandidates: candidateIds.size,
+        totalClients: clientIds.size,
+        totalHeadhunters: headhunterIds.size,
+      },
+      events,
+      digest: buildDigest(events, 7),
+    };
+  }
+
+  const [
+    jobsCount,
+    candidatesCount,
+    clientsCount,
+    headhuntersCount,
+    recentJobsPage,
+    recentCandidatesPage,
+    recentClientsPage,
+    recentHeadhuntersPage,
+    warranties,
+  ] = await Promise.all([
+    apiService.getJobs({ page: 0, size: 1 }),
+    apiService.getCandidates({ page: 0, size: 1 }),
+    apiService.getClients({ page: 0, size: 1 }),
+    apiService.getHeadhunters({ page: 0, size: 1 }),
+    apiService.getJobs({ page: 0, size: RECENT_JOBS_FOR_HISTORY, sort: 'createdAt,desc' }),
+    apiService.getCandidates({ page: 0, size: 20, sort: 'createdAt,desc' }),
+    apiService.getClients({ page: 0, size: 20, sort: 'createdAt,desc' }),
+    apiService.getHeadhunters({ page: 0, size: 20, sort: 'createdAt,desc' }),
+    fetchWarranties(null, null),
+  ]);
+
+  const recentJobs: JobDTO[] = recentJobsPage.content;
+  const recentCandidates: CandidateDTO[] = recentCandidatesPage.content;
+  const recentClients: ClientDTO[] = recentClientsPage.content;
+  const recentHeadhunters: HeadhunterDTO[] = recentHeadhuntersPage.content;
+
+  const [histories, shortlists] = await Promise.all([
+    fetchHistoryForJobs(recentJobs),
+    fetchShortlistsForJobs(recentJobs),
+  ]);
+
+  const events = buildActivityFeed({
+    histories,
+    warranties,
+    shortlists,
+    newJobs: recentJobs,
+    newCandidates: recentCandidates,
+    newClients: recentClients,
+    newHeadhunters: recentHeadhunters,
+    windowDays: ACTIVITY_WINDOW_DAYS,
+  });
+
+  return {
+    stats: {
+      activeJobs: jobsCount.totalElements,
+      totalCandidates: candidatesCount.totalElements,
+      totalClients: clientsCount.totalElements,
+      totalHeadhunters: headhuntersCount.totalElements,
+    },
+    events,
+    digest: buildDigest(events, 7),
+  };
 }
 
 export default function AdminHome() {
@@ -70,107 +205,56 @@ export default function AdminHome() {
   const { selectedClientId, selectedClient } = useClientFilter();
   const { selectedHeadhunterId } = useHeadhunterFilter();
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [recentHistory, setRecentHistory] = useState<JobHistoryDTO[]>([]);
+  const [events, setEvents] = useState<ActivityEvent[]>([]);
+  const [digest, setDigest] = useState<ActivityDigest>({
+    offersAccepted: 0,
+    contractsSigned: 0,
+    warrantiesExpiring: 0,
+    warrantiesBreached: 0,
+    interviews: 0,
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        if (selectedClientId || selectedHeadhunterId) {
-          // Filtered mode
-          const filters: any = {};
-          if (selectedClientId) filters.clientId = selectedClientId;
-          const jobs = await apiService.getJobs({ page: 0, size: 500 }, filters);
-
-          let filteredJobs = jobs.content;
-          if (selectedHeadhunterId) {
-            filteredJobs = filteredJobs.filter((j: any) => j.headhunterId === selectedHeadhunterId);
-          }
-
-          const jobIds = filteredJobs.map((j) => j.id).filter((id): id is number => id !== undefined);
-
-          // Fetch applications + history for filtered jobs
-          const jobIdsForFetch = jobIds.slice(0, 30);
-          let allHistory: JobHistoryDTO[] = [];
-          let uniqueCandidateIds = new Set<number>();
-
-          if (jobIdsForFetch.length > 0) {
-            const [historyResults, appResults] = await Promise.all([
-              Promise.all(jobIdsForFetch.map((id) => apiService.getJobHistory(id).catch(() => []))),
-              Promise.all(jobIdsForFetch.map((id) => apiService.getApplicationsByJob(id, { page: 0, size: 100 }).then(r => r.content || []).catch(() => []))),
-            ]);
-            allHistory = historyResults.flat();
-            appResults.flat().forEach((a: any) => {
-              if (a.candidate?.id) uniqueCandidateIds.add(a.candidate.id);
-            });
-          }
-          allHistory.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-          setRecentHistory(allHistory.slice(0, 10));
-
-          const uniqueHhIds = new Set(filteredJobs.map((j: any) => j.headhunterId).filter(Boolean));
-          const uniqueClientIds = new Set(filteredJobs.map((j: any) => j.clientId).filter(Boolean));
-
-          setStats({
-            activeJobs: filteredJobs.length,
-            totalCandidates: uniqueCandidateIds.size,
-            totalClients: uniqueClientIds.size,
-            totalHeadhunters: uniqueHhIds.size,
-          });
-        } else {
-          // Global mode: fetch totals + recent jobs for history
-          const [jobs, candidates, clients, headhunters, recentJobs] = await Promise.all([
-            apiService.getJobs({ page: 0, size: 1 }),
-            apiService.getCandidates({ page: 0, size: 1 }),
-            apiService.getClients({ page: 0, size: 1 }),
-            apiService.getHeadhunters({ page: 0, size: 1 }),
-            apiService.getJobs({ page: 0, size: 10 }),
-          ]);
-
-          setStats({
-            activeJobs: jobs.totalElements,
-            totalCandidates: candidates.totalElements,
-            totalClients: clients.totalElements,
-            totalHeadhunters: headhunters.totalElements,
-          });
-
-          // Fetch history from recent jobs
-          const recentJobIds = recentJobs.content
-            .map((j) => j.id)
-            .filter((id): id is number => id !== undefined);
-
-          if (recentJobIds.length > 0) {
-            const historyResults = await Promise.all(
-              recentJobIds.map((id) => apiService.getJobHistory(id).catch(() => []))
-            );
-            const allHistory = historyResults.flat();
-            allHistory.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-            setRecentHistory(allHistory.slice(0, 10));
-          } else {
-            setRecentHistory([]);
-          }
-        }
-      } catch {
+    let cancelled = false;
+    setLoading(true);
+    fetchDashboardData(selectedClientId ?? null, selectedHeadhunterId ?? null)
+      .then((result) => {
+        if (cancelled) return;
+        setStats(result.stats);
+        setEvents(result.events);
+        setDigest(result.digest);
+      })
+      .catch(() => {
+        if (cancelled) return;
         setStats({
-          totalHeadhunters: 12,
-          activeJobs: 32,
-          totalCandidates: 320,
-          totalClients: 8,
+          totalHeadhunters: 0,
+          activeJobs: 0,
+          totalCandidates: 0,
+          totalClients: 0,
         });
-        setRecentHistory([]);
-      } finally {
-        setLoading(false);
-      }
+        setEvents([]);
+        setDigest({
+          offersAccepted: 0,
+          contractsSigned: 0,
+          warrantiesExpiring: 0,
+          warrantiesBreached: 0,
+          interviews: 0,
+        });
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
     };
-
-    fetchData();
   }, [selectedClientId, selectedHeadhunterId]);
 
   const subtitle = selectedClient
     ? `Dados filtrados por: ${selectedClient.companyName}`
     : 'Visão geral da plataforma de recrutamento';
 
-  if (loading) {
+  if (loading && !stats) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
@@ -309,70 +393,12 @@ export default function AdminHome() {
           </CardBody>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <h3 className="text-base font-semibold text-gray-900 dark:text-white/90">
-              Atividade Recente
-              {selectedClient && (
-                <span className="text-xs font-normal text-gray-400 ml-2">
-                  {selectedClient.companyName}
-                </span>
-              )}
-            </h3>
-          </CardHeader>
-          <CardBody>
-            {recentHistory.length === 0 ? (
-              <EmptyState
-                title="Nenhuma atividade registrada"
-                description={selectedClient
-                  ? `Nenhuma atividade encontrada para ${selectedClient.companyName}.`
-                  : 'Nenhuma atividade recente encontrada.'}
-              />
-            ) : (
-              <div className="space-y-3 max-h-80 overflow-y-auto">
-                {recentHistory.map((entry) => {
-                  const colors = HISTORY_DOT_COLOR[entry.type] ?? DEFAULT_DOT;
-                  return (
-                    <div
-                      key={entry.id}
-                      className="flex items-start gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-white/[0.02] cursor-pointer transition-colors"
-                      onClick={() => entry.jobId && navigate(`/jobs/${entry.jobId}`)}
-                    >
-                      <div className={`flex items-center justify-center w-8 h-8 rounded-full ${colors.bg} flex-shrink-0 mt-0.5`}>
-                        <div className={`w-2.5 h-2.5 rounded-full ${colors.dot}`} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 dark:text-white/90 truncate">
-                          {entry.title}
-                        </p>
-                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                          <Badge variant="inactive" className="text-[10px]">
-                            {HISTORY_TYPE_LABEL[entry.type]}
-                          </Badge>
-                          {entry.jobTitle && (
-                            <span className="text-xs text-gray-400 dark:text-gray-500 truncate">
-                              {entry.jobTitle}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          {entry.headhunterName && (
-                            <span className="text-xs text-gray-400 dark:text-gray-500">
-                              {entry.headhunterName}
-                            </span>
-                          )}
-                          <span className="text-xs text-gray-400 dark:text-gray-500">
-                            {formatRelativeTime(entry.createdAt)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardBody>
-        </Card>
+        <RecentActivityCard
+          events={events}
+          digest={digest}
+          scopeLabel={selectedClient?.companyName}
+          loading={loading}
+        />
       </div>
     </div>
   );

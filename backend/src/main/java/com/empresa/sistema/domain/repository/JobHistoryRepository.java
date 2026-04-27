@@ -43,4 +43,9 @@ public interface JobHistoryRepository extends JpaRepository<JobHistory, Long> {
     long countByJobIdAndType(@Param("jobId") Long jobId, @Param("type") JobHistory.HistoryType type);
 
     List<JobHistory> findByStatusAndScheduledDateBeforeOrderByScheduledDateAsc(JobHistory.HistoryStatus status, LocalDateTime date);
+
+    @Query("SELECT jh.job.id, MAX(jh.createdAt) FROM JobHistory jh " +
+           "WHERE jh.type = com.empresa.sistema.domain.entity.JobHistory.HistoryType.STATUS_CHANGED " +
+           "GROUP BY jh.job.id")
+    List<Object[]> findMaxStatusChangedDateByJob();
 }

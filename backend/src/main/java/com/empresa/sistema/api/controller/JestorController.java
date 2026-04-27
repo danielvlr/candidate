@@ -1,5 +1,6 @@
 package com.empresa.sistema.api.controller;
 
+import com.empresa.sistema.config.JestorConfig;
 import com.empresa.sistema.domain.entity.SyncLog;
 import com.empresa.sistema.domain.repository.SyncLogRepository;
 import com.empresa.sistema.integration.jestor.JestorClient;
@@ -12,9 +13,13 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.TreeSet;
 
 @RestController
 @RequestMapping("/api/v1/jestor")
@@ -24,6 +29,7 @@ public class JestorController {
     private final JestorSyncService syncService;
     private final JestorClient jestorClient;
     private final SyncLogRepository syncLogRepository;
+    private final JestorConfig jestorConfig;
 
     @PostMapping("/sync")
     public ResponseEntity<List<SyncResult>> triggerSync() {
@@ -51,6 +57,44 @@ public class JestorController {
         try {
             Map<String, Object> result = jestorClient.getOrganization();
             return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Probe diagnóstico: retorna todas as chaves presentes em até `sampleSize` registros
+     * de uma tabela do Jestor + 1 registro completo de exemplo. Use para descobrir
+     * campos novos antes de mapear no JestorSyncService.
+     *
+     * Default table = jobs.
+     */
+    @GetMapping("/probe")
+    public ResponseEntity<Map<String, Object>> probe(
+            @RequestParam(required = false) String table,
+            @RequestParam(defaultValue = "5") int sampleSize) {
+        try {
+            String resolved = (table == null || table.isBlank()) ? jestorConfig.getJobsTable() : table;
+            int safeSize = Math.max(1, Math.min(sampleSize, 50));
+            var response = jestorClient.listRecords(resolved, 1, safeSize);
+            List<Map<String, Object>> records = new ArrayList<>();
+            if (response != null && response.isStatus() && response.getData() != null
+                    && response.getData().getItems() != null) {
+                records = response.getData().getItems();
+            }
+
+            Set<String> keys = new TreeSet<>();
+            for (Map<String, Object> r : records) {
+                if (r != null) keys.addAll(r.keySet());
+            }
+
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("table", resolved);
+            body.put("sampleCount", records.size());
+            body.put("allKeys", keys);
+            body.put("sampleRecord", records.isEmpty() ? null : records.get(0));
+            return ResponseEntity.ok(body);
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
                     .body(Map.of("error", e.getMessage()));

@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -254,9 +255,33 @@ public class JobService {
         }
     }
 
+    private boolean isWarrantyStageExpired(Job job, LocalDate today) {
+        if (job.getPipelineStage() != Job.PipelineStage.WARRANTY) return false;
+        if (job.getClosedAt() == null || job.getGuaranteeDays() == null) return false;
+        LocalDate warrantyEnd = job.getClosedAt().toLocalDate().plusDays(job.getGuaranteeDays());
+        return warrantyEnd.isBefore(today);
+    }
+
+    public void promoteExpiredWarrantyJobs() {
+        LocalDate today = LocalDate.now();
+        List<Job> warrantyJobs = jobRepository.findByPipelineStage(Job.PipelineStage.WARRANTY);
+        for (Job job : warrantyJobs) {
+            if (job.getClosedAt() == null || job.getGuaranteeDays() == null) continue;
+            LocalDate warrantyEnd = job.getClosedAt().toLocalDate().plusDays(job.getGuaranteeDays());
+            if (warrantyEnd.isBefore(today)) {
+                job.setPipelineStage(Job.PipelineStage.HIRED);
+                jobRepository.save(job);
+                recordHistory(job, JobHistory.HistoryType.STATUS_CHANGED,
+                    "Pipeline promovido WARRANTY -> HIRED: garantia de "
+                        + job.getGuaranteeDays() + "d expirou em " + warrantyEnd);
+            }
+        }
+    }
+
     @Transactional(readOnly = true)
-    public Map<String, List<JobResponse>> getAllJobsKanbanByStatus() {
-        List<Job> jobs = jobRepository.findAll();
+    public Map<String, List<JobResponse>> getAllJobsKanbanByStatus(LocalDate createdAfter,
+            LocalDate deadlineBefore, Integer warrantyExpiringIn) {
+        List<Job> jobs = applyKanbanDateFilters(jobRepository.findAll(), createdAfter, deadlineBefore, warrantyExpiringIn);
         return jobs.stream()
             .collect(Collectors.groupingBy(
                 j -> j.getStatus().name(),
@@ -264,8 +289,9 @@ public class JobService {
     }
 
     @Transactional(readOnly = true)
-    public Map<String, List<JobResponse>> getAllJobsKanbanByPipeline() {
-        List<Job> jobs = jobRepository.findAll();
+    public Map<String, List<JobResponse>> getAllJobsKanbanByPipeline(LocalDate createdAfter,
+            LocalDate deadlineBefore, Integer warrantyExpiringIn) {
+        List<Job> jobs = applyKanbanDateFilters(jobRepository.findAll(), createdAfter, deadlineBefore, warrantyExpiringIn);
         return jobs.stream()
             .collect(Collectors.groupingBy(
                 j -> j.getPipelineStage() != null ? j.getPipelineStage().name() : "SOURCING",
@@ -275,19 +301,8 @@ public class JobService {
     @Transactional(readOnly = true)
     public Map<String, List<JobResponse>> getJobsKanbanByStatus(Long headhunterId, LocalDate createdAfter,
             LocalDate deadlineBefore, Integer warrantyExpiringIn) {
-        List<Job> jobs = jobRepository.findByHeadhunterId(headhunterId);
-
-        if (createdAfter != null) {
-            jobs = jobs.stream()
-                .filter(j -> j.getCreatedAt() != null && !j.getCreatedAt().toLocalDate().isBefore(createdAfter))
-                .collect(Collectors.toList());
-        }
-        if (deadlineBefore != null) {
-            jobs = jobs.stream()
-                .filter(j -> j.getApplicationDeadline() != null && !j.getApplicationDeadline().isAfter(deadlineBefore))
-                .collect(Collectors.toList());
-        }
-
+        List<Job> jobs = applyKanbanDateFilters(jobRepository.findByHeadhunterId(headhunterId),
+            createdAfter, deadlineBefore, warrantyExpiringIn);
         return jobs.stream()
             .collect(Collectors.groupingBy(
                 j -> j.getStatus().name(),
@@ -297,23 +312,46 @@ public class JobService {
     @Transactional(readOnly = true)
     public Map<String, List<JobResponse>> getJobsKanbanByPipeline(Long headhunterId, LocalDate createdAfter,
             LocalDate deadlineBefore, Integer warrantyExpiringIn) {
-        List<Job> jobs = jobRepository.findByHeadhunterId(headhunterId);
-
-        if (createdAfter != null) {
-            jobs = jobs.stream()
-                .filter(j -> j.getCreatedAt() != null && !j.getCreatedAt().toLocalDate().isBefore(createdAfter))
-                .collect(Collectors.toList());
-        }
-        if (deadlineBefore != null) {
-            jobs = jobs.stream()
-                .filter(j -> j.getApplicationDeadline() != null && !j.getApplicationDeadline().isAfter(deadlineBefore))
-                .collect(Collectors.toList());
-        }
-
+        List<Job> jobs = applyKanbanDateFilters(jobRepository.findByHeadhunterId(headhunterId),
+            createdAfter, deadlineBefore, warrantyExpiringIn);
         return jobs.stream()
             .collect(Collectors.groupingBy(
                 j -> j.getPipelineStage() != null ? j.getPipelineStage().name() : "SOURCING",
                 Collectors.mapping(jobMapper::toResponse, Collectors.toList())));
+    }
+
+    private List<Job> applyKanbanDateFilters(List<Job> jobs, LocalDate createdAfter,
+            LocalDate deadlineBefore, Integer warrantyExpiringIn) {
+        LocalDate today = LocalDate.now();
+        List<Job> filtered = jobs.stream()
+            .filter(j -> !isWarrantyStageExpired(j, today))
+            .collect(Collectors.toList());
+
+        if (createdAfter != null) {
+            filtered = filtered.stream()
+                .filter(j -> j.getCreatedAt() != null && !j.getCreatedAt().toLocalDate().isBefore(createdAfter))
+                .collect(Collectors.toList());
+        }
+        if (deadlineBefore != null) {
+            filtered = filtered.stream()
+                .filter(j -> j.getApplicationDeadline() != null
+                    && !j.getApplicationDeadline().isBefore(today)
+                    && !j.getApplicationDeadline().isAfter(deadlineBefore))
+                .collect(Collectors.toList());
+        }
+        if (warrantyExpiringIn != null && warrantyExpiringIn > 0) {
+            LocalDate windowEnd = today.plusDays(warrantyExpiringIn);
+            filtered = filtered.stream()
+                .filter(j -> {
+                    if (j.getClosedAt() == null || j.getGuaranteeDays() == null) {
+                        return false;
+                    }
+                    LocalDate warrantyEnd = j.getClosedAt().toLocalDate().plusDays(j.getGuaranteeDays());
+                    return !warrantyEnd.isBefore(today) && !warrantyEnd.isAfter(windowEnd);
+                })
+                .collect(Collectors.toList());
+        }
+        return filtered;
     }
 
     public Job updatePipelineStage(Long jobId, Job.PipelineStage newStage) {
@@ -331,9 +369,35 @@ public class JobService {
             .orElseThrow(() -> new ResourceNotFoundException("Vaga não encontrada com ID: " + jobId));
         String oldStatus = job.getStatus() != null ? job.getStatus().name() : "N/A";
         JobStatusTransition.validate(job.getStatus(), newStatus);
+        if (newStatus == Job.JobStatus.CLOSED && job.getFinalValue() == null) {
+            throw new BusinessException(
+                "Para fechar a vaga é obrigatório informar o valor de fechamento. Use POST /api/v1/jobs/{id}/close.");
+        }
         job.setStatus(newStatus);
+        if (newStatus == Job.JobStatus.CLOSED && job.getClosedAt() == null) {
+            job.setClosedAt(LocalDateTime.now());
+        }
         Job saved = jobRepository.save(job);
         recordHistory(saved, JobHistory.HistoryType.STATUS_CHANGED, "Status alterado de " + oldStatus + " para " + newStatus.name());
+        return saved;
+    }
+
+    public Job closeJobWithValue(Long jobId, java.math.BigDecimal finalValue, LocalDateTime closedAt, String notes) {
+        Job job = jobRepository.findById(jobId)
+            .orElseThrow(() -> new ResourceNotFoundException("Vaga não encontrada com ID: " + jobId));
+        if (finalValue == null) {
+            throw new BusinessException("Valor de fechamento é obrigatório.");
+        }
+        String oldStatus = job.getStatus() != null ? job.getStatus().name() : "N/A";
+        JobStatusTransition.validate(job.getStatus(), Job.JobStatus.CLOSED);
+        job.setFinalValue(finalValue);
+        job.setStatus(Job.JobStatus.CLOSED);
+        job.setClosedAt(closedAt != null ? closedAt : LocalDateTime.now());
+        Job saved = jobRepository.save(job);
+        String detail = "Vaga fechada por R$ " + finalValue
+            + (notes != null && !notes.isBlank() ? " — " + notes : "");
+        recordHistory(saved, JobHistory.HistoryType.STATUS_CHANGED,
+            "Status alterado de " + oldStatus + " para CLOSED. " + detail);
         return saved;
     }
 

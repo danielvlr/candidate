@@ -4,8 +4,8 @@ import { apiService } from '../../services/api';
 import { CandidateDTO, PageResponse, CandidateFilters, PaginationParams } from '../../types/api';
 import { Badge, Button, Card, CardHeader, CardBody, EmptyState, Pagination, SkeletonCard } from '../../components/ui';
 import { useListSelection } from '../../hooks/useListSelection';
-import { useHeadhunterFilter } from '../../context/HeadhunterFilterContext';
 import { useClientFilter } from '../../context/ClientFilterContext';
+import InviteCandidateModal from '../../components/candidate/InviteCandidateModal';
 
 const getInitials = (name: string) =>
   name
@@ -26,9 +26,42 @@ const AVATAR_GRADIENTS = [
 const getGradient = (name: string) =>
   AVATAR_GRADIENTS[name.charCodeAt(0) % AVATAR_GRADIENTS.length];
 
+const statusLabel: Record<string, string> = {
+  ACTIVE: 'Ativo',
+  INACTIVE: 'Inativo',
+  HIRED: 'Contratado',
+  BLACKLISTED: 'Bloqueado',
+  INVITED: 'Convite enviado',
+  PENDING_APPROVAL: 'Aguardando aprovação',
+  REJECTED: 'Rejeitado',
+  EXPIRED_INVITE: 'Convite expirado',
+};
+
+const statusVariant: Record<string, string> = {
+  ACTIVE: 'active',
+  INACTIVE: 'inactive',
+  HIRED: 'hired',
+  BLACKLISTED: 'blacklisted',
+  INVITED: 'draft',
+  PENDING_APPROVAL: 'paused',
+  REJECTED: 'blacklisted',
+  EXPIRED_INVITE: 'closed',
+};
+
+const originLabel: Record<string, string> = {
+  MANUAL: 'Manual',
+  JESTOR: 'Jestor',
+  SELF_REGISTERED: 'Auto-cadastro',
+};
+
+const originVariant: Record<string, string> = {
+  MANUAL: 'info',
+  JESTOR: 'featured',
+  SELF_REGISTERED: 'draft',
+};
+
 const CandidateList: React.FC = () => {
   const navigate = useNavigate();
-  const { selectedHeadhunterId } = useHeadhunterFilter();
   const { selectedClientId } = useClientFilter();
   const { selectedId: selectedCandidateId, selectedCount, handleRowClick, handleRowMouseDown, clearSelection, isSelected } = useListSelection<CandidateDTO>();
   const [candidates, setCandidates] = useState<PageResponse<CandidateDTO> | null>(null);
@@ -38,6 +71,7 @@ const CandidateList: React.FC = () => {
   const [filters, setFilters] = useState<CandidateFilters>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
 
   const activeFilterCount = [filters.headline, filters.city, filters.minSalary]
     .filter(Boolean).length;
@@ -47,15 +81,12 @@ const CandidateList: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      if (selectedHeadhunterId || selectedClientId) {
-        // Filtered mode: get candidates via job applications
-        const jobFilters: any = {};
-        if (selectedClientId) jobFilters.clientId = selectedClientId;
+      if (selectedClientId) {
+        // Filtered mode: get candidates via job applications of the selected client.
+        // Headhunter combobox does NOT filter candidates — they are a global pool.
+        const jobFilters: any = { clientId: selectedClientId };
         const jobsResult = await apiService.getJobs({ page: 0, size: 500 }, jobFilters);
-        let jobs = jobsResult.content || [];
-        if (selectedHeadhunterId) {
-          jobs = jobs.filter((j: any) => j.headhunterId === selectedHeadhunterId);
-        }
+        const jobs = jobsResult.content || [];
         const jobIds = jobs.map((j: any) => j.id).filter(Boolean).slice(0, 50);
 
         const candidateIds = new Set<number>();
@@ -102,7 +133,7 @@ const CandidateList: React.FC = () => {
 
   useEffect(() => {
     fetchCandidates(0);
-  }, [filters, searchQuery, selectedHeadhunterId, selectedClientId]);
+  }, [filters, searchQuery, selectedClientId]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -181,9 +212,14 @@ const CandidateList: React.FC = () => {
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white/90">Candidatos</h1>
-          <Button variant="primary" onClick={() => navigate('/candidates/new')}>
-            Novo Candidato
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" onClick={() => setInviteModalOpen(true)}>
+              Convidar candidato
+            </Button>
+            <Button variant="primary" onClick={() => navigate('/candidates/new')}>
+              Novo Candidato
+            </Button>
+          </div>
         </div>
 
         {/* Search Form */}
@@ -358,17 +394,15 @@ const CandidateList: React.FC = () => {
                           <h3 className="text-sm font-semibold text-gray-900 dark:text-white/90 truncate">
                             {candidate.fullName}
                           </h3>
-                          {candidate.status === 'ACTIVE' && (
-                            <Badge variant="active">Ativo</Badge>
+                          {candidate.status && statusVariant[candidate.status] && (
+                            <Badge variant={statusVariant[candidate.status] as any}>
+                              {statusLabel[candidate.status] ?? candidate.status}
+                            </Badge>
                           )}
-                          {candidate.status === 'INACTIVE' && (
-                            <Badge variant="inactive">Inativo</Badge>
-                          )}
-                          {candidate.status === 'HIRED' && (
-                            <Badge variant="hired">Contratado</Badge>
-                          )}
-                          {candidate.status === 'BLACKLISTED' && (
-                            <Badge variant="blacklisted">Blacklisted</Badge>
+                          {candidate.origin && originVariant[candidate.origin] && (
+                            <Badge variant={originVariant[candidate.origin] as any}>
+                              {originLabel[candidate.origin] ?? candidate.origin}
+                            </Badge>
                           )}
                         </div>
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
@@ -416,6 +450,11 @@ const CandidateList: React.FC = () => {
           )}
         </>
       )}
+
+      <InviteCandidateModal
+        isOpen={inviteModalOpen}
+        onClose={() => setInviteModalOpen(false)}
+      />
     </div>
   );
 };

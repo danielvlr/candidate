@@ -208,7 +208,9 @@ const JobList: React.FC = () => {
     fetchJobs(0, false);
   }, [filters, searchQuery, selectedClientId, selectedHeadhunterId, selectedStatuses, viewMode, dateFrom, dateTo]);
 
-  // Fetch history for kanban cards (only active/paused/warranty - not closed)
+  // Fetch history for kanban cards (only active/paused/warranty - not closed).
+  // Reage também a invalidações pontuais do cache (handleDrop deleta a entry
+  // do job movido pra forçar refetch do histórico daquele card).
   useEffect(() => {
     if (viewMode !== 'kanban' || !jobs?.content?.length) return;
     const relevantJobs = jobs.content.filter(j => j.id && j.status !== 'CLOSED' && !jobHistoryCache[j.id]);
@@ -223,7 +225,7 @@ const JobList: React.FC = () => {
         return next;
       });
     });
-  }, [viewMode, jobs?.content?.length]);
+  }, [viewMode, jobs?.content?.length, jobHistoryCache]);
 
   // Infinite scroll sentinel
   const sentinelRef = useCallback((node: HTMLDivElement | null) => {
@@ -238,7 +240,38 @@ const JobList: React.FC = () => {
   }, [hasMore, currentPage, viewMode]);
 
   const handleDrop = async (jobId: number, targetStatus: string) => {
-    try { await apiService.updateJobStatus(jobId, targetStatus); fetchJobs(0); } catch { setError('Erro ao mover vaga'); }
+    const current = (jobs?.content || []).find(j => j.id === jobId);
+    if (!current || current.status === targetStatus) return;
+
+    // Confirmação obrigatória para transições delicadas:
+    // - PAUSED → ACTIVE: reativa uma vaga pausada (afeta SLA/ daysPaused).
+    // - CLOSED → WARRANTY (Reposição): reabre vaga já fechada para reposição.
+    const needsConfirm =
+      (current.status === 'PAUSED' && targetStatus === 'ACTIVE') ||
+      (current.status === 'CLOSED' && targetStatus === 'WARRANTY');
+    if (needsConfirm) {
+      const fromLabel = STATUS_CONFIG[current.status as StatusFilter]?.label ?? current.status;
+      const toLabel = STATUS_CONFIG[targetStatus as StatusFilter]?.label ?? targetStatus;
+      const ok = window.confirm(
+        `Mover "${current.title}" de "${fromLabel}" para "${toLabel}"?\n\n` +
+        'Essa ação registra histórico e altera o status da vaga.'
+      );
+      if (!ok) return;
+    }
+
+    try {
+      await apiService.updateJobStatus(jobId, targetStatus);
+      // Invalida cache de histórico desse job para o useEffect refazer o fetch
+      // e o card no kanban refletir a nova entrada de STATUS_CHANGED.
+      setJobHistoryCache(prev => {
+        const next = { ...prev };
+        delete next[jobId];
+        return next;
+      });
+      fetchJobs(0);
+    } catch {
+      setError('Erro ao mover vaga');
+    }
   };
 
   if (loading && !jobs) {
@@ -614,7 +647,17 @@ const JobList: React.FC = () => {
                   <>
                     <Button variant="secondary" size="sm" disabled={!single || single.status !== 'ACTIVE'} onClick={() => single && apiService.pauseJob(single.id!).then(() => fetchJobs(currentPage))}>Pausar</Button>
                     <Button variant="secondary" size="sm" disabled={!single || single.status !== 'PAUSED'} onClick={() => single && apiService.activateJob(single.id!).then(() => fetchJobs(currentPage))}>Ativar</Button>
-                    <Button variant="danger" size="sm" disabled={!single || single.status === 'CLOSED'} onClick={() => single && apiService.closeJob(single.id!).then(() => fetchJobs(currentPage))}>Fechar</Button>
+                    <Button variant="danger" size="sm" disabled={!single || single.status === 'CLOSED'} onClick={() => {
+                      if (!single) return;
+                      const raw = window.prompt('Informe o valor pelo qual a vaga foi fechada (R$):');
+                      if (raw == null) return;
+                      const parsed = parseFloat(raw.replace(',', '.'));
+                      if (Number.isNaN(parsed) || parsed < 0) {
+                        window.alert('Valor inválido. Informe um número >= 0.');
+                        return;
+                      }
+                      apiService.closeJobWithValue(single.id!, { finalValue: parsed }).then(() => fetchJobs(currentPage));
+                    }}>Fechar</Button>
                   </>
                 )}
                 <Button variant="ghost" size="sm" disabled={!single} onClick={() => single && navigate(`/jobs/${single.id}`)}>Detalhes</Button>

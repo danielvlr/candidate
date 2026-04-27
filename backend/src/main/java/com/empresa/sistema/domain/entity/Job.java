@@ -115,6 +115,37 @@ public class Job {
     @Column(name = "last_delivery_at")
     private LocalDateTime lastDeliveryAt;
 
+    // Campos importados do Jestor (vagas)
+    @Column(name = "first_delivery_at")
+    private LocalDateTime firstDeliveryAt;
+
+    @Column(name = "frozen_at")
+    private LocalDateTime frozenAt;
+
+    @Column(name = "commission_type", length = 80)
+    private String commissionType;
+
+    @Column(name = "seniority_label", length = 40)
+    private String seniorityLabel;
+
+    @Column(name = "state", length = 10)
+    private String state;
+
+    @Column(name = "is_replacement")
+    private Boolean isReplacement = false;
+
+    @Column(name = "is_confidential")
+    private Boolean isConfidential = false;
+
+    @Column(name = "contact_made")
+    private Boolean contactMade = false;
+
+    @Column(name = "closed_on_first_send")
+    private Boolean closedOnFirstSend = false;
+
+    @Column(name = "initial_checkin")
+    private Boolean initialCheckin = false;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
@@ -149,8 +180,8 @@ public class Job {
 
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
+        if (createdAt == null) createdAt = LocalDateTime.now();
+        if (updatedAt == null) updatedAt = LocalDateTime.now();
     }
 
     @PreUpdate

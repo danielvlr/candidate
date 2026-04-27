@@ -6,6 +6,7 @@ import com.empresa.sistema.domain.repository.*;
 import com.empresa.sistema.domain.repository.CandidateStatusLogRepository;
 import com.empresa.sistema.domain.repository.JobHistoryRepository;
 import com.empresa.sistema.domain.repository.WarrantyRuleRepository;
+import com.empresa.sistema.domain.service.InvitationTokenService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,6 +39,7 @@ public class JestorSyncService {
     private final JobApplicationRepository jobApplicationRepository;
     private final SyncLogRepository syncLogRepository;
     private final ObjectMapper objectMapper;
+    private final InvitationTokenService tokenService;
 
     public JestorSyncService(JestorClient jestorClient, JestorConfig config,
                              JobRepository jobRepository, ClientRepository clientRepository,
@@ -46,7 +48,8 @@ public class JestorSyncService {
                              CandidateStatusLogRepository candidateStatusLogRepository,
                              JobHistoryRepository jobHistoryRepository,
                              JobApplicationRepository jobApplicationRepository,
-                             SyncLogRepository syncLogRepository, ObjectMapper objectMapper) {
+                             SyncLogRepository syncLogRepository, ObjectMapper objectMapper,
+                             InvitationTokenService tokenService) {
         this.jestorClient = jestorClient;
         this.config = config;
         this.jobRepository = jobRepository;
@@ -59,6 +62,7 @@ public class JestorSyncService {
         this.jobApplicationRepository = jobApplicationRepository;
         this.syncLogRepository = syncLogRepository;
         this.objectMapper = objectMapper;
+        this.tokenService = tokenService;
     }
 
     /**
@@ -188,6 +192,16 @@ public class JestorSyncService {
                 .collect(Collectors.toMap(Headhunter::getJestorId, h -> h, (a, b) -> a));
             Client defaultClient = clientRepository.findAll().stream().findFirst().orElse(null);
 
+            // Pre-load: para cada job já existente, qual é a data do último STATUS_CHANGED
+            // no JobHistory. Usado para alinhar Job.updatedAt com a última atualização de
+            // status do histórico (em vez de marcar a data desta sync).
+            Map<Long, LocalDateTime> existingLastStatusByJobId = new HashMap<>();
+            for (Object[] row : jobHistoryRepository.findMaxStatusChangedDateByJob()) {
+                if (row[0] != null && row[1] != null) {
+                    existingLastStatusByJobId.put((Long) row[0], (LocalDateTime) row[1]);
+                }
+            }
+
             List<Job> jobBatch = new ArrayList<>();
             List<JobHistory> historyBatch = new ArrayList<>();
             Map<String, LocalDateTime> jestorDates = new HashMap<>();
@@ -202,9 +216,9 @@ public class JestorSyncService {
                     Job.JobStatus oldStatus = isNew ? null : job.getStatus();
                     job.setJestorId(jestorId);
 
-                    // Store Jestor creation date for history
+                    // Store Jestor creation date for history (sempre — usado p/ alinhar updatedAt)
                     String criadoEm = getStr(record, "criado_em");
-                    if (criadoEm != null && isNew) {
+                    if (criadoEm != null) {
                         try { jestorDates.put(jestorId, LocalDateTime.parse(criadoEm, DateTimeFormatter.ISO_OFFSET_DATE_TIME)); } catch (Exception ignored) {}
                     }
 
@@ -236,15 +250,73 @@ public class JestorSyncService {
                     String dataFechamento = getStr(record, "data_fechamento");
                     if (dataFechamento != null) { try { job.setClosedAt(LocalDate.parse(dataFechamento).atStartOfDay()); } catch (Exception ignored) {} }
 
+                    // Novos campos importados do Jestor
+                    String dataPrimeiroEnvio = getStr(record, "data_primeiro_envio");
+                    if (dataPrimeiroEnvio != null) {
+                        try { job.setFirstDeliveryAt(LocalDate.parse(dataPrimeiroEnvio).atStartOfDay()); } catch (Exception ignored) {}
+                    }
+                    String dataCongelamento = getStr(record, "data_congelamento");
+                    if (dataCongelamento != null) {
+                        try { job.setFrozenAt(LocalDate.parse(dataCongelamento).atStartOfDay()); } catch (Exception ignored) {}
+                    }
+                    String tipo = getStr(record, "tipo");
+                    if (tipo != null && !tipo.isBlank()) job.setCommissionType(tipo.length() > 80 ? tipo.substring(0, 80) : tipo);
+                    String senioridade = getStr(record, "senioridade");
+                    if (senioridade != null && !senioridade.isBlank()) job.setSeniorityLabel(senioridade.length() > 40 ? senioridade.substring(0, 40) : senioridade);
+                    String estado = getStr(record, "estado");
+                    if (estado != null && !estado.isBlank()) job.setState(estado.length() > 10 ? estado.substring(0, 10) : estado);
+                    Object reposicao = record.get("reposicao");
+                    if (reposicao instanceof Boolean b) job.setIsReplacement(b);
+                    Object confidencial = record.get("confidencial");
+                    if (confidencial instanceof Boolean b) job.setIsConfidential(b);
+                    Object contatoRealizado = record.get("contato_realizado");
+                    if (contatoRealizado instanceof Boolean b) job.setContactMade(b);
+                    Object fechadaNo1Envio = record.get("fechada_no_1_envio");
+                    if (fechadaNo1Envio instanceof Boolean b) job.setClosedOnFirstSend(b);
+                    Object checkinInicial = record.get("checkin_inicial");
+                    if (checkinInicial instanceof Boolean b) job.setInitialCheckin(b);
+                    // garantia: aceita Number (dias) -> grava em guaranteeDays
+                    Object garantia = record.get("garantia");
+                    if (garantia instanceof Number n) {
+                        job.setGuaranteeDays(n.intValue());
+                    } else if (garantia != null) {
+                        try { job.setGuaranteeDays(Integer.parseInt(String.valueOf(garantia).trim())); } catch (NumberFormatException ignored) {}
+                    }
+                    // limite: data deadline -> applicationDeadline (se ainda não definido)
+                    String limite = getStr(record, "limite");
+                    if (limite != null) {
+                        try { job.setApplicationDeadline(LocalDate.parse(limite)); } catch (Exception ignored) {}
+                    }
+
                     if (job.getClient() == null && defaultClient != null) {
                         job.setClient(defaultClient);
                         if (job.getCompanyName() == null) job.setCompanyName(defaultClient.getCompanyName());
                     }
 
-                    // Para jobs já existentes: se o status NÃO mudou nesta sync,
-                    // sinaliza @PreUpdate para preservar updatedAt (estabiliza
-                    // daysPaused — sync de outros campos não conta como "alteração").
-                    if (!isNew && Objects.equals(oldStatus, job.getStatus())) {
+                    // Alinhar Job.updatedAt com a última atualização de status do histórico.
+                    // Para jobs novos: usar criado_em do Jestor (data do "Vaga importada do Jestor"
+                    // que será criada abaixo no historyBatch — mesmo timestamp).
+                    // Para jobs existentes com status inalterado: usar último STATUS_CHANGED do
+                    // histórico já no DB (preserva semântica de "última atualização de status").
+                    // Para jobs existentes com status alterado: usar criado_em do Jestor (refletindo
+                    // que o Jestor já tem a mudança de status anterior à sync).
+                    LocalDateTime jestorTs = jestorDates.get(jestorId);
+                    LocalDateTime targetUpdatedAt;
+                    if (isNew) {
+                        targetUpdatedAt = jestorTs != null ? jestorTs : LocalDateTime.now();
+                        // createdAt para jobs novos também alinha com criado_em do Jestor.
+                        job.setCreatedAt(targetUpdatedAt);
+                    } else if (Objects.equals(oldStatus, job.getStatus())) {
+                        // Status inalterado → manter última data de STATUS_CHANGED do DB
+                        // (ou updatedAt atual se nunca houve mudança registrada).
+                        LocalDateTime lastFromHistory = existingLastStatusByJobId.get(job.getId());
+                        targetUpdatedAt = lastFromHistory != null ? lastFromHistory : job.getUpdatedAt();
+                    } else {
+                        // Status mudou nesta sync → usar timestamp do Jestor (ou now se ausente).
+                        targetUpdatedAt = jestorTs != null ? jestorTs : LocalDateTime.now();
+                    }
+                    if (targetUpdatedAt != null) {
+                        job.setUpdatedAt(targetUpdatedAt);
                         job.setSkipUpdatedAtBump(true);
                     }
 
@@ -298,8 +370,33 @@ public class JestorSyncService {
             for (Map<String, Object> record : records) {
                 try {
                     String jestorId = String.valueOf(record.get("id_" + config.getCandidatesTable()));
+
+                    // Collision check: if an existing candidate with this email is SELF_REGISTERED or MANUAL,
+                    // handle before touching the jestorId-keyed cache entry.
+                    String emailRaw = getStr(record, "email");
+                    if (emailRaw != null && !emailRaw.isBlank()) {
+                        Optional<Candidate> existingByEmail = candidateRepository.findByEmailIgnoreCase(emailRaw);
+                        if (existingByEmail.isPresent()) {
+                            Candidate ex = existingByEmail.get();
+                            if (ex.getOrigin() == CandidateOrigin.SELF_REGISTERED) {
+                                log.warn("jestor_collision_skipped jestor_id={} email={} existing_candidate_id={} origin=SELF_REGISTERED",
+                                         jestorId, tokenService.maskEmail(emailRaw), ex.getId());
+                                continue; // skip — do not overwrite self-registered record
+                            }
+                            if (ex.getOrigin() == CandidateOrigin.MANUAL) {
+                                log.warn("jestor_collision_overwriting_manual jestor_id={} email={} existing_candidate_id={} origin=MANUAL",
+                                         jestorId, tokenService.maskEmail(emailRaw), ex.getId());
+                                // proceed with normal update path — no skip
+                            }
+                            // origin == JESTOR: same record, normal update path
+                        }
+                    }
+
                     Candidate candidate = cache.getOrDefault(jestorId, new Candidate());
                     boolean isNew = candidate.getJestorId() == null;
+                    if (isNew) {
+                        candidate.setOrigin(CandidateOrigin.JESTOR);
+                    }
                     candidate.setJestorId(jestorId);
                     String name = getStr(record, "name");
                     if (name != null && !name.isBlank()) candidate.setFullName(name);

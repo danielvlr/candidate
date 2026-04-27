@@ -53,6 +53,9 @@ jestor:
   warranty-rules-table: ${JESTOR_WARRANTY_RULES_TABLE:jmvvn0on6in_39ft61na5}
   candidate-status-logs-table: ${JESTOR_CANDIDATE_STATUS_LOGS_TABLE:qhdl1u0f9qz4cepqb9214}
 
+app:
+  frontend-base-url: ${APP_FRONTEND_BASE_URL:http://localhost:5173}
+
 warranty:
   notification:
     cron: "0 0 8 * * MON-FRI"

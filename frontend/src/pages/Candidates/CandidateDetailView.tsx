@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiService } from '../../services/api';
 import { CandidateDTO } from '../../types/api';
-import { Badge, Button, Card, CardBody } from '../../components/ui';
+import { Badge, Button, Card, CardBody, Modal, useToast } from '../../components/ui';
 
 const getInitials = (name: string) =>
   name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
@@ -23,6 +23,10 @@ const statusLabel: Record<string, string> = {
   INACTIVE: 'Inativo',
   HIRED: 'Contratado',
   BLACKLISTED: 'Bloqueado',
+  INVITED: 'Convite enviado',
+  PENDING_APPROVAL: 'Aguardando aprovação',
+  REJECTED: 'Rejeitado',
+  EXPIRED_INVITE: 'Convite expirado',
 };
 
 const statusVariant: Record<string, string> = {
@@ -30,6 +34,10 @@ const statusVariant: Record<string, string> = {
   INACTIVE: 'inactive',
   HIRED: 'info',
   BLACKLISTED: 'blacklisted',
+  INVITED: 'draft',
+  PENDING_APPROVAL: 'paused',
+  REJECTED: 'blacklisted',
+  EXPIRED_INVITE: 'closed',
 };
 
 const workPrefLabel: Record<string, string> = {
@@ -41,6 +49,7 @@ const workPrefLabel: Record<string, string> = {
 const CandidateDetailView: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const { addToast } = useToast();
   const [candidate, setCandidate] = useState<CandidateDTO | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,6 +57,16 @@ const CandidateDetailView: React.FC = () => {
   const [editingNotes, setEditingNotes] = useState(false);
   const [savingNotes, setSavingNotes] = useState(false);
   const [timeline, setTimeline] = useState<{ id: string; type: 'app' | 'log'; status: string; label: string; subtitle: string; date: string; badgeColor: string; badgeLabel: string; headhunterName: string }[]>([]);
+
+  // Approval / rejection state
+  const [approving, setApproving] = useState(false);
+  const [rejectModalOpen, setRejectModalOpen] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [rejecting, setRejecting] = useState(false);
+  const [resending, setResending] = useState(false);
+
+  // TODO: pull from auth context when OAuth2 lands
+  const resolvedHeadhunterId = Number(localStorage.getItem('headhunter_id') ?? '1') || 1;
 
   useEffect(() => {
     if (id) {
@@ -118,6 +137,67 @@ const CandidateDetailView: React.FC = () => {
       setTimeline(items);
     } catch (err) {
       console.error('Error loading timeline:', err);
+    }
+  };
+
+  const handleApprove = async () => {
+    if (!candidate?.id) return;
+    try {
+      setApproving(true);
+      const updated = await apiService.approveCandidate(candidate.id, resolvedHeadhunterId);
+      setCandidate(updated);
+      addToast({ type: 'success', title: 'Candidato aprovado', message: `${candidate.fullName} foi aprovado com sucesso.` });
+    } catch (err: unknown) {
+      const e = err as Error & { status?: number };
+      if (e.status === 409) {
+        addToast({ type: 'warning', title: 'Decisão já registrada', message: 'Outro headhunter já decidiu sobre este candidato. Recarregando...' });
+        if (candidate.id) loadCandidate(candidate.id);
+      } else {
+        addToast({ type: 'error', title: 'Erro ao aprovar', message: e.message });
+      }
+    } finally {
+      setApproving(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!candidate?.id || !rejectionReason.trim()) return;
+    try {
+      setRejecting(true);
+      const updated = await apiService.rejectCandidate(candidate.id, rejectionReason.trim(), resolvedHeadhunterId);
+      setCandidate(updated);
+      setRejectModalOpen(false);
+      setRejectionReason('');
+      addToast({ type: 'info', title: 'Candidato rejeitado', message: `${candidate.fullName} foi rejeitado.` });
+    } catch (err: unknown) {
+      const e = err as Error & { status?: number };
+      if (e.status === 409) {
+        addToast({ type: 'warning', title: 'Decisão já registrada', message: 'Outro headhunter já decidiu sobre este candidato. Recarregando...' });
+        setRejectModalOpen(false);
+        if (candidate.id) loadCandidate(candidate.id);
+      } else {
+        addToast({ type: 'error', title: 'Erro ao rejeitar', message: e.message });
+      }
+    } finally {
+      setRejecting(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (!candidate?.id) return;
+    try {
+      setResending(true);
+      const { status, data } = await apiService.resendInvitation(candidate.id, resolvedHeadhunterId);
+      if (status === 201) {
+        addToast({ type: 'success', title: 'Convite reenviado', message: `Convite enviado para ${data.email}` });
+      } else {
+        addToast({ type: 'warning', title: 'Convite criado, mas e-mail não foi entregue', message: `Tente novamente mais tarde para ${data.email}` });
+      }
+    } catch (err: unknown) {
+      const e = err instanceof Error ? err : new Error('Erro ao reenviar convite');
+      addToast({ type: 'error', title: 'Erro ao reenviar', message: e.message });
+    } finally {
+      setResending(false);
     }
   };
 
@@ -200,6 +280,143 @@ const CandidateDetailView: React.FC = () => {
           </Button>
         </div>
       </div>
+
+      {/* ── PENDING_APPROVAL banner ─────────────────────────────────────── */}
+      {candidate.status === 'PENDING_APPROVAL' && (
+        <div className="rounded-xl border border-warning-200 bg-warning-50 dark:border-warning-700 dark:bg-warning-500/10 px-5 py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex items-start gap-3 flex-1">
+              <svg className="h-5 w-5 text-warning-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+              </svg>
+              <div>
+                <p className="text-sm font-semibold text-warning-800 dark:text-warning-300">
+                  Aguardando sua aprovação
+                </p>
+                <p className="text-xs text-warning-600 dark:text-warning-400 mt-0.5">
+                  Revise os dados do candidato e tome uma decisão abaixo.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleApprove}
+                loading={approving}
+                disabled={approving || rejecting}
+              >
+                Aprovar
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => setRejectModalOpen(true)}
+                disabled={approving || rejecting}
+              >
+                Rejeitar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── INVITED banner ───────────────────────────────────────────────── */}
+      {candidate.status === 'INVITED' && (
+        <div className="rounded-xl border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/50 px-5 py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex items-start gap-3 flex-1">
+              <svg className="h-5 w-5 text-gray-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              <div>
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                  Convite enviado
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  Aguardando o candidato preencher o cadastro via link de convite.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleResend}
+                loading={resending}
+                disabled={resending}
+              >
+                Reenviar convite
+              </Button>
+              {/* TODO: backend needs GET /candidates/{id}/invitations to retrieve invitationId for cancellation */}
+              <Button
+                variant="outline"
+                size="sm"
+                disabled
+                title="Indisponível: backend precisa expor GET /candidates/{id}/invitations"
+              >
+                Cancelar convite
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── REJECTED banner ──────────────────────────────────────────────── */}
+      {candidate.status === 'REJECTED' && (
+        <div className="rounded-xl border border-error-200 bg-error-50 dark:border-error-700 dark:bg-error-500/10 px-5 py-4">
+          <div className="flex items-start gap-3">
+            <svg className="h-5 w-5 text-error-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            <div>
+              <p className="text-sm font-semibold text-error-800 dark:text-error-300">
+                Candidato rejeitado
+                {candidate.rejectedAt && (
+                  <span className="font-normal ml-1">
+                    em {new Date(candidate.rejectedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                  </span>
+                )}
+              </p>
+              {candidate.rejectionReason && (
+                <p className="text-xs italic text-error-600 dark:text-error-400 mt-1">
+                  "{candidate.rejectionReason}"
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── EXPIRED_INVITE banner ────────────────────────────────────────── */}
+      {candidate.status === 'EXPIRED_INVITE' && (
+        <div className="rounded-xl border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/50 px-5 py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex items-start gap-3 flex-1">
+              <svg className="h-5 w-5 text-gray-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div>
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                  Convite expirado
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  O candidato não preencheu o cadastro antes do prazo. Reenvie um novo convite.
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleResend}
+              loading={resending}
+              disabled={resending}
+            >
+              Reenviar convite
+            </Button>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Info Principal */}
@@ -385,6 +602,27 @@ const CandidateDetailView: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Reject reason modal */}
+      <Modal
+        isOpen={rejectModalOpen}
+        onClose={() => { setRejectModalOpen(false); setRejectionReason(''); }}
+        title="Motivo da rejeição"
+        description="Informe o motivo para rejeitar este candidato. Esta informação ficará registrada no perfil."
+        confirmLabel="Confirmar rejeição"
+        cancelLabel="Cancelar"
+        onConfirm={handleReject}
+        variant="danger"
+        loading={rejecting}
+      >
+        <textarea
+          value={rejectionReason}
+          onChange={(e) => setRejectionReason(e.target.value)}
+          rows={4}
+          placeholder="Descreva o motivo da rejeição..."
+          className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white p-3 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 resize-none"
+        />
+      </Modal>
     </div>
   );
 };

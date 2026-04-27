@@ -4,10 +4,12 @@ import com.empresa.sistema.domain.entity.Candidate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -15,6 +17,8 @@ import java.util.Optional;
 public interface CandidateRepository extends JpaRepository<Candidate, Long> {
 
     Optional<Candidate> findByEmail(String email);
+
+    Optional<Candidate> findByEmailIgnoreCase(String email);
 
     List<Candidate> findByStatus(Candidate.CandidateStatus status);
 
@@ -54,4 +58,12 @@ public interface CandidateRepository extends JpaRepository<Candidate, Long> {
     boolean existsByEmail(String email);
 
     Optional<Candidate> findByJestorId(String jestorId);
+
+    @Modifying
+    @Query("UPDATE Candidate c SET c.status = com.empresa.sistema.domain.entity.Candidate.CandidateStatus.ACTIVE, " +
+           "c.approvedByHeadhunterId = :hhId, c.approvedAt = :now " +
+           "WHERE c.id = :id AND c.status = com.empresa.sistema.domain.entity.Candidate.CandidateStatus.PENDING_APPROVAL")
+    int approveIfPending(@Param("id") Long id,
+                         @Param("hhId") Long hhId,
+                         @Param("now") LocalDateTime now);
 }

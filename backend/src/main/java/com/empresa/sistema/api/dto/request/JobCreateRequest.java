@@ -7,7 +7,9 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Data
 @NoArgsConstructor
@@ -58,4 +60,10 @@ public class JobCreateRequest {
 
     @Builder.Default
     private Boolean isFeatured = false;
+
+    private BigDecimal jobValue;
+    private BigDecimal finalValue;
+    private Integer guaranteeDays;
+    private LocalDateTime closedAt;
+    private LocalDateTime lastDeliveryAt;
 }

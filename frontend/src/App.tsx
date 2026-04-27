@@ -31,6 +31,7 @@ import RoleBasedRoute from "./components/auth/RoleBasedRoute";
 // import WarrantyDashboard from "./pages/Warranty/WarrantyDashboard";
 // import WarrantyRules from "./pages/Warranty/WarrantyRules";
 import JestorSyncPage from "./pages/Settings/JestorSyncPage";
+import PublicRegisterPage from "./pages/PublicRegister/PublicRegisterPage";
 
 // Component to determine which dashboard to show based on role
 const DashboardRoute = () => {
@@ -134,6 +135,9 @@ export default function App() {
               <Route path="/calendar" element={<Calendar />} />
               <Route path="/blank" element={<Blank />} />
             </Route>
+
+            {/* Public Registration (no auth required) */}
+            <Route path="/register/:token" element={<PublicRegisterPage />} />
 
             {/* Auth Layout */}
             <Route path="/signin" element={<SignIn />} />

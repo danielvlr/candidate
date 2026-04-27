@@ -7,7 +7,9 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Data
 @NoArgsConstructor
@@ -53,4 +55,22 @@ public class JobUpdateRequest {
     private String externalUrl;
     private Boolean isUrgent;
     private Boolean isFeatured;
+
+    private BigDecimal jobValue;
+    private BigDecimal finalValue;
+    private Integer guaranteeDays;
+    private LocalDateTime closedAt;
+    private LocalDateTime lastDeliveryAt;
+
+    // Campos importados do Jestor
+    private LocalDateTime firstDeliveryAt;
+    private LocalDateTime frozenAt;
+    private String commissionType;
+    private String seniorityLabel;
+    private String state;
+    private Boolean isReplacement;
+    private Boolean isConfidential;
+    private Boolean contactMade;
+    private Boolean closedOnFirstSend;
+    private Boolean initialCheckin;
 }

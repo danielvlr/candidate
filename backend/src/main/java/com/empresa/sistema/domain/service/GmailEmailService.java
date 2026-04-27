@@ -1,12 +1,16 @@
 package com.empresa.sistema.domain.service;
 
+import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 @Service
@@ -53,6 +57,41 @@ public class GmailEmailService implements EmailService {
         } catch (Exception e) {
             log.error("Failed to send warranty expiration alert to {} for job '{}': {}", to, jobTitle, e.getMessage());
             throw e;
+        }
+    }
+
+    public void sendInvite(String toEmail, String candidateName, String invitationUrl,
+                           LocalDateTime expiresAt, String headhunterName) throws MailException {
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+        String formattedExpiry = expiresAt.format(fmt);
+        String safeName = candidateName != null ? candidateName : "candidato(a)";
+
+        String subject = "Convite para cadastro - Sistema de Recrutamento";
+        String html = """
+            <!DOCTYPE html>
+            <html><head><meta charset="UTF-8"></head>
+            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
+                <h2 style="color: #4f46e5;">Convite para Cadastro</h2>
+                <p>Olá <strong>%s</strong>,</p>
+                <p><strong>%s</strong> te convidou para se cadastrar no nosso sistema de recrutamento.</p>
+                <p style="margin: 24px 0;">
+                    <a href="%s" style="background:#4f46e5;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;">Fazer cadastro</a>
+                </p>
+                <p style="color:#666;font-size:13px;">Este link é válido até <strong>%s</strong>.</p>
+                <p style="color:#999;font-size:12px;margin-top:32px;">Se você não conhece o remetente, ignore este email.</p>
+            </body></html>
+            """.formatted(safeName, headhunterName, invitationUrl, formattedExpiry);
+
+        try {
+            MimeMessage msg = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(msg, false, "UTF-8");
+            helper.setTo(toEmail);
+            helper.setSubject(subject);
+            helper.setText(html, true);
+            mailSender.send(msg);
+            log.info("Invite email sent to {}", toEmail);
+        } catch (jakarta.mail.MessagingException e) {
+            throw new org.springframework.mail.MailSendException("Failed to build invite email", e);
         }
     }
 }

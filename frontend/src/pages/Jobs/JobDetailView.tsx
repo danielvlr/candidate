@@ -279,14 +279,22 @@ const JobDetailView: React.FC = () => {
           await apiService.pauseJob(job.id);
           addToast({ type: 'success', title: 'Vaga pausada com sucesso' });
           break;
-        case 'close':
-          if (closingFinalValue) {
-            await apiService.updateJob(job.id, { ...job, finalValue: parseFloat(closingFinalValue) } as any);
+        case 'close': {
+          const parsed = parseFloat(closingFinalValue);
+          if (!closingFinalValue || Number.isNaN(parsed) || parsed < 0) {
+            addToast({
+              type: 'error',
+              title: 'Valor de fechamento obrigatório',
+              message: 'Informe o valor pelo qual a vaga foi fechada antes de prosseguir.',
+            });
+            setActionLoading(false);
+            return;
           }
-          await apiService.closeJob(job.id);
+          await apiService.closeJobWithValue(job.id, { finalValue: parsed });
           addToast({ type: 'success', title: 'Vaga fechada com sucesso' });
           setClosingFinalValue('');
           break;
+        }
       }
 
       // Refresh job data
@@ -795,6 +803,129 @@ const JobDetailView: React.FC = () => {
             </CardBody>
           </Card>
 
+          {/* Valores & Garantia */}
+          {(job.jobValue != null || job.finalValue != null || job.guaranteeDays != null
+            || job.closedAt || job.lastDeliveryAt || job.firstDeliveryAt || job.frozenAt
+            || job.commissionType || job.seniorityLabel || job.state
+            || job.isReplacement || job.isConfidential || job.contactMade
+            || job.closedOnFirstSend || job.initialCheckin) && (
+            <Card hover>
+              <CardHeader>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white/90">
+                  Valores, Garantia e Atributos
+                </h2>
+              </CardHeader>
+              <CardBody>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {job.jobValue != null && (
+                    <div>
+                      <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Valor da vaga</span>
+                      <p className="text-gray-900 dark:text-white/90 mt-0.5">
+                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(job.jobValue)}
+                      </p>
+                    </div>
+                  )}
+                  {job.finalValue != null && (
+                    <div>
+                      <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Valor de fechamento</span>
+                      <p className="text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">
+                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(job.finalValue)}
+                      </p>
+                    </div>
+                  )}
+                  {job.commissionType && (
+                    <div>
+                      <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Tipo de cobrança</span>
+                      <p className="text-gray-900 dark:text-white/90 mt-0.5">{job.commissionType}</p>
+                    </div>
+                  )}
+                  {job.seniorityLabel && (
+                    <div>
+                      <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Senioridade</span>
+                      <p className="text-gray-900 dark:text-white/90 mt-0.5">{job.seniorityLabel}</p>
+                    </div>
+                  )}
+                  {job.state && (
+                    <div>
+                      <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Estado</span>
+                      <p className="text-gray-900 dark:text-white/90 mt-0.5">{job.state}</p>
+                    </div>
+                  )}
+                  {job.guaranteeDays != null && (
+                    <div>
+                      <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Dias de garantia</span>
+                      <p className="text-gray-900 dark:text-white/90 mt-0.5">{job.guaranteeDays} dias</p>
+                    </div>
+                  )}
+                  {job.firstDeliveryAt && (
+                    <div>
+                      <span className="text-sm font-medium text-gray-500 dark:text-gray-400">1º envio ao cliente</span>
+                      <p className="text-gray-900 dark:text-white/90 mt-0.5">
+                        {new Date(job.firstDeliveryAt).toLocaleDateString('pt-BR')}
+                      </p>
+                    </div>
+                  )}
+                  {job.lastDeliveryAt && (
+                    <div>
+                      <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Última entrega</span>
+                      <p className="text-gray-900 dark:text-white/90 mt-0.5">
+                        {new Date(job.lastDeliveryAt).toLocaleDateString('pt-BR')}
+                      </p>
+                    </div>
+                  )}
+                  {job.frozenAt && (
+                    <div>
+                      <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Congelada em</span>
+                      <p className="text-gray-900 dark:text-white/90 mt-0.5">
+                        {new Date(job.frozenAt).toLocaleDateString('pt-BR')}
+                      </p>
+                    </div>
+                  )}
+                  {job.closedAt && (
+                    <div>
+                      <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Fechada em</span>
+                      <p className="text-gray-900 dark:text-white/90 mt-0.5">
+                        {new Date(job.closedAt).toLocaleDateString('pt-BR')}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Flags booleanas */}
+                {(job.isReplacement || job.isConfidential || job.contactMade
+                  || job.closedOnFirstSend || job.initialCheckin) && (
+                  <div className="flex flex-wrap gap-2 mt-4">
+                    {job.isConfidential && (
+                      <span className="px-2 py-1 rounded-full bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300 text-xs font-medium">
+                        🔒 Confidencial
+                      </span>
+                    )}
+                    {job.isReplacement && (
+                      <span className="px-2 py-1 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 text-xs font-medium">
+                        🛡️ Reposição
+                      </span>
+                    )}
+                    {job.contactMade && (
+                      <span className="px-2 py-1 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 text-xs font-medium">
+                        ☎ Contato realizado
+                      </span>
+                    )}
+                    {job.closedOnFirstSend && (
+                      <span className="px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 text-xs font-medium">
+                        🎯 Fechada no 1º envio
+                      </span>
+                    )}
+                    {job.initialCheckin && (
+                      <span className="px-2 py-1 rounded-full bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 text-xs font-medium">
+                        ✅ Check-in inicial
+                      </span>
+                    )}
+                  </div>
+                )}
+              </CardBody>
+            </Card>
+          )}
+
           {/* Skills */}
           {job.skills && (
             <Card hover>
@@ -929,16 +1060,21 @@ const JobDetailView: React.FC = () => {
             )}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Valor final da vaga (R$)
+                Valor de fechamento (R$) <span className="text-red-500">*</span>
               </label>
               <input
                 type="number"
                 step="0.01"
+                min="0"
+                required
                 placeholder="Ex: 8500.00"
                 value={closingFinalValue}
                 onChange={(e) => setClosingFinalValue(e.target.value)}
                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500"
               />
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Obrigatório informar o valor pelo qual a vaga foi fechada.
+              </p>
             </div>
           </div>
         )}
