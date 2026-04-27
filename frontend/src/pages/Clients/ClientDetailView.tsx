@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiService } from '../../services/api';
-import { ClientDTO, ClientStatus, ClientType, JobDTO, JobHistoryDTO } from '../../types/api';
+import { ClientDTO, ClientStatus, ClientType, JobDTO, TimelineEntryDTO } from '../../types/api';
 import { Badge, Button, Card, CardBody } from '../../components/ui';
+import { Timeline } from '../../components/timeline/Timeline';
+import { NewNoteModal } from '../../components/timeline/NewNoteModal';
 
 const getInitials = (name: string) =>
   name
@@ -47,6 +49,11 @@ const clientTypeLabel: Record<ClientType, string> = {
   [ClientType.CONSULTING]: 'Consultoria',
 };
 
+type TimelineFilter =
+  | { mode: 'all' }
+  | { mode: 'empresa' }
+  | { mode: 'job'; jobId: number };
+
 const ClientDetailView: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -56,12 +63,21 @@ const ClientDetailView: React.FC = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [clientJobs, setClientJobs] = useState<JobDTO[]>([]);
   const [jobsLoading, setJobsLoading] = useState(false);
-  const [jobHistories, setJobHistories] = useState<(JobHistoryDTO & { jobTitle?: string })[]>([]);
-  const [historiesLoading, setHistoriesLoading] = useState(false);
-  const [notesText, setNotesText] = useState('');
-  const [editingNotes, setEditingNotes] = useState(false);
-  const [savingNotes, setSavingNotes] = useState(false);
-  const [activeTab, setActiveTab] = useState<'info' | 'vagas' | 'historico' | 'notas'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'vagas' | 'atividade'>('info');
+
+  // Timeline state
+  const [timeline, setTimeline] = useState<TimelineEntryDTO[]>([]);
+  const [timelinePage, setTimelinePage] = useState(0);
+  const [timelineHasNext, setTimelineHasNext] = useState(false);
+  const [timelineLoading, setTimelineLoading] = useState(false);
+  const [timelineFilter, setTimelineFilter] = useState<TimelineFilter>({ mode: 'all' });
+
+  // Job dropdown for "Por vaga" filter
+  const [jobDropdownOpen, setJobDropdownOpen] = useState(false);
+  const jobDropdownRef = useRef<HTMLDivElement>(null);
+
+  // New note modal
+  const [showNewNote, setShowNewNote] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -71,51 +87,65 @@ const ClientDetailView: React.FC = () => {
     }
   }, [id]);
 
+  // Close job dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (jobDropdownRef.current && !jobDropdownRef.current.contains(e.target as Node)) {
+        setJobDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Load timeline when tab is active or filter changes
+  useEffect(() => {
+    if (activeTab === 'atividade' && id) {
+      loadTimeline(true);
+    }
+  }, [activeTab, timelineFilter, id]);
+
+  const loadTimeline = async (reset: boolean) => {
+    if (!id) return;
+    const clientId = parseInt(id);
+    const nextPage = reset ? 0 : timelinePage + 1;
+
+    try {
+      setTimelineLoading(true);
+      const opts: { page: number; size: number; jobId?: number; empresaOnly?: boolean } = {
+        page: nextPage,
+        size: 20,
+      };
+      if (timelineFilter.mode === 'empresa') opts.empresaOnly = true;
+      if (timelineFilter.mode === 'job') opts.jobId = timelineFilter.jobId;
+
+      const result = await apiService.getClientTimeline(clientId, opts);
+      const entries = result.content ?? [];
+
+      if (reset) {
+        setTimeline(entries);
+        setTimelinePage(0);
+      } else {
+        setTimeline((prev) => [...prev, ...entries]);
+        setTimelinePage(nextPage);
+      }
+      setTimelineHasNext(!result.last);
+    } catch (err) {
+      console.error('Error loading timeline:', err);
+    } finally {
+      setTimelineLoading(false);
+    }
+  };
+
   const loadClientJobs = async (clientId: number) => {
     try {
       setJobsLoading(true);
       const result = await apiService.getJobs({ page: 0, size: 100 }, { clientId });
-      const jobs = result.content || [];
-      setClientJobs(jobs);
-      loadJobHistories(jobs);
+      setClientJobs(result.content ?? []);
     } catch (err) {
       console.error('Error loading client jobs:', err);
     } finally {
       setJobsLoading(false);
-    }
-  };
-
-  const loadJobHistories = async (jobs: JobDTO[]) => {
-    if (jobs.length === 0) return;
-    try {
-      setHistoriesLoading(true);
-      const allHistories: (JobHistoryDTO & { jobTitle?: string })[] = [];
-      const promises = jobs.slice(0, 50).map(async (job) => {
-        if (!job.id) return;
-        const histories = await apiService.getJobHistory(job.id);
-        histories.forEach((h: JobHistoryDTO) => allHistories.push({ ...h, jobTitle: job.title }));
-      });
-      await Promise.all(promises);
-      allHistories.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      setJobHistories(allHistories);
-    } catch (err) {
-      console.error('Error loading job histories:', err);
-    } finally {
-      setHistoriesLoading(false);
-    }
-  };
-
-  const handleSaveNotes = async () => {
-    if (!client?.id) return;
-    try {
-      setSavingNotes(true);
-      await apiService.updateClient(client.id, { ...client, notes: notesText });
-      setClient({ ...client, notes: notesText });
-      setEditingNotes(false);
-    } catch (err) {
-      console.error('Error saving notes:', err);
-    } finally {
-      setSavingNotes(false);
     }
   };
 
@@ -314,8 +344,7 @@ const ClientDetailView: React.FC = () => {
             {([
               { key: 'info', label: 'Informacoes' },
               { key: 'vagas', label: `Vagas (${clientJobs.length})` },
-              { key: 'historico', label: `Historico (${jobHistories.length})` },
-              { key: 'notas', label: 'Notas' },
+              { key: 'atividade', label: 'Atividade' },
             ] as const).map((tab) => (
               <button
                 key={tab.key}
@@ -479,98 +508,153 @@ const ClientDetailView: React.FC = () => {
           </Card>
         )}
 
-        {/* Tab: Historico */}
-        {activeTab === 'historico' && (
-          <Card>
-            <CardBody>
-              <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
-                Historico das Vagas ({jobHistories.length})
-              </h2>
-              {historiesLoading ? (
-                <div className="text-center py-4 text-sm text-gray-500">Carregando historico...</div>
-              ) : jobHistories.length === 0 ? (
-                <div className="rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700 p-6 text-center">
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Nenhum historico disponivel.</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {jobHistories.slice(0, 100).map((h, idx) => (
-                    <div
-                      key={h.id || idx}
-                      className="flex items-start gap-3 p-3 rounded-lg border border-gray-100 dark:border-gray-700"
-                    >
-                      <div className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${
-                        h.type === 'STATUS_CHANGED' ? 'bg-blue-500' :
-                        h.type === 'SHORTLIST_SENT' ? 'bg-purple-500' :
-                        h.type === 'INTERVIEW_SCHEDULED' ? 'bg-yellow-500' :
-                        h.type === 'OFFER_MADE' ? 'bg-green-500' :
-                        h.type === 'CANDIDATE_CONTACTED' ? 'bg-teal-500' :
-                        'bg-gray-400'
-                      }`} />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{h.title}</p>
-                          <Badge variant="inactive">{h.jobTitle || `Vaga #${h.jobId}`}</Badge>
-                        </div>
-                        {h.description && h.description !== h.title && (
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{h.description}</p>
-                        )}
-                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                          {new Date(h.createdAt).toLocaleString('pt-BR')}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardBody>
-          </Card>
-        )}
+        {/* Tab: Atividade */}
+        {activeTab === 'atividade' && (
+          <div className="space-y-4">
+            {/* Controls row */}
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              {/* Filter pills */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setTimelineFilter({ mode: 'all' })}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors duration-200 ${
+                    timelineFilter.mode === 'all'
+                      ? 'bg-brand-500 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-white/5 dark:text-gray-400 dark:hover:bg-white/10'
+                  }`}
+                >
+                  Todas
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTimelineFilter({ mode: 'empresa' })}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors duration-200 ${
+                    timelineFilter.mode === 'empresa'
+                      ? 'bg-indigo-500 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-white/5 dark:text-gray-400 dark:hover:bg-white/10'
+                  }`}
+                >
+                  Empresa
+                </button>
 
-        {/* Tab: Notas */}
-        {activeTab === 'notas' && (
-          <Card>
-            <CardBody>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-base font-semibold text-gray-900 dark:text-white">Notas Internas</h2>
-                {!editingNotes && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => { setNotesText(client.notes || ''); setEditingNotes(true); }}
+                {/* Por vaga dropdown */}
+                <div className="relative" ref={jobDropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => setJobDropdownOpen((open) => !open)}
+                    className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors duration-200 ${
+                      timelineFilter.mode === 'job'
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-white/5 dark:text-gray-400 dark:hover:bg-white/10'
+                    }`}
                   >
-                    {client.notes ? 'Editar' : 'Adicionar nota'}
-                  </Button>
+                    {timelineFilter.mode === 'job'
+                      ? (clientJobs.find((j) => j.id === timelineFilter.jobId)?.title ?? 'Por vaga')
+                      : 'Por vaga'}
+                    <svg
+                      className={`w-3 h-3 transition-transform ${jobDropdownOpen ? 'rotate-180' : ''}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {jobDropdownOpen && (
+                    <div className="absolute left-0 top-full mt-1 z-20 min-w-48 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900">
+                      {clientJobs.length === 0 ? (
+                        <p className="px-3 py-2 text-xs text-gray-400 dark:text-gray-500">
+                          Nenhuma vaga encontrada
+                        </p>
+                      ) : (
+                        <ul className="py-1 max-h-48 overflow-y-auto">
+                          {clientJobs.map((job) => (
+                            <li key={job.id}>
+                              <button
+                                type="button"
+                                className={`w-full text-left px-3 py-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${
+                                  timelineFilter.mode === 'job' && timelineFilter.jobId === job.id
+                                    ? 'font-semibold text-blue-600 dark:text-blue-400'
+                                    : 'text-gray-700 dark:text-gray-300'
+                                }`}
+                                onClick={() => {
+                                  setTimelineFilter({ mode: 'job', jobId: job.id! });
+                                  setJobDropdownOpen(false);
+                                }}
+                              >
+                                {job.title}
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Clear job filter */}
+                {timelineFilter.mode === 'job' && (
+                  <button
+                    type="button"
+                    onClick={() => setTimelineFilter({ mode: 'all' })}
+                    className="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                    aria-label="Limpar filtro de vaga"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
                 )}
               </div>
-              {editingNotes ? (
-                <div>
-                  <textarea
-                    value={notesText}
-                    onChange={(e) => setNotesText(e.target.value)}
-                    rows={6}
-                    className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white p-3 focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
-                    placeholder="Escreva notas internas sobre esta empresa..."
-                  />
-                  <div className="flex gap-2 mt-3 justify-end">
-                    <Button variant="outline" size="sm" onClick={() => setEditingNotes(false)} disabled={savingNotes}>Cancelar</Button>
-                    <Button variant="primary" size="sm" onClick={handleSaveNotes} loading={savingNotes} disabled={savingNotes}>Salvar</Button>
-                  </div>
-                </div>
-              ) : client.notes ? (
-                <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{client.notes}</p>
-              ) : (
-                <div className="rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700 p-6 text-center">
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Nenhuma nota adicionada.</p>
-                  <Button variant="outline" size="sm" className="mt-3" onClick={() => { setNotesText(''); setEditingNotes(true); }}>
-                    Adicionar primeira nota
-                  </Button>
-                </div>
-              )}
-            </CardBody>
-          </Card>
+
+              {/* New note button */}
+              <Button
+                variant="primary"
+                size="sm"
+                icon={
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                }
+                onClick={() => setShowNewNote(true)}
+              >
+                Nova nota
+              </Button>
+            </div>
+
+            {/* Timeline feed */}
+            <Timeline
+              entries={timeline}
+              loading={timelineLoading}
+              emptyMessage="Nenhuma atividade registrada. Clique em '+ Nova nota' para comecar."
+            />
+
+            {/* Load more */}
+            {timelineHasNext && !timelineLoading && (
+              <div className="flex justify-center pt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => loadTimeline(false)}
+                >
+                  Carregar mais
+                </Button>
+              </div>
+            )}
+          </div>
         )}
       </div>
+
+      {/* New Note Modal */}
+      <NewNoteModal
+        isOpen={showNewNote}
+        onClose={() => setShowNewNote(false)}
+        onSuccess={() => loadTimeline(true)}
+        clientId={client.id!}
+        clientJobs={clientJobs}
+      />
     </div>
   );
 };

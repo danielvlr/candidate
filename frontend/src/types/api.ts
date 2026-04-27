@@ -534,3 +534,62 @@ export interface SyncLogDTO {
   startedAt: string;
   completedAt: string;
 }
+
+// Client History / Timeline Types
+export interface TimelineEntryDTO {
+  id: number;
+  origin: 'EMPRESA' | 'VAGA';
+  jobId?: number;
+  jobTitle?: string;
+  clientId: number;
+  clientName: string;
+  headhunterId?: number;
+  headhunterName?: string;
+  candidateId?: number;
+  candidateName?: string;
+  type: HistoryType;
+  title?: string;
+  description?: string;
+  createdAt: string;
+  scheduledDate?: string;
+  completedAt?: string;
+  status?: HistoryStatus;
+  metadata?: string;
+}
+
+export interface ClientHistoryResponse {
+  id: number;
+  clientId: number;
+  clientName: string;
+  headhunterId?: number;
+  headhunterName?: string;
+  type: HistoryType;
+  title?: string;
+  description: string;
+  createdAt: string;
+  scheduledDate?: string;
+  completedAt?: string;
+  status?: HistoryStatus;
+  metadata?: string;
+}
+
+export interface ClientHistoryCreateRequest {
+  clientId: number;
+  headhunterId?: number;
+  type?: HistoryType;
+  title?: string;
+  description: string;
+  scheduledDate?: string;
+  status?: HistoryStatus;
+  metadata?: string;
+}
+
+export interface ClientHistoryUpdateRequest {
+  headhunterId?: number;
+  type?: HistoryType;
+  title?: string;
+  description?: string;
+  scheduledDate?: string;
+  status?: HistoryStatus;
+  metadata?: string;
+}

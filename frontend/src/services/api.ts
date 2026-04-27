@@ -26,6 +26,10 @@ import {
   WarrantyRuleDTO,
   SyncResultDTO,
   SyncLogDTO,
+  TimelineEntryDTO,
+  ClientHistoryResponse,
+  ClientHistoryCreateRequest,
+  ClientHistoryUpdateRequest,
 } from '../types/api';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
@@ -596,12 +600,20 @@ class ApiService {
   // =====================
   // Kanban API methods
   // =====================
-  async getAllJobsKanban(): Promise<Record<string, JobDTO[]>> {
-    return this.request<Record<string, JobDTO[]>>('/jobs/kanban');
+  async getAllJobsKanban(
+    params?: { createdAfter?: string; deadlineBefore?: string; warrantyExpiringIn?: number }
+  ): Promise<Record<string, JobDTO[]>> {
+    const query = params ? this.buildQueryParams(params) : '';
+    const endpoint = `/jobs/kanban${query ? '?' + query : ''}`;
+    return this.request<Record<string, JobDTO[]>>(endpoint);
   }
 
-  async getAllJobsKanbanPipeline(): Promise<Record<string, JobDTO[]>> {
-    return this.request<Record<string, JobDTO[]>>('/jobs/kanban/pipeline');
+  async getAllJobsKanbanPipeline(
+    params?: { createdAfter?: string; deadlineBefore?: string; warrantyExpiringIn?: number }
+  ): Promise<Record<string, JobDTO[]>> {
+    const query = params ? this.buildQueryParams(params) : '';
+    const endpoint = `/jobs/kanban/pipeline${query ? '?' + query : ''}`;
+    return this.request<Record<string, JobDTO[]>>(endpoint);
   }
 
   async getJobsKanban(
@@ -720,6 +732,43 @@ class ApiService {
   async testJestorConnection(): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>('/jestor/test-connection', {
       method: 'POST',
+    });
+  }
+
+  // =====================
+  // Client History / Timeline API methods
+  // =====================
+  async getClientTimeline(
+    clientId: number,
+    opts?: { page?: number; size?: number; jobId?: number; empresaOnly?: boolean }
+  ): Promise<PageResponse<TimelineEntryDTO>> {
+    const params: Record<string, any> = {
+      page: opts?.page ?? 0,
+      size: opts?.size ?? 20,
+    };
+    if (opts?.jobId !== undefined) params.jobId = opts.jobId;
+    if (opts?.empresaOnly !== undefined) params.empresaOnly = opts.empresaOnly;
+    const queryString = this.buildQueryParams(params);
+    return this.request<PageResponse<TimelineEntryDTO>>(`/clients/${clientId}/timeline?${queryString}`);
+  }
+
+  async createClientHistory(req: ClientHistoryCreateRequest): Promise<ClientHistoryResponse> {
+    return this.request<ClientHistoryResponse>('/client-history', {
+      method: 'POST',
+      body: JSON.stringify(req),
+    });
+  }
+
+  async updateClientHistory(id: number, req: ClientHistoryUpdateRequest): Promise<ClientHistoryResponse> {
+    return this.request<ClientHistoryResponse>(`/client-history/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(req),
+    });
+  }
+
+  async deleteClientHistory(id: number): Promise<void> {
+    return this.request<void>(`/client-history/${id}`, {
+      method: 'DELETE',
     });
   }
 }

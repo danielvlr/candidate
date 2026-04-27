@@ -18,6 +18,8 @@ public interface JobHistoryRepository extends JpaRepository<JobHistory, Long> {
 
     Page<JobHistory> findByJobIdOrderByCreatedAtDesc(Long jobId, Pageable pageable);
 
+    List<JobHistory> findByJob_Client_IdOrderByCreatedAtDesc(Long clientId);
+
     List<JobHistory> findByJobIdAndTypeOrderByCreatedAtDesc(Long jobId, JobHistory.HistoryType type);
 
     List<JobHistory> findByJobIdAndCandidateIdOrderByCreatedAtDesc(Long jobId, Long candidateId);
