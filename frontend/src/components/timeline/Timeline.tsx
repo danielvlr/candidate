@@ -137,7 +137,6 @@ export const Timeline: React.FC<TimelineProps> = ({
         const isEmpresa = entry.origin === 'EMPRESA';
         const isLast = index === entries.length - 1;
 
-        const dotBg = isEmpresa ? 'bg-indigo-500' : 'bg-blue-500';
         const iconBg = isEmpresa
           ? 'bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-400'
           : 'bg-blue-50 dark:bg-blue-500/15 text-blue-600 dark:text-blue-400';

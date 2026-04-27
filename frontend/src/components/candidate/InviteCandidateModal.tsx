@@ -26,8 +26,7 @@ const InviteCandidateModal: React.FC<InviteCandidateModalProps> = ({
   // Resolve headhunter id: prop > localStorage > fallback 1
   const resolvedHeadhunterId =
     headhunterId ??
-    Number(localStorage.getItem('headhunter_id') ?? '1') ||
-    1; // TODO: pull from auth context when OAuth2 lands
+    (Number(localStorage.getItem('headhunter_id') ?? '1') || 1); // TODO: pull from auth context when OAuth2 lands
 
   const validateEmail = (value: string) => {
     if (!value.trim()) return 'E-mail é obrigatório.';
