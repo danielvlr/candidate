@@ -54,6 +54,24 @@ function getLast12Months(): { key: string; label: string; from: string; to: stri
   return months;
 }
 
+function calcGuaranteeRemaining(j: JobDTO): number {
+  const gDays = j.guaranteeDays ?? 90;
+  const closed = j.closedAt || j.updatedAt || j.createdAt;
+  if (!closed) return gDays;
+  const daysElapsed = Math.floor((Date.now() - new Date(closed).getTime()) / 86400000);
+  return gDays - daysElapsed;
+}
+
+// Heurística: usa updatedAt como proxy de "quando foi pausada". Inexato se a
+// vaga sofreu outro PATCH depois do pause. Para precisão, backend precisa expor
+// pausedAt (ou consultar JobHistory STATUS_CHANGED→PAUSED — caro por card).
+function daysPaused(j: JobDTO): number | null {
+  if (j.status !== 'PAUSED') return null;
+  const ref = j.updatedAt || j.createdAt;
+  if (!ref) return null;
+  return Math.max(0, Math.floor((Date.now() - new Date(ref).getTime()) / 86400000));
+}
+
 const JobList: React.FC = () => {
   const [jobs, setJobs] = useState<PageResponse<JobDTO> | null>(null);
   const [listItems, setListItems] = useState<JobDTO[]>([]);
@@ -74,6 +92,7 @@ const JobList: React.FC = () => {
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [showExpiredClosed, setShowExpiredClosed] = useState(false);
   const [jobHistoryCache, setJobHistoryCache] = useState<Record<number, { type: string; title: string; createdAt: string }[]>>({});
   const { userRole } = useUserRole();
   const { selectedClientId } = useClientFilter();
@@ -123,6 +142,7 @@ const JobList: React.FC = () => {
     if (selectedHeadhunterId) filtered = filtered.filter(j => j.headhunterId === selectedHeadhunterId);
     if (dateFrom) filtered = filtered.filter(j => (j.createdAt || '') >= dateFrom);
     if (dateTo) filtered = filtered.filter(j => (j.createdAt || '') <= dateTo + 'T23:59:59');
+    filtered = filtered.filter(j => j.status !== 'EXPIRED');
     return filtered;
   };
 
@@ -164,10 +184,11 @@ const JobList: React.FC = () => {
       setCurrentPage(page);
       setHasMore(page + 1 < result.totalPages);
 
+      const listFiltered = filtered.filter(j => j.status !== 'CLOSED' || calcGuaranteeRemaining(j) > 0);
       if (append) {
-        setListItems(prev => [...prev, ...filtered]);
+        setListItems(prev => [...prev, ...listFiltered]);
       } else {
-        setListItems(filtered);
+        setListItems(listFiltered);
       }
     } catch (err) {
       setError('Erro ao carregar vagas');
@@ -183,6 +204,7 @@ const JobList: React.FC = () => {
     setListItems([]);
     setCurrentPage(0);
     setHasMore(false);
+    setShowExpiredClosed(false);
     fetchJobs(0, false);
   }, [filters, searchQuery, selectedClientId, selectedHeadhunterId, selectedStatuses, viewMode, dateFrom, dateTo]);
 
@@ -377,28 +399,27 @@ const JobList: React.FC = () => {
         <div className="flex gap-3 p-4 overflow-x-auto min-h-[calc(100vh-200px)]">
           {KANBAN_COLUMNS.map((status) => {
             const cfg = STATUS_CONFIG[status];
-            const columnJobs = (jobs.content || []).filter(j => j.status === status).sort((a, b) => {
-              if (status === 'ACTIVE') {
-                // Sort by last history date (oldest first = least recent activity on top)
-                const aHist = a.id && jobHistoryCache[a.id]?.[0]?.createdAt;
-                const bHist = b.id && jobHistoryCache[b.id]?.[0]?.createdAt;
-                const aDate = aHist || a.createdAt || '';
-                const bDate = bHist || b.createdAt || '';
-                return aDate < bDate ? -1 : aDate > bDate ? 1 : 0;
-              }
-              if (status === 'CLOSED') {
-                // Sort by guarantee days remaining DESC (most days remaining first)
-                const calcRemaining = (j: JobDTO) => {
-                  const gDays = (j as any).guaranteeDays || 90;
-                  const closed = (j as any).closedAt || j.updatedAt || j.createdAt;
-                  if (!closed) return 0;
-                  const daysElapsed = Math.floor((Date.now() - new Date(closed).getTime()) / 86400000);
-                  return Math.max(0, gDays - daysElapsed);
-                };
-                return calcRemaining(b) - calcRemaining(a);
-              }
-              return 0;
-            });
+            const columnJobs = (jobs.content || [])
+              .filter(j => j.status === status)
+              .filter(j => status !== 'CLOSED' || calcGuaranteeRemaining(j) > 0)
+              .sort((a, b) => {
+                if (status === 'ACTIVE') {
+                  const aHist = a.id && jobHistoryCache[a.id]?.[0]?.createdAt;
+                  const bHist = b.id && jobHistoryCache[b.id]?.[0]?.createdAt;
+                  const aDate = aHist || a.createdAt || '';
+                  const bDate = bHist || b.createdAt || '';
+                  return aDate < bDate ? -1 : aDate > bDate ? 1 : 0;
+                }
+                if (status === 'CLOSED') {
+                  const ra = calcGuaranteeRemaining(a);
+                  const rb = calcGuaranteeRemaining(b);
+                  if (ra !== rb) return ra - rb;
+                  const ca = new Date(a.closedAt || a.updatedAt || a.createdAt || '1970-01-01').getTime();
+                  const cb = new Date(b.closedAt || b.updatedAt || b.createdAt || '1970-01-01').getTime();
+                  return cb - ca;
+                }
+                return 0;
+              });
             return (
               <div key={status}
                 className={`flex-shrink-0 w-80 rounded-xl border ${cfg.kanbanBg} flex flex-col`}
@@ -437,24 +458,39 @@ const JobList: React.FC = () => {
                         <span className="text-xs text-gray-500 dark:text-gray-400 truncate">{job.companyName || 'Sem empresa'}</span>
                       </div>
 
+                      {/* Paused-for-X-days indicator */}
+                      {status === 'PAUSED' && (() => {
+                        const d = daysPaused(job);
+                        if (d === null) return null;
+                        return (
+                          <div className="mt-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-500/10 border border-amber-200/60 dark:border-amber-500/30">
+                            <svg className="w-3 h-3 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span className="text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                              Pausada há {d} dia{d !== 1 ? 's' : ''}
+                            </span>
+                          </div>
+                        );
+                      })()}
+
                       {/* Guarantee bar for closed jobs */}
                       {status === 'CLOSED' && (() => {
-                        const gDays = (job as any).guaranteeDays || 90;
-                        const closed = (job as any).closedAt || job.updatedAt || job.createdAt;
+                        const remaining = calcGuaranteeRemaining(job);
+                        const gDays = job.guaranteeDays ?? 90;
+                        const closed = job.closedAt || job.updatedAt || job.createdAt;
                         if (!closed) return null;
                         const daysElapsed = Math.floor((Date.now() - new Date(closed).getTime()) / 86400000);
-                        const remaining = Math.max(0, gDays - daysElapsed);
                         const pct = Math.max(0, Math.min(100, (daysElapsed / gDays) * 100));
-                        const expired = remaining <= 0;
-                        const urgent = !expired && remaining <= 10;
+                        const urgent = remaining <= 10;
                         return (
                           <div className="mt-2">
                             <div className="flex items-center gap-2">
                               <div className="flex-1 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                                <div className={`h-full rounded-full ${expired ? 'bg-gray-400' : urgent ? 'bg-red-500' : remaining <= 30 ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${pct}%` }} />
+                                <div className={`h-full rounded-full ${urgent ? 'bg-red-500' : remaining <= 30 ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${pct}%` }} />
                               </div>
-                              <span className={`text-[10px] font-bold flex-shrink-0 ${expired ? 'text-gray-400' : urgent ? 'text-red-500' : remaining <= 30 ? 'text-amber-500' : 'text-emerald-500'}`}>
-                                {expired ? 'Expirada' : `${remaining}/${gDays}d`}
+                              <span className={`text-[10px] font-bold flex-shrink-0 ${urgent ? 'text-red-500' : remaining <= 30 ? 'text-amber-500' : 'text-emerald-500'}`}>
+                                {`${remaining}/${gDays}d`}
                               </span>
                             </div>
                           </div>
@@ -521,6 +557,42 @@ const JobList: React.FC = () => {
                     </div>
                   )}
                 </div>
+                {status === 'CLOSED' && (() => {
+                  const expired = (jobs.content || [])
+                    .filter(j => j.status === 'CLOSED' && calcGuaranteeRemaining(j) <= 0)
+                    .sort((a, b) => calcGuaranteeRemaining(a) - calcGuaranteeRemaining(b));
+                  if (expired.length === 0) return null;
+                  return (
+                    <div className="px-2 pb-2 mt-1">
+                      <button
+                        onClick={() => setShowExpiredClosed(prev => !prev)}
+                        className="w-full text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 py-1.5 text-center transition-colors border-t border-gray-200/50 dark:border-gray-700/50"
+                      >
+                        {showExpiredClosed
+                          ? 'Ocultar expiradas'
+                          : `+ ${expired.length} vaga${expired.length > 1 ? 's' : ''} com garantia vencida`}
+                      </button>
+                      {showExpiredClosed && (
+                        <div className="space-y-2 mt-1">
+                          {expired.map(job => {
+                            const overdue = Math.abs(calcGuaranteeRemaining(job));
+                            return (
+                              <div key={job.id}
+                                onClick={() => navigate(`/jobs/${job.id}`)}
+                                className="bg-white/60 dark:bg-gray-800/40 rounded-lg p-2.5 cursor-pointer hover:bg-white dark:hover:bg-gray-800/60 border border-gray-200/40 dark:border-gray-700/30 opacity-70 hover:opacity-100 transition">
+                                <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 truncate">{job.title}</h4>
+                                <p className="text-[10px] text-gray-400 dark:text-gray-500 truncate">{job.companyName}</p>
+                                <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                                  Expirada há {overdue} dia{overdue !== 1 ? 's' : ''}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}
@@ -575,6 +647,15 @@ const JobList: React.FC = () => {
                         <div className="flex items-center gap-2">
                           <h3 className="text-sm font-medium text-gray-900 dark:text-white/90 truncate">{job.title}</h3>
                           {sCfg && <span className={`text-[10px] font-medium ${sCfg.color}`}>{sCfg.label}</span>}
+                          {(() => {
+                            const d = daysPaused(job);
+                            if (d === null) return null;
+                            return (
+                              <span className="text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                                · há {d}d
+                              </span>
+                            );
+                          })()}
                         </div>
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                           {job.clientId ? (
