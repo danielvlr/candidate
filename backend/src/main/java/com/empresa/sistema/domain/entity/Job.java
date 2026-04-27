@@ -140,6 +140,13 @@ public class Job {
     @JsonIgnore
     private List<JobApplication> applications = new ArrayList<>();
 
+    // Flag transiente — quando true, @PreUpdate NÃO bump updatedAt nesse save.
+    // Usada pelo JestorSyncService para preservar updatedAt quando a sync
+    // só altera campos não-status (assim daysPaused permanece estável).
+    @Transient
+    @JsonIgnore
+    private transient boolean skipUpdatedAtBump = false;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
@@ -148,7 +155,10 @@ public class Job {
 
     @PreUpdate
     protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
+        if (!skipUpdatedAtBump) {
+            updatedAt = LocalDateTime.now();
+        }
+        skipUpdatedAtBump = false;
     }
 
     // Constructors

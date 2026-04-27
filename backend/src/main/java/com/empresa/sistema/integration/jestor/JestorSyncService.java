@@ -197,6 +197,9 @@ public class JestorSyncService {
                     String jestorId = String.valueOf(record.get("id_" + config.getJobsTable()));
                     Job job = jobCache.getOrDefault(jestorId, new Job());
                     boolean isNew = job.getJestorId() == null;
+                    // Captura status anterior ANTES de qualquer mutação para decidir
+                    // se updatedAt deve bumpar (só bumpa quando status muda).
+                    Job.JobStatus oldStatus = isNew ? null : job.getStatus();
                     job.setJestorId(jestorId);
 
                     // Store Jestor creation date for history
@@ -236,6 +239,13 @@ public class JestorSyncService {
                     if (job.getClient() == null && defaultClient != null) {
                         job.setClient(defaultClient);
                         if (job.getCompanyName() == null) job.setCompanyName(defaultClient.getCompanyName());
+                    }
+
+                    // Para jobs já existentes: se o status NÃO mudou nesta sync,
+                    // sinaliza @PreUpdate para preservar updatedAt (estabiliza
+                    // daysPaused — sync de outros campos não conta como "alteração").
+                    if (!isNew && Objects.equals(oldStatus, job.getStatus())) {
+                        job.setSkipUpdatedAtBump(true);
                     }
 
                     jobBatch.add(job);
