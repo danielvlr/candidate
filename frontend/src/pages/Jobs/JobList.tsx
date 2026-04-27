@@ -11,9 +11,12 @@ import { useListSelection } from '../../hooks/useListSelection';
 type ViewMode = 'list' | 'kanban';
 type StatusFilter = 'ACTIVE' | 'WARRANTY' | 'PAUSED' | 'CLOSED';
 
+// Label "Reposição" aplica-se ao JobStatus.WARRANTY (estado da vaga). NÃO confundir
+// com a entidade Warranty pós-contratação (Warranty/WarrantyRule/WarrantyBreach) —
+// esses continuam com a label "Garantia" intencionalmente (ver /warranty dashboard).
 const STATUS_CONFIG: Record<StatusFilter, { label: string; color: string; bg: string; dot: string; kanbanBg: string }> = {
   ACTIVE:   { label: 'Ativa',    color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30', dot: 'bg-emerald-500', kanbanBg: 'bg-emerald-50/80 dark:bg-emerald-900/10 border-emerald-200/60 dark:border-emerald-800/40' },
-  WARRANTY: { label: 'Garantia', color: 'text-blue-700 dark:text-blue-400',    bg: 'bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/30',       dot: 'bg-blue-500',    kanbanBg: 'bg-blue-50/80 dark:bg-blue-900/10 border-blue-200/60 dark:border-blue-800/40' },
+  WARRANTY: { label: 'Reposição', color: 'text-blue-700 dark:text-blue-400',    bg: 'bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/30',       dot: 'bg-blue-500',    kanbanBg: 'bg-blue-50/80 dark:bg-blue-900/10 border-blue-200/60 dark:border-blue-800/40' },
   PAUSED:   { label: 'Pausada',  color: 'text-amber-700 dark:text-amber-400',  bg: 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30',   dot: 'bg-amber-500',   kanbanBg: 'bg-amber-50/80 dark:bg-amber-900/10 border-amber-200/60 dark:border-amber-800/40' },
   CLOSED:   { label: 'Fechada',  color: 'text-gray-600 dark:text-gray-400',    bg: 'bg-gray-50 dark:bg-gray-500/10 border-gray-200 dark:border-gray-500/30',       dot: 'bg-gray-400',    kanbanBg: 'bg-gray-50/80 dark:bg-gray-900/10 border-gray-200/60 dark:border-gray-800/40' },
 };

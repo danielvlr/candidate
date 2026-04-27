@@ -9,6 +9,10 @@ import { useToast } from '../../components/ui/Toast';
 import { useUserRole } from '../../context/UserRoleContext';
 import apiService from '../../services/api';
 
+// Label "Reposição" aplica-se ao PipelineStage.WARRANTY (linha 27). NÃO confundir
+// com a entidade Warranty pós-contratação (WarrantyDashboard/WarrantyRule/Breach) —
+// essa continua com a label "Garantia" intencionalmente. Ver também STATUS_CONFIG
+// em JobList.tsx que aplica a mesma decisão para JobStatus.WARRANTY.
 const STATUS_COLUMNS = [
   { key: 'DRAFT', label: 'Rascunho' },
   { key: 'ACTIVE', label: 'Ativa' },
@@ -24,7 +28,7 @@ const PIPELINE_COLUMNS = [
   { key: 'INTERVIEW', label: 'Entrevista' },
   { key: 'OFFER', label: 'Proposta' },
   { key: 'HIRED', label: 'Contratado' },
-  { key: 'WARRANTY', label: 'Garantia' },
+  { key: 'WARRANTY', label: 'Reposição' },
 ];
 
 // Fallback headhunter id for non-admin roles
