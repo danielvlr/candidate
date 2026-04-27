@@ -7,6 +7,8 @@ import { KanbanViewToggle } from './KanbanViewToggle';
 import { KanbanFilters } from './KanbanFilters';
 import { useToast } from '../../components/ui/Toast';
 import { useUserRole } from '../../context/UserRoleContext';
+import { useClientFilter } from '../../context/ClientFilterContext';
+import { useHeadhunterFilter } from '../../context/HeadhunterFilterContext';
 import apiService from '../../services/api';
 
 // Label "Reposição" aplica-se ao PipelineStage.WARRANTY (linha 27). NÃO confundir
@@ -37,6 +39,8 @@ const DEFAULT_HEADHUNTER_ID = 1;
 const HeadhunterKanban: React.FC = () => {
   const { addToast } = useToast();
   const { userRole } = useUserRole();
+  const { selectedClientId } = useClientFilter();
+  const { selectedHeadhunterId } = useHeadhunterFilter();
   const [view, setView] = useState<'status' | 'pipeline'>('status');
   const [jobsByColumn, setJobsByColumn] = useState<Record<string, JobDTO[]>>({});
   const [loading, setLoading] = useState(true);
@@ -67,12 +71,26 @@ const HeadhunterKanban: React.FC = () => {
       let data: Record<string, JobDTO[]>;
       if (userRole === 'admin' || userRole === 'senior') {
         data = view === 'status'
-          ? await apiService.getAllJobsKanban()
-          : await apiService.getAllJobsKanbanPipeline();
+          ? await apiService.getAllJobsKanban(params)
+          : await apiService.getAllJobsKanbanPipeline(params);
       } else {
         data = view === 'status'
           ? await apiService.getJobsKanban(DEFAULT_HEADHUNTER_ID, params)
           : await apiService.getJobsKanbanPipeline(DEFAULT_HEADHUNTER_ID, params);
+      }
+
+      // Filtro global Cliente/Headhunter (client-side, P0). Aplica AND.
+      if (selectedClientId !== null || selectedHeadhunterId !== null) {
+        data = Object.fromEntries(
+          Object.entries(data).map(([col, jobs]) => [
+            col,
+            jobs.filter(
+              (j) =>
+                (selectedClientId === null || j.clientId === selectedClientId) &&
+                (selectedHeadhunterId === null || j.headhunterId === selectedHeadhunterId),
+            ),
+          ]),
+        );
       }
 
       setJobsByColumn(data);
@@ -82,7 +100,7 @@ const HeadhunterKanban: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [view, createdFilter, deadlineFilter, warrantyFilter, userRole, addToast]);
+  }, [view, createdFilter, deadlineFilter, warrantyFilter, userRole, selectedClientId, selectedHeadhunterId, addToast]);
 
   useEffect(() => {
     fetchJobs();

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { apiService } from '../../services/api';
 import { JobHistoryDTO } from '../../types/api';
 import { useHeadhunterFilter } from '../../context/HeadhunterFilterContext';
+import { useClientFilter } from '../../context/ClientFilterContext';
 import {
   Badge,
   Card,
@@ -42,6 +43,7 @@ const formatCurrency = (value: number) =>
 export default function HeadhunterDashboard() {
   const navigate = useNavigate();
   const { selectedHeadhunterId } = useHeadhunterFilter();
+  const { selectedClientId } = useClientFilter();
   const [openJobs, setOpenJobs] = useState<OpenJob[]>([]);
   const [closedJobs, setClosedJobs] = useState<ClosedJob[]>([]);
   const [recentHistory, setRecentHistory] = useState<(JobHistoryDTO & { jobTitle?: string })[]>([]);
@@ -53,6 +55,9 @@ export default function HeadhunterDashboard() {
         let jobs = res.content || [];
         if (selectedHeadhunterId) {
           jobs = jobs.filter((j: any) => j.headhunterId === selectedHeadhunterId);
+        }
+        if (selectedClientId) {
+          jobs = jobs.filter((j: any) => j.clientId === selectedClientId);
         }
         const open = jobs.filter((j: any) => j.status === 'ACTIVE' || j.status === 'DRAFT' || j.status === 'PAUSED').map((j: any) => ({
           id: j.id, title: j.title, companyName: j.companyName, createdAt: j.createdAt,
@@ -89,7 +94,7 @@ export default function HeadhunterDashboard() {
       })
       .catch(err => console.error('Error loading jobs:', err))
       .finally(() => setLoading(false));
-  }, [selectedHeadhunterId]);
+  }, [selectedHeadhunterId, selectedClientId]);
 
   const totalJobs = openJobs.length + closedJobs.length;
   const totalCandidates = openJobs.reduce((sum, j) => sum + j.applicationsCount, 0);

@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { apiService } from '../../services/api';
 import { WarrantyDTO, WarrantyStatus } from '../../types/api';
+import { useClientFilter } from '../../context/ClientFilterContext';
+import { useHeadhunterFilter } from '../../context/HeadhunterFilterContext';
 import {
   Button,
   Card,
@@ -48,6 +50,8 @@ const STATUS_FILTER_OPTIONS = [
 const WarrantyDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { addToast } = useToast();
+  const { selectedClient } = useClientFilter();
+  const { selectedHeadhunterId } = useHeadhunterFilter();
 
   const [warranties, setWarranties] = useState<WarrantyDTO[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -74,6 +78,16 @@ const WarrantyDashboard: React.FC = () => {
   useEffect(() => {
     fetchData();
   }, [statusFilter]);
+
+  // Filtro global Cliente/Headhunter (client-side, P0). WarrantyDTO não expõe clientId,
+  // então comparamos por clientName === selectedClient.companyName. P1 trocará por server-side.
+  const filteredWarranties = useMemo(() => {
+    return warranties.filter((w) => {
+      if (selectedClient && w.clientName !== selectedClient.companyName) return false;
+      if (selectedHeadhunterId && w.headhunterId !== selectedHeadhunterId) return false;
+      return true;
+    });
+  }, [warranties, selectedClient, selectedHeadhunterId]);
 
   const formatDate = (dateStr: string) =>
     new Date(dateStr).toLocaleDateString('pt-BR');
@@ -170,7 +184,7 @@ const WarrantyDashboard: React.FC = () => {
                   <div key={i} className="h-12 rounded-lg bg-gray-100 dark:bg-gray-800 animate-pulse" />
                 ))}
               </div>
-            ) : warranties.length === 0 ? (
+            ) : filteredWarranties.length === 0 ? (
               <EmptyState
                 title="Nenhuma garantia encontrada"
                 description="Não há garantias para os filtros selecionados."
@@ -193,7 +207,7 @@ const WarrantyDashboard: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                    {warranties.map((w) => (
+                    {filteredWarranties.map((w) => (
                       <tr key={w.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                         <td className="py-3 pr-4">
                           <button

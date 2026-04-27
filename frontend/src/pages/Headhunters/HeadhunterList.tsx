@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiService } from '../../services/api';
+import { useClientFilter } from '../../context/ClientFilterContext';
 import { useListSelection } from '../../hooks/useListSelection';
 import {
   Badge,
@@ -46,6 +47,7 @@ const getGradient = (name: string) =>
 
 const HeadhunterList: React.FC = () => {
   const navigate = useNavigate();
+  const { selectedClientId } = useClientFilter();
   const {
     selectedId: selectedHeadhunterId,
     selectedCount,
@@ -59,11 +61,30 @@ const HeadhunterList: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
-    apiService.getHeadhunters()
-      .then(res => setHeadhunters(res.content))
-      .catch(err => console.error('Error loading headhunters:', err))
-      .finally(() => setLoading(false));
-  }, []);
+    setLoading(true);
+    const load = async () => {
+      try {
+        const res = await apiService.getHeadhunters();
+        let list = res.content;
+        // Filtro global por cliente: mostrar apenas HHs com vagas no cliente selecionado.
+        if (selectedClientId) {
+          const jobsRes = await apiService.getJobs({ page: 0, size: 1000 }, { clientId: selectedClientId });
+          const hhIds = new Set(
+            (jobsRes.content || [])
+              .map((j: any) => j.headhunterId)
+              .filter((id: number | undefined): id is number => id != null),
+          );
+          list = list.filter((h) => h.id != null && hhIds.has(h.id));
+        }
+        setHeadhunters(list);
+      } catch (err) {
+        console.error('Error loading headhunters:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [selectedClientId]);
 
   const filteredHeadhunters = headhunters.filter(
     (h) =>
