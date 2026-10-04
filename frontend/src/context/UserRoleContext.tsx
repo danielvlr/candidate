@@ -1,29 +1,53 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { useAuth } from './AuthContext';
+import type { AuthRole } from '../services/authStorage';
 
-export type UserRole = 'admin' | 'headhunter' | 'senior';
+export type UserRole = 'admin' | 'headhunter' | 'cpartner';
 
 interface UserRoleContextType {
   userRole: UserRole;
   setUserRole: (role: UserRole) => void;
   isDevelopment: boolean;
+  /** Só ADMIN em ambiente de desenvolvimento pode simular outro perfil (RoleSelector). */
+  canSwitchRole: boolean;
 }
 
 const UserRoleContext = createContext<UserRoleContextType | undefined>(undefined);
+
+const ROLE_MAP: Record<AuthRole, UserRole> = {
+  ADMIN: 'admin',
+  HEADHUNTER: 'headhunter',
+  CPARTNER: 'cpartner',
+};
 
 interface UserRoleProviderProps {
   children: ReactNode;
 }
 
 export const UserRoleProvider: React.FC<UserRoleProviderProps> = ({ children }) => {
-  const [userRole, setUserRole] = useState<UserRole>('admin');
+  const { user } = useAuth();
+  const [override, setOverride] = useState<UserRole | null>(null);
 
-  // Check if we're in development mode
   const isDevelopment = import.meta.env.DEV;
+  const canSwitchRole = isDevelopment && user?.role === 'ADMIN';
+  const baseRole: UserRole = user ? ROLE_MAP[user.role] : 'headhunter';
+
+  // Troca de usuário (login/logout) descarta qualquer simulação de perfil.
+  useEffect(() => {
+    setOverride(null);
+  }, [user?.id]);
+
+  const setUserRole = (role: UserRole) => {
+    if (canSwitchRole) {
+      setOverride(role);
+    }
+  };
 
   const value = {
-    userRole,
+    userRole: (canSwitchRole && override) || baseRole,
     setUserRole,
-    isDevelopment
+    isDevelopment,
+    canSwitchRole,
   };
 
   return (

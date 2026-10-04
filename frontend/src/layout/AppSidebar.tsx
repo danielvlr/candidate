@@ -56,7 +56,7 @@ const getNavItemsForRole = (role: string): NavItem[] => {
         path: "/settings/jestor",
       },
     ];
-  } else if (role === 'senior') {
+  } else if (role === 'cpartner') {
     return [
       {
         icon: <GridIcon />,

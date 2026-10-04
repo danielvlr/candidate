@@ -60,6 +60,42 @@ public class GmailEmailService implements EmailService {
         }
     }
 
+    public void sendPasswordReset(String toEmail, String fullName, String resetUrl, long ttlMinutes)
+            throws MailException {
+        String safeName = fullName != null ? fullName : "usuário(a)";
+        String subject = "[Camarmo] Redefinição de senha";
+        String html = """
+            <!DOCTYPE html>
+            <html><head><meta charset="UTF-8"></head>
+            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
+                <h2 style="color: #4f46e5;">Redefinição de senha</h2>
+                <p>Olá <strong>%s</strong>,</p>
+                <p>Recebemos uma solicitação para redefinir a senha da sua conta no Camarmo.</p>
+                <p style="margin: 24px 0;">
+                    <a href="%s" style="background:#4f46e5;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;">Redefinir senha</a>
+                </p>
+                <p style="color:#666;font-size:13px;">Este link é válido por <strong>%d minutos</strong> e só pode ser usado uma vez.</p>
+                <p style="color:#999;font-size:12px;margin-top:32px;">Se você não solicitou a redefinição, ignore este email — sua senha continua a mesma.</p>
+            </body></html>
+            """.formatted(escapeHtml(safeName), resetUrl, ttlMinutes);
+
+        try {
+            MimeMessage msg = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(msg, false, "UTF-8");
+            helper.setTo(toEmail);
+            helper.setSubject(subject);
+            helper.setText(html, true);
+            mailSender.send(msg);
+            log.info("Password reset email sent to {}", toEmail);
+        } catch (jakarta.mail.MessagingException e) {
+            throw new org.springframework.mail.MailSendException("Failed to build password reset email", e);
+        }
+    }
+
+    private static String escapeHtml(String value) {
+        return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
+    }
+
     public void sendInvite(String toEmail, String candidateName, String invitationUrl,
                            LocalDateTime expiresAt, String headhunterName) throws MailException {
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");

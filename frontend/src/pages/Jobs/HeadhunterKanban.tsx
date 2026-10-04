@@ -69,7 +69,7 @@ const HeadhunterKanban: React.FC = () => {
       }
 
       let data: Record<string, JobDTO[]>;
-      if (userRole === 'admin' || userRole === 'senior') {
+      if (userRole === 'admin' || userRole === 'cpartner') {
         data = view === 'status'
           ? await apiService.getAllJobsKanban(params)
           : await apiService.getAllJobsKanbanPipeline(params);
