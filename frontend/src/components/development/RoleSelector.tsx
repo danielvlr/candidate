@@ -1,7 +1,11 @@
 import { useUserRole, UserRole } from "../../context/UserRoleContext";
 
 export default function RoleSelector() {
-  const { userRole, setUserRole } = useUserRole();
+  const { userRole, setUserRole, canSwitchRole } = useUserRole();
+
+  if (!canSwitchRole) {
+    return null;
+  }
 
   const handleRoleChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setUserRole(event.target.value as UserRole);
@@ -19,7 +23,7 @@ export default function RoleSelector() {
       >
         <option value="admin">Admin</option>
         <option value="headhunter">Headhunter</option>
-        <option value="senior">Senior</option>
+        <option value="cpartner">CPartner</option>
       </select>
     </div>
   );

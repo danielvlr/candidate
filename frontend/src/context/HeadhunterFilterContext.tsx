@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { HeadhunterDTO } from '../types/api';
 import { apiService } from '../services/api';
 import { useUserRole } from './UserRoleContext';
+import { useAuth } from './AuthContext';
 
 interface HeadhunterFilterContextType {
   selectedHeadhunterId: number | null;
@@ -19,6 +20,7 @@ const DEFAULT_HEADHUNTER_ID = 1;
 
 export const HeadhunterFilterProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { userRole } = useUserRole();
+  const { user } = useAuth();
   const [headhunters, setHeadhunters] = useState<HeadhunterDTO[]>([]);
   const [selectedHeadhunterId, setSelectedHeadhunterIdState] = useState<number | null>(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -27,6 +29,8 @@ export const HeadhunterFilterProvider: React.FC<{ children: ReactNode }> = ({ ch
   const [loading, setLoading] = useState(true);
 
   const locked = userRole === 'headhunter';
+  // Headhunter logado vê sempre os próprios dados; fallback só para simulação de perfil (admin em DEV).
+  const lockedHeadhunterId = user?.headhunterId ?? DEFAULT_HEADHUNTER_ID;
 
   useEffect(() => {
     apiService.getHeadhunters({ page: 0, size: 100 })
@@ -41,10 +45,10 @@ export const HeadhunterFilterProvider: React.FC<{ children: ReactNode }> = ({ ch
   // Auto-set for headhunter role
   useEffect(() => {
     if (locked) {
-      setSelectedHeadhunterIdState(DEFAULT_HEADHUNTER_ID);
-      localStorage.setItem(STORAGE_KEY, String(DEFAULT_HEADHUNTER_ID));
+      setSelectedHeadhunterIdState(lockedHeadhunterId);
+      localStorage.setItem(STORAGE_KEY, String(lockedHeadhunterId));
     }
-  }, [locked]);
+  }, [locked, lockedHeadhunterId]);
 
   const setSelectedHeadhunterId = (id: number | null) => {
     if (locked) return;

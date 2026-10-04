@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router";
 import SignIn from "./pages/AuthPages/SignIn";
-import SignUp from "./pages/AuthPages/SignUp";
+import ForgotPassword from "./pages/AuthPages/ForgotPassword";
+import ResetPassword from "./pages/AuthPages/ResetPassword";
 import UserProfiles from "./pages/UserProfiles";
 import Calendar from "./pages/Calendar";
 import Blank from "./pages/Blank";
@@ -20,7 +21,7 @@ import HeadhunterDetailView from "./pages/Headhunters/HeadhunterDetailView";
 import ClientList from "./pages/Clients/ClientList";
 import ClientForm from "./pages/Clients/ClientForm";
 import ClientDetailView from "./pages/Clients/ClientDetailView";
-import SeniorDashboard from "./pages/Dashboard/SeniorDashboard";
+import CPartnerDashboard from "./pages/Dashboard/SeniorDashboard";
 import AssessoradoList from "./pages/Assessorados/AssessoradoList";
 import AssessoradoForm from "./pages/Assessorados/AssessoradoForm";
 import AssessoradoDetailView from "./pages/Assessorados/AssessoradoDetailView";
@@ -28,6 +29,8 @@ import { UserRoleProvider, useUserRole } from "./context/UserRoleContext";
 import { ClientFilterProvider } from "./context/ClientFilterContext";
 import { HeadhunterFilterProvider } from "./context/HeadhunterFilterContext";
 import RoleBasedRoute from "./components/auth/RoleBasedRoute";
+import { ProtectedRoute, PublicOnlyRoute } from "./components/auth/ProtectedRoute";
+import { AuthProvider } from "./context/AuthContext";
 // import WarrantyDashboard from "./pages/Warranty/WarrantyDashboard";
 // import WarrantyRules from "./pages/Warranty/WarrantyRules";
 import JestorSyncPage from "./pages/Settings/JestorSyncPage";
@@ -38,8 +41,8 @@ const DashboardRoute = () => {
   const { userRole } = useUserRole();
   if (userRole === 'admin') {
     return <AdminHome />;
-  } else if (userRole === 'senior') {
-    return <SeniorDashboard />;
+  } else if (userRole === 'cpartner') {
+    return <CPartnerDashboard />;
   } else {
     return <HeadhunterDashboard />;
   }
@@ -48,14 +51,24 @@ const DashboardRoute = () => {
 export default function App() {
   return (
     <>
+      <AuthProvider>
       <UserRoleProvider>
-        <ClientFilterProvider>
-        <HeadhunterFilterProvider>
         <Router>
           <ScrollToTop />
           <Routes>
-            {/* Dashboard Layout */}
-            <Route element={<AppLayout />}>
+            {/* Dashboard Layout — somente usuários autenticados */}
+            <Route
+              element={
+                <ProtectedRoute>
+                  {/* Filtros carregam dados da API: só montam após autenticar */}
+                  <ClientFilterProvider>
+                    <HeadhunterFilterProvider>
+                      <AppLayout />
+                    </HeadhunterFilterProvider>
+                  </ClientFilterProvider>
+                </ProtectedRoute>
+              }
+            >
               <Route index path="/" element={<DashboardRoute />} />
               <Route path="/candidates" element={<CandidateList />} />
               <Route path="/candidates/new" element={<CandidateForm mode="create" />} />
@@ -78,7 +91,7 @@ export default function App() {
               <Route
                 path="/assessorados"
                 element={
-                  <RoleBasedRoute allowedRoles={['admin', 'senior']}>
+                  <RoleBasedRoute allowedRoles={['admin', 'cpartner']}>
                     <AssessoradoList />
                   </RoleBasedRoute>
                 }
@@ -86,7 +99,7 @@ export default function App() {
               <Route
                 path="/assessorados/new"
                 element={
-                  <RoleBasedRoute allowedRoles={['admin', 'senior']}>
+                  <RoleBasedRoute allowedRoles={['admin', 'cpartner']}>
                     <AssessoradoForm mode="create" />
                   </RoleBasedRoute>
                 }
@@ -94,7 +107,7 @@ export default function App() {
               <Route
                 path="/assessorados/:id"
                 element={
-                  <RoleBasedRoute allowedRoles={['admin', 'senior']}>
+                  <RoleBasedRoute allowedRoles={['admin', 'cpartner']}>
                     <AssessoradoDetailView />
                   </RoleBasedRoute>
                 }
@@ -102,7 +115,7 @@ export default function App() {
               <Route
                 path="/assessorados/:id/edit"
                 element={
-                  <RoleBasedRoute allowedRoles={['admin', 'senior']}>
+                  <RoleBasedRoute allowedRoles={['admin', 'cpartner']}>
                     <AssessoradoForm mode="edit" />
                   </RoleBasedRoute>
                 }
@@ -140,16 +153,16 @@ export default function App() {
             <Route path="/register/:token" element={<PublicRegisterPage />} />
 
             {/* Auth Layout */}
-            <Route path="/signin" element={<SignIn />} />
-            <Route path="/signup" element={<SignUp />} />
+            <Route path="/signin" element={<PublicOnlyRoute><SignIn /></PublicOnlyRoute>} />
+            <Route path="/forgot-password" element={<PublicOnlyRoute><ForgotPassword /></PublicOnlyRoute>} />
+            <Route path="/reset-password" element={<ResetPassword />} />
 
             {/* Fallback Route */}
-            <Route path="*" element={<Blank />} />
+            <Route path="*" element={<ProtectedRoute><Blank /></ProtectedRoute>} />
           </Routes>
         </Router>
-        </HeadhunterFilterProvider>
-        </ClientFilterProvider>
       </UserRoleProvider>
+      </AuthProvider>
     </>
   );
 }
