@@ -32,8 +32,8 @@ public interface JobRepository extends JpaRepository<Job, Long> {
     Page<Job> searchJobs(@Param("search") String search, Pageable pageable);
 
     @Query("SELECT j FROM Job j LEFT JOIN j.client c LEFT JOIN j.headhunter h WHERE " +
-           "(:location IS NULL OR LOWER(j.location) LIKE LOWER(CONCAT('%', :location, '%'))) AND " +
-           "(:companyName IS NULL OR LOWER(j.companyName) LIKE LOWER(CONCAT('%', :companyName, '%'))) AND " +
+           "(:location IS NULL OR LOWER(j.location) LIKE LOWER(CONCAT('%', CAST(:location AS string), '%'))) AND " +
+           "(:companyName IS NULL OR LOWER(j.companyName) LIKE LOWER(CONCAT('%', CAST(:companyName AS string), '%'))) AND " +
            "(:jobType IS NULL OR j.jobType = :jobType) AND " +
            "(:workMode IS NULL OR j.workMode = :workMode) AND " +
            "(:experienceLevel IS NULL OR j.experienceLevel = :experienceLevel) AND " +

@@ -30,7 +30,7 @@ public interface CandidateRepository extends JpaRepository<Candidate, Long> {
     Page<Candidate> searchCandidates(@Param("search") String search, Pageable pageable);
 
     @Query("SELECT c FROM Candidate c WHERE " +
-           "(:headline IS NULL OR LOWER(c.headline) LIKE LOWER(CONCAT('%', :headline, '%'))) AND " +
+           "(:headline IS NULL OR LOWER(c.headline) LIKE LOWER(CONCAT('%', CAST(:headline AS string), '%'))) AND " +
            "(:city IS NULL OR LOWER(c.city) = LOWER(:city)) AND " +
            "(:minSalary IS NULL OR c.desiredSalary >= :minSalary) AND " +
            "(:maxSalary IS NULL OR c.desiredSalary <= :maxSalary) AND " +

@@ -29,10 +29,10 @@ public interface ClientRepository extends JpaRepository<Client, Long> {
     List<Client> findByState(String state);
 
     @Query("SELECT c FROM Client c WHERE " +
-           "(:companyName IS NULL OR LOWER(c.companyName) LIKE LOWER(CONCAT('%', :companyName, '%'))) AND " +
-           "(:email IS NULL OR LOWER(c.contactEmail) LIKE LOWER(CONCAT('%', :email, '%'))) AND " +
-           "(:city IS NULL OR LOWER(c.city) LIKE LOWER(CONCAT('%', :city, '%'))) AND " +
-           "(:industry IS NULL OR LOWER(c.industry) LIKE LOWER(CONCAT('%', :industry, '%'))) AND " +
+           "(:companyName IS NULL OR LOWER(c.companyName) LIKE LOWER(CONCAT('%', CAST(:companyName AS string), '%'))) AND " +
+           "(:email IS NULL OR LOWER(c.contactEmail) LIKE LOWER(CONCAT('%', CAST(:email AS string), '%'))) AND " +
+           "(:city IS NULL OR LOWER(c.city) LIKE LOWER(CONCAT('%', CAST(:city AS string), '%'))) AND " +
+           "(:industry IS NULL OR LOWER(c.industry) LIKE LOWER(CONCAT('%', CAST(:industry AS string), '%'))) AND " +
            "(:status IS NULL OR c.status = :status) AND " +
            "(:type IS NULL OR c.type = :type)")
     Page<Client> findWithFilters(@Param("companyName") String companyName,
