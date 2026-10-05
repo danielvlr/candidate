@@ -33,9 +33,6 @@ const PIPELINE_COLUMNS = [
   { key: 'WARRANTY', label: 'Reposição' },
 ];
 
-// Fallback headhunter id for non-admin roles
-const DEFAULT_HEADHUNTER_ID = 1;
-
 const HeadhunterKanban: React.FC = () => {
   const { addToast } = useToast();
   const { userRole } = useUserRole();
@@ -73,10 +70,13 @@ const HeadhunterKanban: React.FC = () => {
         data = view === 'status'
           ? await apiService.getAllJobsKanban(params)
           : await apiService.getAllJobsKanbanPipeline(params);
-      } else {
+      } else if (selectedHeadhunterId !== null) {
+        // Headhunter: o filtro global já vem travado no headhunterId do usuário logado.
         data = view === 'status'
-          ? await apiService.getJobsKanban(DEFAULT_HEADHUNTER_ID, params)
-          : await apiService.getJobsKanbanPipeline(DEFAULT_HEADHUNTER_ID, params);
+          ? await apiService.getJobsKanban(selectedHeadhunterId, params)
+          : await apiService.getJobsKanbanPipeline(selectedHeadhunterId, params);
+      } else {
+        data = {};
       }
 
       // Filtro global Cliente/Headhunter (client-side, P0). Aplica AND.

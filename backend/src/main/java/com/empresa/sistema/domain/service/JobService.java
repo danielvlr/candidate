@@ -94,10 +94,11 @@ public class JobService {
     @Transactional(readOnly = true)
     public Page<JobResponse> findWithFilters(String location, String companyName, Job.JobType jobType,
                                         Job.WorkMode workMode, Job.ExperienceLevel experienceLevel,
-                                        Double minSalary, Double maxSalary, Long clientId, Pageable pageable) {
+                                        Double minSalary, Double maxSalary, Long clientId, Long headhunterId,
+                                        Pageable pageable) {
         Page<Job> jobs = jobRepository.findWithFilters(
             location, companyName, jobType, workMode, experienceLevel,
-            minSalary, maxSalary, clientId, null, pageable);
+            minSalary, maxSalary, clientId, headhunterId, null, pageable);
         return jobs.map(jobMapper::toResponse);
     }
 

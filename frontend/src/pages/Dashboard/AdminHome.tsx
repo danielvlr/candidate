@@ -34,6 +34,7 @@ async function fetchScopedJobs(
 ): Promise<JobDTO[]> {
   const filters: JobFilters = {};
   if (selectedClientId) filters.clientId = selectedClientId;
+  if (selectedHeadhunterId) filters.headhunterId = selectedHeadhunterId;
   const page = await apiService.getJobs({ page: 0, size: 500 }, filters);
   let jobs = page.content;
   if (selectedHeadhunterId) {

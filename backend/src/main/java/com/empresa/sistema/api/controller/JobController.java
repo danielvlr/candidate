@@ -68,11 +68,12 @@ public class JobController {
             @RequestParam(required = false) Double minSalary,
             @RequestParam(required = false) Double maxSalary,
             @RequestParam(required = false) Long clientId,
+            @RequestParam(required = false) Long headhunterId,
             @PageableDefault(size = 20) Pageable pageable) {
 
         Page<JobResponse> jobs = jobService.findWithFilters(
             location, companyName, jobType, workMode, experienceLevel,
-            minSalary, maxSalary, clientId, pageable);
+            minSalary, maxSalary, clientId, headhunterId, pageable);
         return ResponseEntity.ok(jobs);
     }
 

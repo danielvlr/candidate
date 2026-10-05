@@ -50,7 +50,7 @@ export default function HeadhunterDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    apiService.getJobs({ page: 0, size: 200 })
+    apiService.getJobs({ page: 0, size: 200 }, selectedHeadhunterId ? { headhunterId: selectedHeadhunterId } : {})
       .then(async (res) => {
         let jobs = res.content || [];
         if (selectedHeadhunterId) {
