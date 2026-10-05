@@ -31,7 +31,7 @@ public interface JobRepository extends JpaRepository<Job, Long> {
            "LOWER(j.skillsRequired) LIKE LOWER(CONCAT('%', :search, '%'))")
     Page<Job> searchJobs(@Param("search") String search, Pageable pageable);
 
-    @Query("SELECT j FROM Job j WHERE " +
+    @Query("SELECT j FROM Job j LEFT JOIN j.client c LEFT JOIN j.headhunter h WHERE " +
            "(:location IS NULL OR LOWER(j.location) LIKE LOWER(CONCAT('%', :location, '%'))) AND " +
            "(:companyName IS NULL OR LOWER(j.companyName) LIKE LOWER(CONCAT('%', :companyName, '%'))) AND " +
            "(:jobType IS NULL OR j.jobType = :jobType) AND " +
@@ -39,7 +39,8 @@ public interface JobRepository extends JpaRepository<Job, Long> {
            "(:experienceLevel IS NULL OR j.experienceLevel = :experienceLevel) AND " +
            "(:minSalary IS NULL OR j.salaryMin >= :minSalary) AND " +
            "(:maxSalary IS NULL OR j.salaryMax <= :maxSalary) AND " +
-           "(:clientId IS NULL OR j.client.id = :clientId) AND " +
+           "(:clientId IS NULL OR c.id = :clientId) AND " +
+           "(:headhunterId IS NULL OR h.id = :headhunterId) AND " +
            "(:status IS NULL OR j.status = :status)")
     Page<Job> findWithFilters(
         @Param("location") String location,
@@ -50,6 +51,7 @@ public interface JobRepository extends JpaRepository<Job, Long> {
         @Param("minSalary") Double minSalary,
         @Param("maxSalary") Double maxSalary,
         @Param("clientId") Long clientId,
+        @Param("headhunterId") Long headhunterId,
         @Param("status") Job.JobStatus status,
         Pageable pageable
     );

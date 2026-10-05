@@ -65,7 +65,7 @@ const ClientList: React.FC = () => {
       try {
         const [allClients, jobsPage] = await Promise.all([
           apiService.getActiveClients(),
-          apiService.getJobs({ page: 0, size: 500 }),
+          apiService.getJobs({ page: 0, size: 500 }, selectedHeadhunterId ? { headhunterId: selectedHeadhunterId } : {}),
         ]);
         const allJobs = jobsPage.content || [];
         const scoped = selectedHeadhunterId

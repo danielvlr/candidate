@@ -242,6 +242,7 @@ export interface JobFilters {
   minSalary?: number;
   maxSalary?: number;
   clientId?: number;
+  headhunterId?: number;
 }
 
 // Request Types

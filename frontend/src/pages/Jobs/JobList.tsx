@@ -155,7 +155,11 @@ const JobList: React.FC = () => {
       setError(null);
 
       const pagination: PaginationParams = { page, size: viewMode === 'kanban' ? 1000 : 30, sort: 'createdAt,desc' };
-      const effectiveFilters: JobFilters = { ...filters, ...(selectedClientId ? { clientId: selectedClientId } : {}) };
+      const effectiveFilters: JobFilters = {
+        ...filters,
+        ...(selectedClientId ? { clientId: selectedClientId } : {}),
+        ...(selectedHeadhunterId ? { headhunterId: selectedHeadhunterId } : {}),
+      };
 
       let result: PageResponse<JobDTO>;
       if (searchQuery.trim()) {
