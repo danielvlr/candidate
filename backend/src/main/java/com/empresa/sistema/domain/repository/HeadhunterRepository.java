@@ -16,6 +16,8 @@ public interface HeadhunterRepository extends JpaRepository<Headhunter, Long> {
 
     Optional<Headhunter> findByEmail(String email);
 
+    Optional<Headhunter> findFirstByEmailIgnoreCase(String email);
+
     List<Headhunter> findByStatus(Headhunter.HeadhunterStatus status);
 
     List<Headhunter> findBySeniority(Headhunter.Seniority seniority);
