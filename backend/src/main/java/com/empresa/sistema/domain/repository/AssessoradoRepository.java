@@ -31,7 +31,7 @@ public interface AssessoradoRepository extends JpaRepository<Assessorado, Long> 
     long countBySeniorIdAndStatus(Long seniorId, Assessorado.AssessoradoStatus status);
 
     @Query("SELECT a FROM Assessorado a WHERE " +
-           "(:name IS NULL OR LOWER(a.candidate.fullName) LIKE LOWER(CONCAT('%', :name, '%'))) AND " +
+           "(:name IS NULL OR LOWER(a.candidate.fullName) LIKE LOWER(CONCAT('%', CAST(:name AS string), '%'))) AND " +
            "(:status IS NULL OR a.status = :status) AND " +
            "(:phase IS NULL OR a.currentPhase = :phase) AND " +
            "(:seniorId IS NULL OR a.senior.id = :seniorId)")

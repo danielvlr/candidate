@@ -23,8 +23,8 @@ public interface HeadhunterRepository extends JpaRepository<Headhunter, Long> {
     List<Headhunter> findBySeniority(Headhunter.Seniority seniority);
 
     @Query("SELECT h FROM Headhunter h WHERE " +
-           "(:name IS NULL OR LOWER(h.fullName) LIKE LOWER(CONCAT('%', :name, '%'))) AND " +
-           "(:email IS NULL OR LOWER(h.email) LIKE LOWER(CONCAT('%', :email, '%'))) AND " +
+           "(:name IS NULL OR LOWER(h.fullName) LIKE LOWER(CONCAT('%', CAST(:name AS string), '%'))) AND " +
+           "(:email IS NULL OR LOWER(h.email) LIKE LOWER(CONCAT('%', CAST(:email AS string), '%'))) AND " +
            "(:seniority IS NULL OR h.seniority = :seniority) AND " +
            "(:status IS NULL OR h.status = :status)")
     Page<Headhunter> findWithFilters(
