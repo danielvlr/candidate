@@ -140,9 +140,14 @@ public class JestorSyncService {
     @Transactional
     public SyncResult syncHeadhunters() {
         return syncTable("headhunters", config.getHeadhuntersTable(), (records, result) -> {
-            Map<String, Headhunter> cache = headhunterRepository.findAll().stream()
+            List<Headhunter> existing = headhunterRepository.findAll();
+            Map<String, Headhunter> cache = existing.stream()
                 .filter(h -> h.getJestorId() != null)
                 .collect(Collectors.toMap(Headhunter::getJestorId, h -> h, (a, b) -> a));
+            Map<String, Headhunter> byEmail = existing.stream()
+                .filter(h -> h.getEmail() != null)
+                .collect(Collectors.toMap(h -> h.getEmail().toLowerCase(Locale.ROOT), h -> h, (a, b) -> a, HashMap::new));
+            JestorUserDirectory userDirectory = buildUserDirectory(records);
             List<Headhunter> batch = new ArrayList<>();
 
             for (Map<String, Object> record : records) {
@@ -157,9 +162,7 @@ public class JestorSyncService {
                     else if (isNew) hh.setFullName("Membro Equipe #" + jestorId);
                     String funcao = getStr(record, "funcao");
                     if (funcao != null && !funcao.isBlank()) hh.setResponsibleAreas(funcao);
-                    String email = getStr(record, "email");
-                    if (email != null && !email.isBlank()) hh.setEmail(email);
-                    else if (isNew) hh.setEmail(jestorId + "@jestor-sync.local");
+                    applyHeadhunterEmail(hh, record, jestorId, userDirectory, byEmail);
                     String telefone = getStr(record, "telefone");
                     if (telefone != null) hh.setPhone(cleanPhone(telefone));
                     if (isNew) {
@@ -619,6 +622,52 @@ public class JestorSyncService {
         if (clientJestorId != null && !clientJestorId.equals("null")) {
             Client client = clientCache.get(clientJestorId);
             if (client != null) { job.setClient(client); job.setCompanyName(client.getCompanyName()); }
+        }
+    }
+
+    /**
+     * A tabela de headhunters do Jestor não tem campo de e-mail: os e-mails reais vêm dos
+     * usuários Jestor embutidos nos registros de headhunters e vagas (criado_por/atualizado_por).
+     */
+    private JestorUserDirectory buildUserDirectory(List<Map<String, Object>> headhunterRecords) {
+        List<Map<String, Object>> sources = new ArrayList<>(headhunterRecords);
+        String jobsTable = config.getJobsTable();
+        if (jobsTable != null && !jobsTable.isBlank()) {
+            try {
+                sources.addAll(jestorClient.listAllRecords(jobsTable));
+            } catch (Exception e) {
+                log.warn("Não foi possível ler vagas para resolver e-mails de headhunters: {}", e.getMessage());
+            }
+        }
+        JestorUserDirectory directory = JestorUserDirectory.from(sources);
+        log.info("Jestor user directory: {} usuários com e-mail", directory.size());
+        return directory;
+    }
+
+    /**
+     * Prioridade: campo "email" do registro (se um dia existir) > usuário Jestor com mesmo nome
+     * > e-mail atual (se não for placeholder) > placeholder (apenas para registros novos).
+     */
+    private void applyHeadhunterEmail(Headhunter hh, Map<String, Object> record, String jestorId,
+                                      JestorUserDirectory userDirectory, Map<String, Headhunter> byEmail) {
+        String email = getStr(record, "email");
+        if (email == null || email.isBlank()) {
+            email = userDirectory.findEmailByName(hh.getFullName()).orElse(null);
+        }
+        if (email != null && !email.isBlank()) {
+            String normalized = email.toLowerCase(Locale.ROOT);
+            Headhunter owner = byEmail.get(normalized);
+            if (owner == null || owner == hh) {
+                if (hh.getEmail() != null) byEmail.remove(hh.getEmail().toLowerCase(Locale.ROOT));
+                hh.setEmail(normalized);
+                byEmail.put(normalized, hh);
+                return;
+            }
+            log.warn("jestor_headhunter_email_conflict jestor_id={} email={} owner_id={}",
+                     jestorId, tokenService.maskEmail(normalized), owner.getId());
+        }
+        if (hh.getEmail() == null || hh.getEmail().isBlank()) {
+            hh.setEmail(JestorUserDirectory.placeholderEmail(jestorId));
         }
     }
 
