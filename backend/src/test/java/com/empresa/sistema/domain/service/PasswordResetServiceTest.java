@@ -1,8 +1,10 @@
 package com.empresa.sistema.domain.service;
 
 import com.empresa.sistema.domain.entity.AppUser;
+import com.empresa.sistema.domain.entity.Headhunter;
 import com.empresa.sistema.domain.entity.PasswordResetToken;
 import com.empresa.sistema.domain.repository.AppUserRepository;
+import com.empresa.sistema.domain.repository.HeadhunterRepository;
 import com.empresa.sistema.domain.repository.PasswordResetTokenRepository;
 import com.empresa.sistema.domain.service.exception.BusinessException;
 import com.empresa.sistema.security.AuthRateLimiter;
@@ -28,6 +30,7 @@ class PasswordResetServiceTest {
     private final InvitationTokenService tokenService = new InvitationTokenService();
     private AppUserRepository userRepository;
     private PasswordResetTokenRepository tokenRepository;
+    private HeadhunterRepository headhunterRepository;
     private GmailEmailService emailService;
     private PasswordResetService service;
 
@@ -39,9 +42,11 @@ class PasswordResetServiceTest {
         userRepository = mock(AppUserRepository.class);
         tokenRepository = mock(PasswordResetTokenRepository.class);
         emailService = mock(GmailEmailService.class);
+        headhunterRepository = mock(HeadhunterRepository.class);
+        when(headhunterRepository.findFirstByEmailIgnoreCase(anyString())).thenReturn(Optional.empty());
         when(userRepository.findByEmailIgnoreCase(anyString())).thenReturn(Optional.empty());
         when(tokenRepository.findByTokenHash(anyString())).thenReturn(Optional.empty());
-        service = new PasswordResetService(userRepository, tokenRepository, tokenService, encoder,
+        service = new PasswordResetService(userRepository, headhunterRepository, tokenRepository, tokenService, encoder,
                 emailService, new AuthRateLimiter(), "http://front/", 30, false);
     }
 
@@ -133,6 +138,61 @@ class PasswordResetServiceTest {
         stubToken("raw-token", LocalDateTime.now().plusMinutes(10), null);
 
         assertThat(service.isTokenValid("raw-token")).isTrue();
+    }
+
+    private static Headhunter headhunter(String email, Headhunter.HeadhunterStatus status) {
+        Headhunter hh = new Headhunter("Devid Oliveira", email, Headhunter.Seniority.PLENO);
+        hh.setId(17L);
+        hh.setStatus(status);
+        return hh;
+    }
+
+    @Test
+    void requestResetProvisionsHeadhunterUserAndSendsLink() {
+        when(headhunterRepository.findFirstByEmailIgnoreCase("devid.oliveira@grupocamarmo.com.br"))
+                .thenReturn(Optional.of(headhunter("devid.oliveira@grupocamarmo.com.br", Headhunter.HeadhunterStatus.ACTIVE)));
+        when(userRepository.save(any(AppUser.class)))
+                .thenAnswer(inv -> ((AppUser) inv.getArgument(0)).toBuilder().id(99L).build());
+
+        service.requestReset("Devid.Oliveira@grupocamarmo.com.br");
+
+        ArgumentCaptor<AppUser> created = ArgumentCaptor.forClass(AppUser.class);
+        verify(userRepository).save(created.capture());
+        AppUser u = created.getValue();
+        assertThat(u.getEmail()).isEqualTo("devid.oliveira@grupocamarmo.com.br");
+        assertThat(u.getRole()).isEqualTo(AppUser.UserRole.HEADHUNTER);
+        assertThat(u.getHeadhunterId()).isEqualTo(17L);
+        assertThat(u.isActive()).isTrue();
+        assertThat(u.getPasswordHash()).isNotBlank();
+        verify(tokenRepository).save(any(PasswordResetToken.class));
+        verify(emailService).sendPasswordReset(eq("devid.oliveira@grupocamarmo.com.br"), eq("Devid Oliveira"), anyString(), eq(30L));
+    }
+
+    @Test
+    void requestResetDoesNotProvisionInactiveOrPlaceholderHeadhunters() {
+        when(headhunterRepository.findFirstByEmailIgnoreCase("x@camarmo.com"))
+                .thenReturn(Optional.of(headhunter("x@camarmo.com", Headhunter.HeadhunterStatus.INACTIVE)));
+        when(headhunterRepository.findFirstByEmailIgnoreCase("12@jestor-sync.local"))
+                .thenReturn(Optional.of(headhunter("12@jestor-sync.local", Headhunter.HeadhunterStatus.ACTIVE)));
+
+        service.requestReset("x@camarmo.com");
+        service.requestReset("12@jestor-sync.local");
+
+        verify(userRepository, never()).save(any());
+        verifyNoInteractions(emailService);
+    }
+
+    @Test
+    void requestResetDoesNotReactivateDisabledUserViaHeadhunter() {
+        AppUser disabled = user.toBuilder().email("devid.oliveira@grupocamarmo.com.br").active(false).build();
+        when(userRepository.findByEmailIgnoreCase("devid.oliveira@grupocamarmo.com.br")).thenReturn(Optional.of(disabled));
+        when(headhunterRepository.findFirstByEmailIgnoreCase("devid.oliveira@grupocamarmo.com.br"))
+                .thenReturn(Optional.of(headhunter("devid.oliveira@grupocamarmo.com.br", Headhunter.HeadhunterStatus.ACTIVE)));
+
+        service.requestReset("devid.oliveira@grupocamarmo.com.br");
+
+        verify(userRepository, never()).save(any());
+        verifyNoInteractions(emailService);
     }
 
     private void stubToken(String raw, LocalDateTime expiresAt, LocalDateTime usedAt) {

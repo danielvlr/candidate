@@ -1,8 +1,10 @@
 package com.empresa.sistema.domain.service;
 
 import com.empresa.sistema.domain.entity.AppUser;
+import com.empresa.sistema.domain.entity.Headhunter;
 import com.empresa.sistema.domain.entity.PasswordResetToken;
 import com.empresa.sistema.domain.repository.AppUserRepository;
+import com.empresa.sistema.domain.repository.HeadhunterRepository;
 import com.empresa.sistema.domain.repository.PasswordResetTokenRepository;
 import com.empresa.sistema.domain.service.exception.BusinessException;
 import com.empresa.sistema.security.AuthRateLimiter;
@@ -13,19 +15,25 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Fluxo "esqueci minha senha": gera token de uso único (só o hash é persistido),
  * envia link por email e troca a senha mediante token válido.
+ * Headhunters ativos (com e-mail real) que ainda não têm conta recebem uma conta
+ * HEADHUNTER vinculada no primeiro pedido — a senha só é definida pelo link enviado ao e-mail.
  */
 @Service
 @Slf4j
 public class PasswordResetService {
 
     static final int MAX_REQUESTS_PER_WINDOW = 3;
+    static final String JESTOR_PLACEHOLDER_DOMAIN = "@jestor-sync.local";
     static final String INVALID_TOKEN_MESSAGE = "Link de redefinição inválido ou expirado. Solicite um novo.";
 
     private final AppUserRepository userRepository;
+    private final HeadhunterRepository headhunterRepository;
     private final PasswordResetTokenRepository tokenRepository;
     private final InvitationTokenService tokenService;
     private final PasswordEncoder passwordEncoder;
@@ -36,6 +44,7 @@ public class PasswordResetService {
     private final boolean logResetLinks;
 
     public PasswordResetService(AppUserRepository userRepository,
+                                HeadhunterRepository headhunterRepository,
                                 PasswordResetTokenRepository tokenRepository,
                                 InvitationTokenService tokenService,
                                 PasswordEncoder passwordEncoder,
@@ -45,6 +54,7 @@ public class PasswordResetService {
                                 @Value("${app.auth.reset-token-ttl-minutes:30}") long ttlMinutes,
                                 @Value("${app.auth.log-reset-links:false}") boolean logResetLinks) {
         this.userRepository = userRepository;
+        this.headhunterRepository = headhunterRepository;
         this.tokenRepository = tokenRepository;
         this.tokenService = tokenService;
         this.passwordEncoder = passwordEncoder;
@@ -68,10 +78,33 @@ public class PasswordResetService {
         }
         rateLimiter.recordAttempt(rateKey);
 
-        userRepository.findByEmailIgnoreCase(email)
-                .filter(AppUser::isActive)
-                .ifPresentOrElse(this::issueAndSend,
-                        () -> log.info("password_reset_unknown_email email={}", email));
+        Optional<AppUser> existing = userRepository.findByEmailIgnoreCase(email);
+        Optional<AppUser> target = existing.isPresent()
+                ? existing.filter(AppUser::isActive)
+                : provisionHeadhunterUser(email);
+        target.ifPresentOrElse(this::issueAndSend,
+                () -> log.info("password_reset_unknown_email email={}", email));
+    }
+
+    private Optional<AppUser> provisionHeadhunterUser(String email) {
+        if (email.endsWith(JESTOR_PLACEHOLDER_DOMAIN)) {
+            return Optional.empty();
+        }
+        return headhunterRepository.findFirstByEmailIgnoreCase(email)
+                .filter(hh -> hh.getStatus() == Headhunter.HeadhunterStatus.ACTIVE)
+                .map(hh -> {
+                    AppUser created = userRepository.save(AppUser.builder()
+                            .email(email)
+                            .fullName(hh.getFullName().trim())
+                            // Senha aleatória descartada: o acesso só é liberado pelo link de redefinição.
+                            .passwordHash(passwordEncoder.encode(UUID.randomUUID().toString()))
+                            .role(AppUser.UserRole.HEADHUNTER)
+                            .headhunterId(hh.getId())
+                            .active(true)
+                            .build());
+                    log.info("headhunter_user_provisioned userId={} headhunterId={}", created.getId(), hh.getId());
+                    return created;
+                });
     }
 
     @Transactional(readOnly = true)
