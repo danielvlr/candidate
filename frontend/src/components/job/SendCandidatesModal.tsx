@@ -2,9 +2,12 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { apiService } from '../../services/api';
 import { CandidateDTO } from '../../types/api';
 import { Button, Input, useToast, Skeleton } from '../ui';
+import { useAuth } from '../../context/AuthContext';
 
 interface SendCandidatesModalProps {
   jobId: number;
+  /** Headhunter responsável pela vaga; usado quando quem envia não é headhunter (ex.: admin). */
+  jobHeadhunterId?: number | null;
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
@@ -42,11 +45,14 @@ const searchIcon = (
 
 export const SendCandidatesModal: React.FC<SendCandidatesModalProps> = ({
   jobId,
+  jobHeadhunterId,
   isOpen,
   onClose,
   onSuccess,
 }) => {
   const { addToast } = useToast();
+  const { user } = useAuth();
+  const senderHeadhunterId = user?.headhunterId ?? jobHeadhunterId ?? null;
   const overlayRef = useRef<HTMLDivElement>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -120,12 +126,16 @@ export const SendCandidatesModal: React.FC<SendCandidatesModalProps> = ({
       addToast({ type: 'error', title: 'Selecione ao menos um candidato' });
       return;
     }
+    if (senderHeadhunterId === null) {
+      addToast({ type: 'error', title: 'Vaga sem headhunter responsável' });
+      return;
+    }
     setLoading(true);
     try {
       await apiService.createShortlist({
         jobId,
         candidateIds: Array.from(selectedIds),
-        headhunterId: 1,
+        headhunterId: senderHeadhunterId,
         notes: notes.trim() || undefined,
         presentationText: presentationText.trim() || undefined,
       });

@@ -1,5 +1,8 @@
 package com.empresa.sistema.api.controller;
 
+import com.empresa.sistema.security.AuthenticatedUser;
+import com.empresa.sistema.security.HeadhunterScope;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import com.empresa.sistema.api.dto.request.InviteCandidateRequest;
 import com.empresa.sistema.api.dto.response.CandidateResponse;
 import com.empresa.sistema.api.dto.response.InvitationCreatedResponse;
@@ -36,41 +39,46 @@ public class CandidateInvitationController {
     @PostMapping
     public ResponseEntity<InvitationCreatedResponse> invite(
             @Valid @RequestBody InviteCandidateRequest req,
-            @RequestHeader(value = "X-Headhunter-Id") Long headhunterId) {
-        InvitationCreatedResult result = invitationService.invitePersist(req, headhunterId);
+            @RequestHeader(value = "X-Headhunter-Id") Long headhunterId,
+            @AuthenticationPrincipal AuthenticatedUser principal) {
+        InvitationCreatedResult result = invitationService.invitePersist(req, HeadhunterScope.resolve(principal, headhunterId));
         return sendAndRespond(result);
     }
 
     @PostMapping("/resend")
     public ResponseEntity<InvitationCreatedResponse> resend(
             @RequestParam Long candidateId,
-            @RequestHeader(value = "X-Headhunter-Id") Long headhunterId) {
-        InvitationCreatedResult result = invitationService.resend(candidateId, headhunterId);
+            @RequestHeader(value = "X-Headhunter-Id") Long headhunterId,
+            @AuthenticationPrincipal AuthenticatedUser principal) {
+        InvitationCreatedResult result = invitationService.resend(candidateId, HeadhunterScope.resolve(principal, headhunterId));
         return sendAndRespond(result);
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> revoke(
             @PathVariable Long id,
-            @RequestHeader(value = "X-Headhunter-Id") Long headhunterId) {
-        invitationService.revoke(id, headhunterId);
+            @RequestHeader(value = "X-Headhunter-Id") Long headhunterId,
+            @AuthenticationPrincipal AuthenticatedUser principal) {
+        invitationService.revoke(id, HeadhunterScope.resolve(principal, headhunterId));
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/candidates/{candidateId}/approve")
     public ResponseEntity<CandidateResponse> approve(
             @PathVariable Long candidateId,
-            @RequestHeader(value = "X-Headhunter-Id") Long headhunterId) {
-        return ResponseEntity.ok(approvalService.approve(candidateId, headhunterId));
+            @RequestHeader(value = "X-Headhunter-Id") Long headhunterId,
+            @AuthenticationPrincipal AuthenticatedUser principal) {
+        return ResponseEntity.ok(approvalService.approve(candidateId, HeadhunterScope.resolve(principal, headhunterId)));
     }
 
     @PostMapping("/candidates/{candidateId}/reject")
     public ResponseEntity<CandidateResponse> reject(
             @PathVariable Long candidateId,
             @RequestBody Map<String, String> body,
-            @RequestHeader(value = "X-Headhunter-Id") Long headhunterId) {
+            @RequestHeader(value = "X-Headhunter-Id") Long headhunterId,
+            @AuthenticationPrincipal AuthenticatedUser principal) {
         String reason = body.getOrDefault("reason", "");
-        return ResponseEntity.ok(approvalService.reject(candidateId, reason, headhunterId));
+        return ResponseEntity.ok(approvalService.reject(candidateId, reason, HeadhunterScope.resolve(principal, headhunterId)));
     }
 
     private ResponseEntity<InvitationCreatedResponse> sendAndRespond(InvitationCreatedResult result) {

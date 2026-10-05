@@ -1,5 +1,8 @@
 package com.empresa.sistema.api.controller;
 
+import com.empresa.sistema.security.AuthenticatedUser;
+import com.empresa.sistema.security.HeadhunterScope;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import com.empresa.sistema.api.dto.request.JobCreateRequest;
 import com.empresa.sistema.api.dto.request.JobUpdateRequest;
 import com.empresa.sistema.api.dto.response.JobResponse;
@@ -33,8 +36,12 @@ public class JobController {
 
     @GetMapping
     public ResponseEntity<Page<JobResponse>> getAllJobs(
+            @AuthenticationPrincipal AuthenticatedUser principal,
             @PageableDefault(size = 20) Pageable pageable) {
-        Page<JobResponse> jobs = jobService.findAll(pageable);
+        Page<JobResponse> jobs = HeadhunterScope.isHeadhunter(principal)
+            ? jobService.findWithFilters(null, null, null, null, null, null, null, null,
+                HeadhunterScope.resolve(principal, null), pageable)
+            : jobService.findAll(pageable);
         return ResponseEntity.ok(jobs);
     }
 
@@ -69,11 +76,12 @@ public class JobController {
             @RequestParam(required = false) Double maxSalary,
             @RequestParam(required = false) Long clientId,
             @RequestParam(required = false) Long headhunterId,
+            @AuthenticationPrincipal AuthenticatedUser principal,
             @PageableDefault(size = 20) Pageable pageable) {
 
         Page<JobResponse> jobs = jobService.findWithFilters(
             location, companyName, jobType, workMode, experienceLevel,
-            minSalary, maxSalary, clientId, headhunterId, pageable);
+            minSalary, maxSalary, clientId, HeadhunterScope.resolve(principal, headhunterId), pageable);
         return ResponseEntity.ok(jobs);
     }
 
@@ -220,22 +228,24 @@ public class JobController {
     @GetMapping("/kanban/headhunter/{headhunterId}")
     public ResponseEntity<Map<String, List<JobResponse>>> getJobsKanbanByStatus(
             @PathVariable Long headhunterId,
+            @AuthenticationPrincipal AuthenticatedUser principal,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate createdAfter,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate deadlineBefore,
             @RequestParam(required = false) Integer warrantyExpiringIn) {
         Map<String, List<JobResponse>> result = jobService.getJobsKanbanByStatus(
-            headhunterId, createdAfter, deadlineBefore, warrantyExpiringIn);
+            HeadhunterScope.resolve(principal, headhunterId), createdAfter, deadlineBefore, warrantyExpiringIn);
         return ResponseEntity.ok(result);
     }
 
     @GetMapping("/kanban/headhunter/{headhunterId}/pipeline")
     public ResponseEntity<Map<String, List<JobResponse>>> getJobsKanbanByPipeline(
             @PathVariable Long headhunterId,
+            @AuthenticationPrincipal AuthenticatedUser principal,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate createdAfter,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate deadlineBefore,
             @RequestParam(required = false) Integer warrantyExpiringIn) {
         Map<String, List<JobResponse>> result = jobService.getJobsKanbanByPipeline(
-            headhunterId, createdAfter, deadlineBefore, warrantyExpiringIn);
+            HeadhunterScope.resolve(principal, headhunterId), createdAfter, deadlineBefore, warrantyExpiringIn);
         return ResponseEntity.ok(result);
     }
 

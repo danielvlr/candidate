@@ -94,6 +94,48 @@ class HeadhunterJobsVisibilityIntegrationTest {
                 .andExpect(jsonPath("$.content[*].headhunterId", everyItem(is(devid.getId().intValue()))));
     }
 
+    @Test
+    void headhunterCannotSeeAnotherHeadhuntersJobsEvenWhenAskingForThem() throws Exception {
+        Client client = clientRepository.save(Client.builder().companyName("ACME").build());
+        Headhunter devid = saveHeadhunter("Devid Oliveira", "devid.scope@test.com");
+        Headhunter other = saveHeadhunter("Outra Pessoa", "outra.scope@test.com");
+        saveJob("Vaga Devid", client, devid);
+        saveJob("Vaga Outra 1", client, other);
+        saveJob("Vaga Outra 2", client, other);
+
+        // Conta criada sem vínculo: o login vincula pelo e-mail.
+        String adminToken = login("admin@test.com", "admin-pass-123");
+        mvc.perform(post("/api/v1/users").header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "email", "devid.scope@test.com", "fullName", "Devid Oliveira",
+                                "password", "devid-pass-123", "role", "HEADHUNTER"))))
+                .andExpect(status().isCreated());
+        String token = "Bearer " + login("devid.scope@test.com", "devid-pass-123");
+
+        mvc.perform(get("/api/v1/auth/me").header("Authorization", token))
+                .andExpect(jsonPath("$.headhunterId").value(devid.getId()));
+
+        mvc.perform(get("/api/v1/jobs/filter").header("Authorization", token)
+                        .param("headhunterId", String.valueOf(other.getId())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].title").value("Vaga Devid"));
+
+        mvc.perform(get("/api/v1/jobs").header("Authorization", token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1));
+
+        mvc.perform(get("/api/v1/jobs/kanban/headhunter/" + other.getId()).header("Authorization", token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.*[*].headhunterId", everyItem(is(devid.getId().intValue()))));
+
+        // Admin continua vendo o filtro que pediu.
+        mvc.perform(get("/api/v1/jobs/filter").header("Authorization", "Bearer " + adminToken)
+                        .param("headhunterId", String.valueOf(other.getId())))
+                .andExpect(jsonPath("$.totalElements").value(2));
+    }
+
     private Headhunter saveHeadhunter(String name, String email) {
         Headhunter hh = new Headhunter(name, email, Headhunter.Seniority.PLENO);
         hh.setFixedCost(BigDecimal.ZERO);

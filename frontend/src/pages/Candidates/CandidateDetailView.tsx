@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiService } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import { CandidateDTO } from '../../types/api';
 import { Badge, Button, Card, CardBody, Modal, useToast } from '../../components/ui';
 
@@ -65,8 +66,9 @@ const CandidateDetailView: React.FC = () => {
   const [rejecting, setRejecting] = useState(false);
   const [resending, setResending] = useState(false);
 
-  // TODO: pull from auth context when OAuth2 lands
-  const resolvedHeadhunterId = Number(localStorage.getItem('headhunter_id') ?? '1') || 1;
+  const { user } = useAuth();
+  // Headhunter logado responde pela ação; fallback 1 só para perfis sem vínculo (admin).
+  const resolvedHeadhunterId = user?.headhunterId ?? 1;
 
   useEffect(() => {
     if (id) {
