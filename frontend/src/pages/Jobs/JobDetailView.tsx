@@ -1013,6 +1013,7 @@ const JobDetailView: React.FC = () => {
       />
       <SendCandidatesModal
         jobId={job.id!}
+        jobHeadhunterId={job.headhunterId}
         isOpen={showSendCandidates}
         onClose={() => setShowSendCandidates(false)}
         onSuccess={() => setTabRefreshKey((k) => k + 1)}

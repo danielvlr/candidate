@@ -1,5 +1,8 @@
 package com.empresa.sistema.api.controller;
 
+import com.empresa.sistema.security.AuthenticatedUser;
+import com.empresa.sistema.security.HeadhunterScope;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import com.empresa.sistema.api.dto.response.WarrantyResponse;
 import com.empresa.sistema.api.dto.response.WarrantyRuleResponse;
 import com.empresa.sistema.domain.entity.Job;
@@ -54,8 +57,10 @@ public class WarrantyController {
     }
 
     @GetMapping("/warranties/headhunter/{headhunterId}")
-    public ResponseEntity<List<WarrantyResponse>> getWarrantiesByHeadhunter(@PathVariable Long headhunterId) {
-        List<WarrantyResponse> response = warrantyService.findByHeadhunterId(headhunterId).stream()
+    public ResponseEntity<List<WarrantyResponse>> getWarrantiesByHeadhunter(
+            @PathVariable Long headhunterId, @AuthenticationPrincipal AuthenticatedUser principal) {
+        List<WarrantyResponse> response = warrantyService.findByHeadhunterId(
+                HeadhunterScope.resolve(principal, headhunterId)).stream()
                 .map(WarrantyResponse::fromEntity)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(response);

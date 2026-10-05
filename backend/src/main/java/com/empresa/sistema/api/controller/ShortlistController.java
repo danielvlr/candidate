@@ -1,5 +1,8 @@
 package com.empresa.sistema.api.controller;
 
+import com.empresa.sistema.security.AuthenticatedUser;
+import com.empresa.sistema.security.HeadhunterScope;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import com.empresa.sistema.api.dto.request.ShortlistCreateRequest;
 import com.empresa.sistema.api.dto.response.ShortlistResponse;
 import com.empresa.sistema.domain.entity.Shortlist;
@@ -36,7 +39,10 @@ public class ShortlistController {
 
     @PostMapping
     public ResponseEntity<List<ShortlistResponse>> createShortlist(
-            @Valid @RequestBody ShortlistCreateRequest request) {
+            @Valid @RequestBody ShortlistCreateRequest request,
+            @AuthenticationPrincipal AuthenticatedUser principal) {
+        // Headhunter logado sempre envia em nome próprio, independente do id no corpo.
+        request.setHeadhunterId(HeadhunterScope.resolve(principal, request.getHeadhunterId()));
         List<ShortlistResponse> shortlists = shortlistService.createShortlist(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(shortlists);
     }

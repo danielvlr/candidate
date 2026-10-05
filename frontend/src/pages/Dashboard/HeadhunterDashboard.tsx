@@ -50,8 +50,12 @@ export default function HeadhunterDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Troca de headhunter/cliente: resposta da busca anterior não pode sobrescrever a atual.
+    let stale = false;
+    setLoading(true);
     apiService.getJobs({ page: 0, size: 200 }, selectedHeadhunterId ? { headhunterId: selectedHeadhunterId } : {})
       .then(async (res) => {
+        if (stale) return;
         let jobs = res.content || [];
         if (selectedHeadhunterId) {
           jobs = jobs.filter((j: any) => j.headhunterId === selectedHeadhunterId);
@@ -87,13 +91,17 @@ export default function HeadhunterDashboard() {
                 .catch(() => [])
             )
           );
+          if (stale) return;
           const all = histResults.flat() as (JobHistoryDTO & { jobTitle?: string })[];
           all.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
           setRecentHistory(all.slice(0, 10));
+        } else {
+          setRecentHistory([]);
         }
       })
       .catch(err => console.error('Error loading jobs:', err))
-      .finally(() => setLoading(false));
+      .finally(() => { if (!stale) setLoading(false); });
+    return () => { stale = true; };
   }, [selectedHeadhunterId, selectedClientId]);
 
   const totalJobs = openJobs.length + closedJobs.length;

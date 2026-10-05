@@ -17,20 +17,25 @@ const HeadhunterFilterContext = createContext<HeadhunterFilterContextType | unde
 
 const STORAGE_KEY = 'camarmo_selectedHeadhunterId';
 const DEFAULT_HEADHUNTER_ID = 1;
+const UNLINKED_HEADHUNTER_ID = -1;
 
 export const HeadhunterFilterProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { userRole } = useUserRole();
   const { user } = useAuth();
   const [headhunters, setHeadhunters] = useState<HeadhunterDTO[]>([]);
-  const [selectedHeadhunterId, setSelectedHeadhunterIdState] = useState<number | null>(() => {
+  const [storedHeadhunterId, setStoredHeadhunterId] = useState<number | null>(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
     return stored ? Number(stored) : null;
   });
   const [loading, setLoading] = useState(true);
 
   const locked = userRole === 'headhunter';
-  // Headhunter logado vê sempre os próprios dados; fallback só para simulação de perfil (admin em DEV).
-  const lockedHeadhunterId = user?.headhunterId ?? DEFAULT_HEADHUNTER_ID;
+  // Headhunter logado vê sempre os próprios dados, nunca a seleção salva de outra sessão.
+  // Sem vínculo, -1 não casa com nenhum headhunter; DEFAULT só vale para admin simulando perfil em DEV.
+  const isSimulatedHeadhunter = user?.role === 'ADMIN';
+  const lockedHeadhunterId = user?.headhunterId
+    ?? (isSimulatedHeadhunter ? DEFAULT_HEADHUNTER_ID : UNLINKED_HEADHUNTER_ID);
+  const selectedHeadhunterId = locked ? lockedHeadhunterId : storedHeadhunterId;
 
   useEffect(() => {
     apiService.getHeadhunters({ page: 0, size: 100 })
@@ -42,17 +47,9 @@ export const HeadhunterFilterProvider: React.FC<{ children: ReactNode }> = ({ ch
       .finally(() => setLoading(false));
   }, []);
 
-  // Auto-set for headhunter role
-  useEffect(() => {
-    if (locked) {
-      setSelectedHeadhunterIdState(lockedHeadhunterId);
-      localStorage.setItem(STORAGE_KEY, String(lockedHeadhunterId));
-    }
-  }, [locked, lockedHeadhunterId]);
-
   const setSelectedHeadhunterId = (id: number | null) => {
     if (locked) return;
-    setSelectedHeadhunterIdState(id);
+    setStoredHeadhunterId(id);
     if (id === null) {
       localStorage.removeItem(STORAGE_KEY);
     } else {

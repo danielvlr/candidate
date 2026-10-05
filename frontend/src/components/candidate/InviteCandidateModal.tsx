@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { Modal } from '../ui/Modal';
 import { useToast } from '../ui/Toast';
 import { apiService } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 
 interface InviteCandidateModalProps {
   isOpen: boolean;
   onClose: () => void;
-  // TODO: replace with value from auth context once OAuth2 lands
+  /** Usado quando quem convida não é headhunter (ex.: admin). */
   headhunterId?: number;
 }
 
@@ -23,10 +24,9 @@ const InviteCandidateModal: React.FC<InviteCandidateModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [emailError, setEmailError] = useState('');
 
-  // Resolve headhunter id: prop > localStorage > fallback 1
-  const resolvedHeadhunterId =
-    headhunterId ??
-    (Number(localStorage.getItem('headhunter_id') ?? '1') || 1); // TODO: pull from auth context when OAuth2 lands
+  const { user } = useAuth();
+  // Headhunter logado responde pelo convite; fallback 1 só para perfis sem vínculo (admin).
+  const resolvedHeadhunterId = user?.headhunterId ?? headhunterId ?? 1;
 
   const validateEmail = (value: string) => {
     if (!value.trim()) return 'E-mail é obrigatório.';
