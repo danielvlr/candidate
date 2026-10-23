@@ -89,6 +89,8 @@ const JobList: React.FC = () => {
   const [closingJob, setClosingJob] = useState<JobDTO | null>(null);
   const [jobHistoryCache, setJobHistoryCache] = useState<Record<number, { type: string; title: string; createdAt: string }[]>>({});
   const { userRole } = useUserRole();
+  // Só o admin troca status arrastando cards no kanban.
+  const canDragJobs = userRole === 'admin';
   const { selectedClientId } = useClientFilter();
   const { selectedHeadhunterId } = useHeadhunterFilter();
   const navigate = useNavigate();
@@ -239,7 +241,13 @@ const JobList: React.FC = () => {
 
   const handleDrop = async (jobId: number, targetStatus: string) => {
     const current = (jobs?.content || []).find(j => j.id === jobId);
-    if (!current || current.status === targetStatus) return;
+    if (!canDragJobs || !current || current.status === targetStatus) return;
+
+    // Fechar exige valor final e candidato aprovado: abre o modal em vez de trocar o status direto.
+    if (targetStatus === 'CLOSED') {
+      setClosingJob(current);
+      return;
+    }
 
     // Confirmação obrigatória para transições delicadas:
     // - PAUSED → ACTIVE: reativa uma vaga pausada (afeta SLA/ daysPaused).
@@ -454,13 +462,13 @@ const JobList: React.FC = () => {
             return (
               <div key={status}
                 className={`flex-shrink-0 w-80 rounded-xl border ${cfg.kanbanBg} flex flex-col`}
-                onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('ring-2', 'ring-brand-400'); }}
-                onDragLeave={(e) => { e.currentTarget.classList.remove('ring-2', 'ring-brand-400'); }}
-                onDrop={(e) => {
+                onDragOver={canDragJobs ? (e) => { e.preventDefault(); e.currentTarget.classList.add('ring-2', 'ring-brand-400'); } : undefined}
+                onDragLeave={canDragJobs ? (e) => { e.currentTarget.classList.remove('ring-2', 'ring-brand-400'); } : undefined}
+                onDrop={canDragJobs ? (e) => {
                   e.currentTarget.classList.remove('ring-2', 'ring-brand-400');
                   const jobId = Number(e.dataTransfer.getData('jobId'));
                   if (jobId) handleDrop(jobId, status);
-                }}>
+                } : undefined}>
                 {/* Column Header */}
                 <div className="flex items-center gap-2 px-3 py-2.5 border-b border-gray-200/50 dark:border-gray-700/50">
                   <span className={`w-2 h-2 rounded-full ${cfg.dot}`} />
@@ -471,9 +479,9 @@ const JobList: React.FC = () => {
                 {/* Cards */}
                 <div className="flex-1 p-2 space-y-2 overflow-y-auto max-h-[calc(100vh-260px)]">
                   {columnJobs.map((job) => (
-                    <div key={job.id} draggable
-                      onDragStart={(e) => { e.dataTransfer.setData('jobId', String(job.id)); e.currentTarget.classList.add('opacity-50', 'rotate-1'); }}
-                      onDragEnd={(e) => { e.currentTarget.classList.remove('opacity-50', 'rotate-1'); }}
+                    <div key={job.id} draggable={canDragJobs}
+                      onDragStart={canDragJobs ? (e) => { e.dataTransfer.setData('jobId', String(job.id)); e.currentTarget.classList.add('opacity-50', 'rotate-1'); } : undefined}
+                      onDragEnd={canDragJobs ? (e) => { e.currentTarget.classList.remove('opacity-50', 'rotate-1'); } : undefined}
                       onClick={() => navigate(`/jobs/${job.id}`)}
                       className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm border border-gray-100 dark:border-gray-700 cursor-pointer hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all group">
                       {/* Title */}
