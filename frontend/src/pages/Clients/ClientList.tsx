@@ -64,7 +64,7 @@ const ClientList: React.FC = () => {
       setLoading(true);
       try {
         const [allClients, jobsPage] = await Promise.all([
-          apiService.getActiveClients(),
+          apiService.getAllClients(),
           apiService.getJobs({ page: 0, size: 500 }, selectedHeadhunterId ? { headhunterId: selectedHeadhunterId } : {}),
         ]);
         const allJobs = jobsPage.content || [];
@@ -142,14 +142,27 @@ const ClientList: React.FC = () => {
 
   const activeFilterCount = [filters.companyName, filters.city, filters.industry, filters.status, filters.type].filter(Boolean).length;
 
-  const handleActivateClient = (id: number) => {
-    setClients(prev => prev.map(c => c.id === id ? { ...c, status: ClientStatus.ACTIVE } : c));
-    addToast({ type: 'success', title: 'Empresa ativada', message: 'Status alterado para Ativa.' });
+  const applyClientStatus = (id: number, status: ClientStatus) =>
+    setClients(prev => prev.map(c => c.id === id ? { ...c, status } : c));
+
+  const handleActivateClient = async (id: number) => {
+    try {
+      await apiService.activateClient(id);
+      applyClientStatus(id, ClientStatus.ACTIVE);
+      addToast({ type: 'success', title: 'Empresa ativada', message: 'Status alterado para Ativa.' });
+    } catch {
+      addToast({ type: 'error', title: 'Não foi possível ativar a empresa' });
+    }
   };
 
-  const handleSuspendClient = (id: number) => {
-    setClients(prev => prev.map(c => c.id === id ? { ...c, status: ClientStatus.SUSPENDED } : c));
-    addToast({ type: 'warning', title: 'Empresa suspensa', message: 'Status alterado para Suspensa.' });
+  const handleSuspendClient = async (id: number) => {
+    try {
+      await apiService.suspendClient(id);
+      applyClientStatus(id, ClientStatus.SUSPENDED);
+      addToast({ type: 'warning', title: 'Empresa suspensa', message: 'Status alterado para Suspensa.' });
+    } catch {
+      addToast({ type: 'error', title: 'Não foi possível suspender a empresa' });
+    }
   };
 
   if (loading) {

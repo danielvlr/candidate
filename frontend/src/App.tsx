@@ -18,6 +18,7 @@ import JobDetailView from "./pages/Jobs/JobDetailView";
 // import HeadhunterKanban from "./pages/Jobs/HeadhunterKanban";
 import HeadhunterList from "./pages/Headhunters/HeadhunterList";
 import HeadhunterDetailView from "./pages/Headhunters/HeadhunterDetailView";
+import HeadhunterForm from "./pages/Headhunters/HeadhunterForm";
 import ClientList from "./pages/Clients/ClientList";
 import ClientForm from "./pages/Clients/ClientForm";
 import ClientDetailView from "./pages/Clients/ClientDetailView";
@@ -126,6 +127,22 @@ export default function App() {
                 element={
                   <RoleBasedRoute allowedRoles={['admin']}>
                     <HeadhunterList />
+                  </RoleBasedRoute>
+                }
+              />
+              <Route
+                path="/headhunters/new"
+                element={
+                  <RoleBasedRoute allowedRoles={['admin']}>
+                    <HeadhunterForm mode="create" />
+                  </RoleBasedRoute>
+                }
+              />
+              <Route
+                path="/headhunters/:id/edit"
+                element={
+                  <RoleBasedRoute allowedRoles={['admin']}>
+                    <HeadhunterForm mode="edit" />
                   </RoleBasedRoute>
                 }
               />
