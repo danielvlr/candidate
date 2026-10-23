@@ -460,6 +460,20 @@ Para cobrir o que dependia de credenciais, o backend do lote F rodou com:
   - Implementar e-mail de aprovação (e, opcionalmente, de rejeição) no fluxo de `approve`/`reject` de `CandidateInvitationService`, com falha de envio tratada sem desfazer a aprovação, e teste com `GmailEmailService` mockado.
   - Ou ajustar o texto da tela, se o produto não quiser o e-mail.
 
+#### Lote G — PR #21 (depende do #20)
+- **BUG-33:**
+  - E-mails de aprovação e de rejeição (com o motivo) em pt-BR.
+  - São enviados pelo `CandidateInvitationController` depois da decisão, fora da transação.
+  - Falha de envio é logada e não desfaz a decisão.
+- **BUG-32:**
+  - `HeadhunterFilterContext.refresh()` é chamado ao salvar e ao ativar/desativar headhunter.
+  - Também é chamado ao abrir o modal de convite.
+- **E-mail de garantia:** a categoria aparece com rótulo pt-BR ("Nosso Headhunter", "Projetos", "Táticas", "Executivas").
+- **BUG-27 (b):**
+  - Runbook em `docs/qa/migracao-bug27-clients-lob.md`, com o SQL validado num Postgres 16 descartável: texto e nulos preservados, large objects removidos. O rollback não foi testado.
+  - A entidade não foi alterada e nada foi aplicado.
+- **Testes:** 113 (5 de integração novos para os e-mails de decisão). CI verde.
+
 #### Pendências que dependem de decisão
-- **BUG-27 (b):** migrar `clients.description`/`clients.notes` de `oid` para `text` em produção (precisa de janela e backup).
+- **BUG-27 (b):** aplicar o runbook em produção (janela de baixo uso: o `ALTER TABLE` trava `clients`; backup antes). Só depois, trocar `@Lob` por `@Column(columnDefinition = "TEXT")` em `Client`, em PR separado.
 - **BUG-22:** definir o escopo do CPARTNER.
