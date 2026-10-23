@@ -34,6 +34,7 @@ import { AuthProvider } from "./context/AuthContext";
 // import WarrantyDashboard from "./pages/Warranty/WarrantyDashboard";
 // import WarrantyRules from "./pages/Warranty/WarrantyRules";
 import JestorSyncPage from "./pages/Settings/JestorSyncPage";
+import UserManagementPage from "./pages/Settings/UserManagementPage";
 import PublicRegisterPage from "./pages/PublicRegister/PublicRegisterPage";
 
 // Component to determine which dashboard to show based on role
@@ -141,6 +142,14 @@ export default function App() {
                 element={
                   <RoleBasedRoute allowedRoles={['admin']}>
                     <JestorSyncPage />
+                  </RoleBasedRoute>
+                }
+              />
+              <Route
+                path="/settings/users"
+                element={
+                  <RoleBasedRoute allowedRoles={['admin']}>
+                    <UserManagementPage />
                   </RoleBasedRoute>
                 }
               />

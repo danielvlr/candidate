@@ -2,8 +2,11 @@ package com.empresa.sistema.domain.service;
 
 import com.empresa.sistema.api.dto.auth.UserCreateRequest;
 import com.empresa.sistema.api.dto.auth.UserResponse;
+import com.empresa.sistema.api.dto.auth.UserRoleUpdateRequest;
 import com.empresa.sistema.domain.entity.AppUser;
+import com.empresa.sistema.domain.entity.AppUser.UserRole;
 import com.empresa.sistema.domain.repository.AppUserRepository;
+import com.empresa.sistema.domain.repository.HeadhunterRepository;
 import com.empresa.sistema.domain.service.exception.BusinessException;
 import com.empresa.sistema.domain.service.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +22,7 @@ public class UserService {
 
     private final AppUserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final HeadhunterRepository headhunterRepository;
 
     @Transactional(readOnly = true)
     public List<UserResponse> list() {
@@ -40,6 +44,22 @@ public class UserService {
                 .active(true)
                 .build());
         return UserResponse.from(saved);
+    }
+
+    @Transactional
+    public UserResponse updateRole(Long id, UserRoleUpdateRequest request, Long actingUserId) {
+        AppUser user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
+        // Quem chama é admin ativo: bloquear o auto-rebaixamento garante que sempre resta um admin.
+        if (id.equals(actingUserId) && request.role() != UserRole.ADMIN) {
+            throw new BusinessException("Você não pode remover o seu próprio perfil de administrador");
+        }
+        Long headhunterId = request.headhunterId() != null ? request.headhunterId() : user.getHeadhunterId();
+        if (request.headhunterId() != null && !headhunterRepository.existsById(request.headhunterId())) {
+            throw new BusinessException("Headhunter não encontrado");
+        }
+        AppUser updated = user.toBuilder().role(request.role()).headhunterId(headhunterId).build();
+        return UserResponse.from(userRepository.save(updated));
     }
 
     @Transactional

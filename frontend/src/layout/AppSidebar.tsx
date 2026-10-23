@@ -55,6 +55,11 @@ const getNavItemsForRole = (role: string): NavItem[] => {
         name: "Integracao Jestor",
         path: "/settings/jestor",
       },
+      {
+        icon: <UserCircleIcon />,
+        name: "Usuários",
+        path: "/settings/users",
+      },
     ];
   } else if (role === 'cpartner') {
     return [
