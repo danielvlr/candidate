@@ -1,5 +1,7 @@
 # 🎯 Sistema de Banco de Talentos
 
+[![CI](https://github.com/danielvlr/candidate/actions/workflows/ci-cd.yml/badge.svg?branch=main)](https://github.com/danielvlr/candidate/actions/workflows/ci-cd.yml)
+
 Sistema administrativo para headhunters gerenciarem candidatos, vagas e processos de recrutamento. Sistema exclusivo para uso por profissionais de RH/recrutamento.
 
 ## 🚀 Como Rodar Localmente
