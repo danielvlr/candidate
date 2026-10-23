@@ -34,34 +34,50 @@ public class AssessoradoService {
     private final HeadhunterRepository headhunterRepository;
 
     @Transactional(readOnly = true)
-    public Page<AssessoradoResponse> findAll(Pageable pageable) {
-        return assessoradoRepository.findAll(pageable)
-                .map(assessoradoMapper::toResponse);
+    public Page<AssessoradoResponse> findAll(Pageable pageable, Long scopeSeniorId) {
+        Page<Assessorado> page = scopeSeniorId == null
+                ? assessoradoRepository.findAll(pageable)
+                : assessoradoRepository.findBySeniorId(scopeSeniorId, pageable);
+        return page.map(assessoradoMapper::toResponse);
     }
 
     @Transactional(readOnly = true)
-    public AssessoradoResponse findById(Long id) {
-        Assessorado assessorado = assessoradoRepository.findById(id)
+    public AssessoradoResponse findById(Long id, Long scopeSeniorId) {
+        return assessoradoMapper.toResponse(findVisible(id, scopeSeniorId));
+    }
+
+    /** scopeSeniorId nulo = sem escopo; assessorado de outro senior responde como inexistente. */
+    @Transactional(readOnly = true)
+    public void assertVisible(Long id, Long scopeSeniorId) {
+        findVisible(id, scopeSeniorId);
+    }
+
+    private Assessorado findVisible(Long id, Long scopeSeniorId) {
+        return assessoradoRepository.findById(id)
+                .filter(a -> scopeSeniorId == null || scopeSeniorId.equals(a.getSenior().getId()))
                 .orElseThrow(() -> new IllegalArgumentException("Assessorado não encontrado"));
-        return assessoradoMapper.toResponse(assessorado);
     }
 
     @Transactional(readOnly = true)
-    public Page<AssessoradoResponse> findBySeniorId(Long seniorId, Pageable pageable) {
+    public Page<AssessoradoResponse> findBySeniorId(Long seniorId, Long scopeSeniorId, Pageable pageable) {
+        if (scopeSeniorId != null && !scopeSeniorId.equals(seniorId)) {
+            return Page.empty(pageable);
+        }
         return assessoradoRepository.findBySeniorIdOrderByCreatedAtDesc(seniorId, pageable)
                 .map(assessoradoMapper::toResponse);
     }
 
-    public AssessoradoResponse create(AssessoradoCreateRequest request) {
+    public AssessoradoResponse create(AssessoradoCreateRequest request, Long scopeSeniorId) {
+        Long seniorId = scopeSeniorId != null ? scopeSeniorId : request.getSeniorId();
         Candidate candidate = candidateRepository.findById(request.getCandidateId())
                 .orElseThrow(() -> new IllegalArgumentException("Candidato não encontrado"));
 
-        Headhunter senior = headhunterRepository.findById(request.getSeniorId())
+        Headhunter senior = headhunterRepository.findById(seniorId)
                 .orElseThrow(() -> new IllegalArgumentException("Senior não encontrado"));
 
         boolean duplicateExists = assessoradoRepository.existsByCandidateIdAndSeniorIdAndStatusIn(
                 request.getCandidateId(),
-                request.getSeniorId(),
+                seniorId,
                 List.of(Assessorado.AssessoradoStatus.ACTIVE, Assessorado.AssessoradoStatus.PAUSED)
         );
         if (duplicateExists) {
@@ -85,9 +101,8 @@ public class AssessoradoService {
         return assessoradoMapper.toResponse(assessorado);
     }
 
-    public AssessoradoResponse update(Long id, AssessoradoUpdateRequest request) {
-        Assessorado assessorado = assessoradoRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Assessorado não encontrado"));
+    public AssessoradoResponse update(Long id, AssessoradoUpdateRequest request, Long scopeSeniorId) {
+        Assessorado assessorado = findVisible(id, scopeSeniorId);
 
         assessoradoMapper.updateEntityFromRequest(request, assessorado);
         assessorado = assessoradoRepository.save(assessorado);
@@ -98,9 +113,8 @@ public class AssessoradoService {
         return assessoradoMapper.toResponse(assessorado);
     }
 
-    public void changePhase(Long id, Assessorado.AssessoradoPhase newPhase) {
-        Assessorado assessorado = assessoradoRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Assessorado não encontrado"));
+    public void changePhase(Long id, Assessorado.AssessoradoPhase newPhase, Long scopeSeniorId) {
+        Assessorado assessorado = findVisible(id, scopeSeniorId);
 
         Assessorado.AssessoradoPhase oldPhase = assessorado.getCurrentPhase();
         assessorado.setCurrentPhase(newPhase);
@@ -112,9 +126,8 @@ public class AssessoradoService {
                 "currentPhase", oldPhase.name(), newPhase.name());
     }
 
-    public void changeStatus(Long id, Assessorado.AssessoradoStatus newStatus) {
-        Assessorado assessorado = assessoradoRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Assessorado não encontrado"));
+    public void changeStatus(Long id, Assessorado.AssessoradoStatus newStatus, Long scopeSeniorId) {
+        Assessorado assessorado = findVisible(id, scopeSeniorId);
 
         Assessorado.AssessoradoStatus oldStatus = assessorado.getStatus();
         assessorado.setStatus(newStatus);
@@ -126,9 +139,8 @@ public class AssessoradoService {
                 "status", oldStatus.name(), newStatus.name());
     }
 
-    public void delete(Long id) {
-        Assessorado assessorado = assessoradoRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Assessorado não encontrado"));
+    public void delete(Long id, Long scopeSeniorId) {
+        Assessorado assessorado = findVisible(id, scopeSeniorId);
 
         assessorado.setStatus(Assessorado.AssessoradoStatus.CANCELLED);
         assessoradoRepository.save(assessorado);
@@ -138,13 +150,17 @@ public class AssessoradoService {
     }
 
     @Transactional(readOnly = true)
-    public List<AssessoradoHistoryResponse> getHistory(Long assessoradoId) {
+    public List<AssessoradoHistoryResponse> getHistory(Long assessoradoId, Long scopeSeniorId) {
+        assertVisible(assessoradoId, scopeSeniorId);
         List<AssessoradoHistory> histories = historyRepository.findByAssessoradoIdOrderByCreatedAtDesc(assessoradoId);
         return assessoradoMapper.toHistoryResponseList(histories);
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Long> countBySeniorId(Long seniorId) {
+    public Map<String, Long> countBySeniorId(Long seniorId, Long scopeSeniorId) {
+        if (scopeSeniorId != null && !scopeSeniorId.equals(seniorId)) {
+            return Map.of("total", 0L, "active", 0L, "paused", 0L, "completed", 0L, "cancelled", 0L);
+        }
         long total = assessoradoRepository.countBySeniorId(seniorId);
         long active = assessoradoRepository.countBySeniorIdAndStatus(seniorId, Assessorado.AssessoradoStatus.ACTIVE);
         long paused = assessoradoRepository.countBySeniorIdAndStatus(seniorId, Assessorado.AssessoradoStatus.PAUSED);

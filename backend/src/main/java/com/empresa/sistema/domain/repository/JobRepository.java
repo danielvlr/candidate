@@ -26,13 +26,14 @@ public interface JobRepository extends JpaRepository<Job, Long> {
 
     /** headhunterId nulo = sem escopo. CAST evita lower(bytea) no Postgres com parâmetro nulo. */
     @Query("SELECT j FROM Job j LEFT JOIN j.headhunter h WHERE " +
-           "(:headhunterId IS NULL OR h.id = :headhunterId) AND (" +
+           "(:headhunterId IS NULL OR h.id = :headhunterId) AND " +
+           "(:status IS NULL OR j.status = :status) AND (" +
            "LOWER(j.title) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR " +
            "LOWER(j.description) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR " +
            "LOWER(j.companyName) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR " +
            "LOWER(j.skillsRequired) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')))")
     Page<Job> searchJobs(@Param("search") String search, @Param("headhunterId") Long headhunterId,
-                         Pageable pageable);
+                         @Param("status") Job.JobStatus status, Pageable pageable);
 
     List<Job> findByStatusAndHeadhunterId(Job.JobStatus status, Long headhunterId);
 

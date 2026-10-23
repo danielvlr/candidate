@@ -9,7 +9,7 @@ import lombok.Builder;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
+@Builder(toBuilder = true)
 public class ClientSummaryResponse {
 
     private Long id;

@@ -68,13 +68,13 @@ class JobRepositoryFilterTest {
 
     @Test
     void searchWithoutScopeReturnsEveryMatchIncludingJobsWithoutHeadhunter() {
-        assertThat(jobRepository.searchJobs("vaga", null, PageRequest.of(0, 10)).getTotalElements())
+        assertThat(jobRepository.searchJobs("vaga", null, null, PageRequest.of(0, 10)).getTotalElements())
                 .isEqualTo(4);
     }
 
     @Test
     void searchScopedToHeadhunterOnlyReturnsTheirJobs() {
-        assertThat(jobRepository.searchJobs("VAGA", devid.getId(), PageRequest.of(0, 10, Sort.by("title")))
+        assertThat(jobRepository.searchJobs("VAGA", devid.getId(), null, PageRequest.of(0, 10, Sort.by("title")))
                 .map(Job::getTitle).getContent())
                 .containsExactly("Vaga Devid 1", "Vaga Devid 2");
     }
