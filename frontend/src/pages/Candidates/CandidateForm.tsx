@@ -35,9 +35,7 @@ const CandidateForm: React.FC<CandidateFormProps> = ({ mode }) => {
     workPreference: WorkPreference.HYBRID,
   });
 
-  const [linkedInUrl, setLinkedInUrl] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [importMethod, setImportMethod] = useState<'url' | 'file'>('url');
   const [isLoadingLinkedIn, setIsLoadingLinkedIn] = useState(false);
   const [linkedInError, setLinkedInError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -60,7 +58,6 @@ const CandidateForm: React.FC<CandidateFormProps> = ({ mode }) => {
         experiences: candidate.experiences || [],
         education: candidate.education || []
       });
-      setLinkedInUrl(candidate.linkedinUrl || '');
     } catch (err) {
       setError('Erro ao carregar candidato');
       console.error('Error loading candidate:', err);
@@ -221,38 +218,17 @@ const CandidateForm: React.FC<CandidateFormProps> = ({ mode }) => {
   };
 
   const handleLinkedInImport = async () => {
-    if (importMethod === 'url') {
-      if (!linkedInUrl.trim()) {
-        setLinkedInError('Por favor, insira uma URL do LinkedIn');
-        return;
-      }
-    } else {
-      if (!selectedFile) {
-        setLinkedInError('Por favor, selecione um arquivo PDF');
-        return;
-      }
+    if (!selectedFile) {
+      setLinkedInError('Por favor, selecione um arquivo PDF');
+      return;
     }
 
     try {
       setIsLoadingLinkedIn(true);
       setLinkedInError(null);
 
-      let candidateData;
-
-      if (importMethod === 'url') {
-        // Primeiro valida a URL
-        const validation = await apiService.validateLinkedInUrl(linkedInUrl);
-        if (!validation.valid) {
-          setLinkedInError('URL do LinkedIn inválida');
-          return;
-        }
-
-        // Importa os dados do LinkedIn pela URL
-        candidateData = await apiService.importFromLinkedIn(linkedInUrl);
-      } else {
-        // Importa os dados do PDF enviado
-        candidateData = await apiService.importFromLinkedInPdf(selectedFile!);
-      }
+      // Importa os dados do PDF enviado
+      const candidateData = await apiService.importFromLinkedInPdf(selectedFile);
 
       // Preenche o formulário com os dados importados
       setFormData(prev => ({
@@ -331,59 +307,7 @@ const CandidateForm: React.FC<CandidateFormProps> = ({ mode }) => {
                 Importar do LinkedIn
               </h3>
 
-              {/* Import Method Selection */}
-              <div className="mb-4">
-                <div className="flex gap-6">
-                  <label className="flex items-center cursor-pointer">
-                    <input
-                      type="radio"
-                      name="importMethod"
-                      value="url"
-                      checked={importMethod === 'url'}
-                      onChange={(e) => setImportMethod(e.target.value as 'url' | 'file')}
-                      className="mr-2 h-4 w-4 text-brand-600 focus:ring-brand-500 border-gray-300 dark:border-gray-600"
-                    />
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">URL do LinkedIn</span>
-                  </label>
-                  <label className="flex items-center cursor-pointer">
-                    <input
-                      type="radio"
-                      name="importMethod"
-                      value="file"
-                      checked={importMethod === 'file'}
-                      onChange={(e) => setImportMethod(e.target.value as 'url' | 'file')}
-                      className="mr-2 h-4 w-4 text-brand-600 focus:ring-brand-500 border-gray-300 dark:border-gray-600"
-                    />
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Upload PDF do Currículo</span>
-                  </label>
-                </div>
-              </div>
-
-              {/* URL Import */}
-              {importMethod === 'url' && (
-                <div className="flex gap-4">
-                  <div className="flex-1">
-                    <Input
-                      type="url"
-                      placeholder="https://linkedin.com/in/usuario"
-                      value={linkedInUrl}
-                      onChange={(e) => setLinkedInUrl(e.target.value)}
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    variant="primary"
-                    onClick={handleLinkedInImport}
-                    disabled={isLoadingLinkedIn}
-                    loading={isLoadingLinkedIn}
-                  >
-                    {isLoadingLinkedIn ? 'Importando...' : 'Importar'}
-                  </Button>
-                </div>
-              )}
-
               {/* File Upload */}
-              {importMethod === 'file' && (
                 <div className="space-y-4">
                   <div className="flex gap-4">
                     <div className="flex-1">
@@ -410,18 +334,13 @@ const CandidateForm: React.FC<CandidateFormProps> = ({ mode }) => {
                     </p>
                   )}
                 </div>
-              )}
 
               {linkedInError && (
                 <p className="mt-2 text-sm text-error-600 dark:text-error-400">{linkedInError}</p>
               )}
 
               <div className="mt-2 text-sm text-brand-600 dark:text-brand-400">
-                {importMethod === 'url' ? (
-                  <p>Cole a URL do perfil LinkedIn para preencher automaticamente os dados do candidato.</p>
-                ) : (
-                  <p>Faça upload do PDF do currículo exportado do LinkedIn para extrair as informações automaticamente.</p>
-                )}
+                <p>Faça upload do PDF do currículo exportado do LinkedIn para extrair as informações automaticamente.</p>
               </div>
             </CardBody>
           </Card>

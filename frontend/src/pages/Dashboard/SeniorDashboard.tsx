@@ -4,6 +4,7 @@ import {
   AssessoradoDTO,
   AssessoradoPhase,
   AssessoradoStatus,
+  JobMatchDTO,
 } from '../../types/api';
 import { apiService } from '../../services/api';
 import {
@@ -70,14 +71,68 @@ const STATUS_BADGE: Record<AssessoradoStatus, 'active' | 'paused' | 'hired' | 'i
 const formatDate = (dateString: string) =>
   new Date(dateString).toLocaleDateString('pt-BR');
 
+interface SuggestedJob {
+  id: number;
+  title: string;
+  company: string;
+  location: string;
+  match: string;
+  matchPhase: string;
+  score: number;
+}
+
+const MAX_SUGGESTED_JOBS = 5;
+const MAX_ASSESSORADOS_MATCHED = 20;
+
+// Mantém, por vaga, o assessorado com maior compatibilidade.
+const buildSuggestedJobs = (
+  results: { assessorado: AssessoradoDTO; matches: JobMatchDTO[] }[]
+): SuggestedJob[] => {
+  const bestByJob = new Map<number, SuggestedJob>();
+  results.forEach(({ assessorado, matches }) => {
+    matches.forEach(({ job, matchScore }) => {
+      if (job.id == null) return;
+      const current = bestByJob.get(job.id);
+      if (current && current.score >= matchScore) return;
+      bestByJob.set(job.id, {
+        id: job.id,
+        title: job.title,
+        company: job.companyName,
+        location: job.location,
+        match: assessorado.candidate?.fullName ?? 'Assessorado',
+        matchPhase: PHASE_LABELS[assessorado.currentPhase],
+        score: Math.round(matchScore),
+      });
+    });
+  });
+  return Array.from(bestByJob.values())
+    .sort((a, b) => b.score - a.score)
+    .slice(0, MAX_SUGGESTED_JOBS);
+};
+
 const SeniorDashboard: React.FC = () => {
   const navigate = useNavigate();
   const [assessorados, setAssessorados] = useState<AssessoradoDTO[]>([]);
+  const [suggestedJobs, setSuggestedJobs] = useState<SuggestedJob[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    apiService.getAssessorados()
-      .then(res => setAssessorados(res.content || []))
+    apiService.getAssessorados({ size: 500 })
+      .then(async (res) => {
+        const loaded = res.content || [];
+        setAssessorados(loaded);
+
+        const active = loaded
+          .filter((a) => a.id != null && a.status === AssessoradoStatus.ACTIVE)
+          .slice(0, MAX_ASSESSORADOS_MATCHED);
+        const results = await Promise.all(
+          active.map(async (assessorado) => ({
+            assessorado,
+            matches: await apiService.getMatchingJobs(assessorado.id!).catch(() => [] as JobMatchDTO[]),
+          }))
+        );
+        setSuggestedJobs(buildSuggestedJobs(results));
+      })
       .catch(err => console.error('Error loading assessorados:', err))
       .finally(() => setLoading(false));
   }, []);
@@ -293,7 +348,8 @@ const SeniorDashboard: React.FC = () => {
         </Card>
       </div>
 
-      {/* Vagas Sugeridas */}
+      {/* Vagas Sugeridas (somente com dados reais de matching) */}
+      {suggestedJobs.length > 0 && (
       <Card>
         <CardHeader
           action={
@@ -310,13 +366,7 @@ const SeniorDashboard: React.FC = () => {
           </h2>
         </CardHeader>
         <div className="divide-y divide-gray-100 dark:divide-gray-800">
-          {[
-            { id: 1, title: 'Tech Lead Full Stack', company: 'TechCorp Brasil', location: 'São Paulo, SP', salary: 'R$ 25.000 - R$ 35.000', match: 'Carlos Eduardo Mendes', matchPhase: 'Busca Ativa' },
-            { id: 2, title: 'Head de Produto Digital', company: 'Fintech Solutions', location: 'Remoto', salary: 'R$ 30.000 - R$ 40.000', match: 'Fernanda Oliveira Santos', matchPhase: 'Prep. Entrevista' },
-            { id: 3, title: 'Staff Data Engineer', company: 'DataBank S.A.', location: 'Campinas, SP', salary: 'R$ 28.000 - R$ 38.000', match: 'Lucas Pereira da Silva', matchPhase: 'Negociação' },
-            { id: 4, title: 'Senior React Native Developer', company: 'AppMakers Inc.', location: 'Porto Alegre, RS', salary: 'R$ 18.000 - R$ 25.000', match: 'Pedro Henrique Rocha', matchPhase: 'Busca Ativa' },
-            { id: 5, title: 'SRE Lead Engineer', company: 'CloudScale Global', location: 'Remoto', salary: 'USD 8.000 - USD 12.000', match: 'Ricardo Gomes Ferreira', matchPhase: 'Onboarding' },
-          ].map((job) => (
+          {suggestedJobs.map((job) => (
             <div
               key={job.id}
               className="flex items-center justify-between px-6 py-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors"
@@ -332,11 +382,8 @@ const SeniorDashboard: React.FC = () => {
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                   {job.company} &bull; {job.location}
                 </p>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                  {job.salary}
-                </p>
                 <p className="text-xs text-brand-600 dark:text-brand-400 mt-0.5">
-                  Match: {job.match}
+                  Match: {job.match} ({job.score}%)
                 </p>
               </div>
               <svg
@@ -352,6 +399,7 @@ const SeniorDashboard: React.FC = () => {
           ))}
         </div>
       </Card>
+      )}
     </div>
   );
 };

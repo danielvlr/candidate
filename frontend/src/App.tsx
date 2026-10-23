@@ -84,6 +84,14 @@ export default function App() {
                   </RoleBasedRoute>
                 }
               />
+              <Route
+                path="/jobs/:id/edit"
+                element={
+                  <RoleBasedRoute allowedRoles={['admin']}>
+                    <JobCreateForm mode="edit" />
+                  </RoleBasedRoute>
+                }
+              />
               <Route path="/jobs/:id" element={<JobDetailView />} />
               <Route path="/clients" element={<ClientList />} />
               <Route path="/clients/new" element={<ClientForm mode="create" />} />

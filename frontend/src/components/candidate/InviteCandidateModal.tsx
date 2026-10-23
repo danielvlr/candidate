@@ -3,6 +3,7 @@ import { Modal } from '../ui/Modal';
 import { useToast } from '../ui/Toast';
 import { apiService } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { useHeadhunterFilter } from '../../context/HeadhunterFilterContext';
 
 interface InviteCandidateModalProps {
   isOpen: boolean;
@@ -25,8 +26,12 @@ const InviteCandidateModal: React.FC<InviteCandidateModalProps> = ({
   const [emailError, setEmailError] = useState('');
 
   const { user } = useAuth();
-  // Headhunter logado responde pelo convite; fallback 1 só para perfis sem vínculo (admin).
-  const resolvedHeadhunterId = user?.headhunterId ?? headhunterId ?? 1;
+  const { selectedHeadhunterId, headhunters } = useHeadhunterFilter();
+  const [chosenHeadhunterId, setChosenHeadhunterId] = useState<number | null>(null);
+  // Headhunter logado responde pelo convite; admin usa o filtro global ou escolhe no modal.
+  const resolvedHeadhunterId =
+    user?.headhunterId ?? headhunterId ?? selectedHeadhunterId ?? chosenHeadhunterId;
+  const needsHeadhunterChoice = resolvedHeadhunterId == null;
 
   const validateEmail = (value: string) => {
     if (!value.trim()) return 'E-mail é obrigatório.';
@@ -38,6 +43,7 @@ const InviteCandidateModal: React.FC<InviteCandidateModalProps> = ({
     setEmail('');
     setFullName('');
     setEmailError('');
+    setChosenHeadhunterId(null);
     onClose();
   };
 
@@ -48,6 +54,15 @@ const InviteCandidateModal: React.FC<InviteCandidateModalProps> = ({
       return;
     }
     setEmailError('');
+
+    if (resolvedHeadhunterId == null) {
+      addToast({
+        type: 'warning',
+        title: 'Selecione um headhunter',
+        message: 'Escolha o headhunter responsável pelo convite.',
+      });
+      return;
+    }
 
     try {
       setLoading(true);
@@ -92,6 +107,24 @@ const InviteCandidateModal: React.FC<InviteCandidateModalProps> = ({
       loading={loading}
     >
       <div className="space-y-4">
+        {needsHeadhunterChoice && (
+          <div>
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              Headhunter responsável <span className="text-error-500">*</span>
+            </label>
+            <select
+              value={chosenHeadhunterId ?? ''}
+              onChange={(e) => setChosenHeadhunterId(e.target.value ? Number(e.target.value) : null)}
+              className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+            >
+              <option value="">Selecione...</option>
+              {headhunters.map((hh) => (
+                <option key={hh.id} value={hh.id}>{hh.fullName}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <div>
           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
             E-mail <span className="text-error-500">*</span>
