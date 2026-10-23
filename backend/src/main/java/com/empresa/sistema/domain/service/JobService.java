@@ -171,9 +171,7 @@ public class JobService {
         job.setHeadhunter(resolveHeadhunter(request.getHeadhunterId()));
 
         // Definir valores padrão
-        if (job.getStatus() == null) {
-            job.setStatus(Job.JobStatus.ACTIVE);
-        }
+        job.setStatus(resolveInitialStatus(request.getStatus()));
         if (job.getJobType() == null) {
             job.setJobType(Job.JobType.FULL_TIME);
         }
@@ -199,6 +197,16 @@ public class JobService {
         Job savedJob = jobRepository.save(job);
         recordHistory(savedJob, JobHistory.HistoryType.STATUS_CHANGED, "Vaga criada");
         return jobMapper.toResponse(savedJob);
+    }
+
+    private static Job.JobStatus resolveInitialStatus(Job.JobStatus requested) {
+        if (requested == null || requested == Job.JobStatus.ACTIVE) {
+            return Job.JobStatus.ACTIVE;
+        }
+        if (requested == Job.JobStatus.DRAFT) {
+            return Job.JobStatus.DRAFT;
+        }
+        throw new BusinessException("Uma vaga só pode ser criada como rascunho ou ativa.");
     }
 
     public JobResponse update(Long id, JobUpdateRequest request) {
@@ -397,17 +405,17 @@ public class JobService {
         return filtered;
     }
 
-    public Job updatePipelineStage(Long jobId, Job.PipelineStage newStage) {
+    public JobResponse updatePipelineStage(Long jobId, Job.PipelineStage newStage) {
         Job job = jobRepository.findById(jobId)
             .orElseThrow(() -> new ResourceNotFoundException("Vaga não encontrada com ID: " + jobId));
         String oldStage = job.getPipelineStage() != null ? job.getPipelineStage().name() : "N/A";
         job.setPipelineStage(newStage);
         Job saved = jobRepository.save(job);
         recordHistory(saved, JobHistory.HistoryType.STATUS_CHANGED, "Pipeline atualizado de " + oldStage + " para " + newStage.name());
-        return saved;
+        return jobMapper.toResponse(saved);
     }
 
-    public Job updateJobStatus(Long jobId, Job.JobStatus newStatus) {
+    public JobResponse updateJobStatus(Long jobId, Job.JobStatus newStatus) {
         Job job = jobRepository.findById(jobId)
             .orElseThrow(() -> new ResourceNotFoundException("Vaga não encontrada com ID: " + jobId));
         String oldStatus = job.getStatus() != null ? job.getStatus().name() : "N/A";
@@ -422,10 +430,10 @@ public class JobService {
         }
         Job saved = jobRepository.save(job);
         recordHistory(saved, JobHistory.HistoryType.STATUS_CHANGED, "Status alterado de " + oldStatus + " para " + newStatus.name());
-        return saved;
+        return jobMapper.toResponse(saved);
     }
 
-    public Job closeJobWithValue(Long jobId, java.math.BigDecimal finalValue, LocalDateTime closedAt, String notes,
+    public JobResponse closeJobWithValue(Long jobId, java.math.BigDecimal finalValue, LocalDateTime closedAt, String notes,
                                  Long approvedCandidateId) {
         Job job = jobRepository.findById(jobId)
             .orElseThrow(() -> new ResourceNotFoundException("Vaga não encontrada com ID: " + jobId));
@@ -450,7 +458,7 @@ public class JobService {
             + (notes != null && !notes.isBlank() ? " — " + notes : "");
         recordHistory(saved, JobHistory.HistoryType.STATUS_CHANGED,
             "Status alterado de " + oldStatus + " para CLOSED. " + detail);
-        return saved;
+        return jobMapper.toResponse(saved);
     }
 
     /** Marca a candidatura (criando se preciso) como contratada e abre a garantia a partir do fechamento. */

@@ -2,6 +2,7 @@ import React from 'react';
 import { useDrag } from 'react-dnd';
 import { JobDTO } from '../../types/api';
 import { pluralDays } from '../../utils/days';
+import { formatLocalDate } from '../../utils/date';
 
 export const JOB_ITEM_TYPE = 'JOB_CARD';
 
@@ -100,9 +101,7 @@ export const KanbanJobCard: React.FC<KanbanJobCardProps> = ({ job }) => {
       ? categoryColors[job.serviceCategory] ?? 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
       : '';
 
-  const deadlinePtBr = job.applicationDeadline
-    ? new Date(job.applicationDeadline).toLocaleDateString('pt-BR')
-    : '';
+  const deadlinePtBr = job.applicationDeadline ? formatLocalDate(job.applicationDeadline) : '';
 
   const closedWithoutEmail =
     job.status === 'CLOSED' && !job.client?.contactEmail;

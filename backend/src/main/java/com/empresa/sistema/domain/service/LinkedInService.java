@@ -73,7 +73,7 @@ public class LinkedInService {
             throw e;
         } catch (Exception e) {
             logger.error("Erro técnico ao processar PDF via ChatGPT: {}", file.getOriginalFilename(), e);
-            throw new BusinessException("Falha técnica ao processar o PDF do LinkedIn: " + e.getMessage());
+            throw new BusinessException("Não foi possível processar o PDF do LinkedIn agora. Tente novamente.");
         }
     }
 
@@ -88,7 +88,7 @@ public class LinkedInService {
 
             // Validate that it's actually a PDF file
             if (fileBytes.length < 4 || !isPdfFile(fileBytes)) {
-                throw new IllegalArgumentException("O arquivo enviado não é um PDF válido");
+                throw new BusinessException("O arquivo enviado não é um PDF válido");
             }
 
             PDDocument document = org.apache.pdfbox.Loader.loadPDF(fileBytes);
@@ -98,12 +98,13 @@ public class LinkedInService {
 
             logger.info("PDF processado com sucesso. Texto extraído: {} caracteres", text.length());
             return text;
-        } catch (IllegalArgumentException e) {
-            logger.error("Arquivo inválido: {}", file.getOriginalFilename(), e);
+        } catch (BusinessException e) {
+            logger.warn("Arquivo inválido: {}", file.getOriginalFilename());
             throw e;
         } catch (Exception e) {
+            // PDF corrompido ou protegido: erro do arquivo enviado, não do servidor.
             logger.error("Erro ao extrair texto do PDF: {}", file.getOriginalFilename(), e);
-            throw new IOException("Falha na extração do texto do PDF: " + e.getMessage(), e);
+            throw new BusinessException("Não foi possível extrair texto do PDF enviado");
         }
     }
 

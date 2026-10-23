@@ -421,6 +421,12 @@ export interface AssessoradoDTO {
   id?: number;
   candidateId: number;
   candidate?: CandidateDTO;
+  // O backend devolve os dados do candidato "achatados"; apiService monta `candidate` a partir deles.
+  candidateName?: string;
+  candidateEmail?: string;
+  candidateHeadline?: string;
+  candidateSkills?: string;
+  candidateProfilePictureUrl?: string;
   seniorId: number;
   seniorName?: string;
   advisoryStartDate: string;
@@ -465,6 +471,8 @@ export interface AssessoradoHistoryDTO {
   id: number;
   assessoradoId: number;
   type: AssessoradoHistoryType;
+  // O backend envia `actionType`; apiService copia para `type`.
+  actionType?: AssessoradoHistoryType;
   title: string;
   description?: string;
   createdAt: string;
@@ -478,7 +486,10 @@ export enum AssessoradoHistoryType {
   INTERVIEW_PREP = 'INTERVIEW_PREP',
   JOB_SUGGESTED = 'JOB_SUGGESTED',
   JOB_APPLIED = 'JOB_APPLIED',
-  FEEDBACK = 'FEEDBACK'
+  FEEDBACK = 'FEEDBACK',
+  CREATED = 'CREATED',
+  UPDATED = 'UPDATED',
+  STATUS_CHANGED = 'STATUS_CHANGED'
 }
 
 export interface JobMatchDTO {

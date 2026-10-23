@@ -5,25 +5,31 @@ import { useUserRole } from '../../context/UserRoleContext';
 import { useClientFilter } from '../../context/ClientFilterContext';
 import { useHeadhunterFilter } from '../../context/HeadhunterFilterContext';
 import { useNavigate } from 'react-router';
-import { Button, Card, CardHeader, CardBody, EmptyState, SkeletonCard } from '../../components/ui';
+import { Button, Card, CardHeader, CardBody, EmptyState, SkeletonCard, useToast } from '../../components/ui';
+import { getErrorMessage } from '../../services/apiError';
 import { useListSelection } from '../../hooks/useListSelection';
 import { CloseJobModal } from '../../components/job/CloseJobModal';
 import { formatDaysAgo, pluralDays } from '../../utils/days';
 
 type ViewMode = 'list' | 'kanban';
-type StatusFilter = 'ACTIVE' | 'WARRANTY' | 'PAUSED' | 'CLOSED';
+type StatusFilter = 'DRAFT' | 'ACTIVE' | 'WARRANTY' | 'PAUSED' | 'CLOSED';
 
 // Label "Reposição" aplica-se ao JobStatus.WARRANTY (estado da vaga). NÃO confundir
 // com a entidade Warranty pós-contratação (Warranty/WarrantyRule/WarrantyBreach) —
 // esses continuam com a label "Garantia" intencionalmente (ver /warranty dashboard).
 const STATUS_CONFIG: Record<StatusFilter, { label: string; color: string; bg: string; dot: string; kanbanBg: string }> = {
-  ACTIVE:   { label: 'Ativa',    color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30', dot: 'bg-emerald-500', kanbanBg: 'bg-emerald-50/80 dark:bg-emerald-900/10 border-emerald-200/60 dark:border-emerald-800/40' },
+  DRAFT:    { label: 'Rascunho', color: 'text-violet-700 dark:text-violet-400', bg: 'bg-violet-50 dark:bg-violet-500/10 border-violet-200 dark:border-violet-500/30', dot: 'bg-violet-500', kanbanBg: 'bg-violet-50/80 dark:bg-violet-900/10 border-violet-200/60 dark:border-violet-800/40' },
+  ACTIVE:  { label: 'Ativa',    color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30', dot: 'bg-emerald-500', kanbanBg: 'bg-emerald-50/80 dark:bg-emerald-900/10 border-emerald-200/60 dark:border-emerald-800/40' },
   WARRANTY: { label: 'Reposição', color: 'text-blue-700 dark:text-blue-400',    bg: 'bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/30',       dot: 'bg-blue-500',    kanbanBg: 'bg-blue-50/80 dark:bg-blue-900/10 border-blue-200/60 dark:border-blue-800/40' },
   PAUSED:   { label: 'Pausada',  color: 'text-amber-700 dark:text-amber-400',  bg: 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30',   dot: 'bg-amber-500',   kanbanBg: 'bg-amber-50/80 dark:bg-amber-900/10 border-amber-200/60 dark:border-amber-800/40' },
   CLOSED:   { label: 'Fechada',  color: 'text-gray-600 dark:text-gray-400',    bg: 'bg-gray-50 dark:bg-gray-500/10 border-gray-200 dark:border-gray-500/30',       dot: 'bg-gray-400',    kanbanBg: 'bg-gray-50/80 dark:bg-gray-900/10 border-gray-200/60 dark:border-gray-800/40' },
 };
 
-const KANBAN_COLUMNS: StatusFilter[] = ['ACTIVE', 'WARRANTY', 'PAUSED', 'CLOSED'];
+const KANBAN_COLUMNS: StatusFilter[] = ['DRAFT', 'ACTIVE', 'WARRANTY', 'PAUSED', 'CLOSED'];
+
+// Rascunho é visível só para o admin (quem cria e publica vagas).
+const visibleStatuses = (isAdmin: boolean): StatusFilter[] =>
+  KANBAN_COLUMNS.filter((status) => isAdmin || status !== 'DRAFT');
 
 
 const MONTH_LABELS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
@@ -79,7 +85,7 @@ const JobList: React.FC = () => {
   const fetchingRef = useRef(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('kanban');
-  const [selectedStatuses, setSelectedStatuses] = useState<StatusFilter[]>(['ACTIVE', 'WARRANTY', 'PAUSED', 'CLOSED']);
+  const [selectedStatuses, setSelectedStatuses] = useState<StatusFilter[]>(KANBAN_COLUMNS);
   const [dateMode, setDateMode] = useState<'month' | 'range'>('month');
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const [dateFrom, setDateFrom] = useState<string>('');
@@ -94,6 +100,7 @@ const JobList: React.FC = () => {
   const { selectedClientId } = useClientFilter();
   const { selectedHeadhunterId } = useHeadhunterFilter();
   const navigate = useNavigate();
+  const { addToast } = useToast();
   const { selectedId: selectedJobId, selectedCount, handleRowClick, handleRowMouseDown, clearSelection, isSelected } = useListSelection<JobDTO>();
 
   const toggleStatus = (status: StatusFilter) => {
@@ -131,8 +138,8 @@ const JobList: React.FC = () => {
   const months = getLast12Months();
 
   const applyClientFilters = (items: JobDTO[]) => {
-    let filtered = items;
-    if (selectedStatuses.length > 0 && selectedStatuses.length < Object.keys(STATUS_CONFIG).length) {
+    let filtered = canDragJobs ? items : items.filter(j => j.status !== 'DRAFT');
+    if (selectedStatuses.length > 0 && selectedStatuses.length < KANBAN_COLUMNS.length) {
       filtered = filtered.filter(j => selectedStatuses.includes(j.status as StatusFilter));
     }
     if (selectedHeadhunterId) filtered = filtered.filter(j => j.headhunterId === selectedHeadhunterId);
@@ -242,6 +249,8 @@ const JobList: React.FC = () => {
   const handleDrop = async (jobId: number, targetStatus: string) => {
     const current = (jobs?.content || []).find(j => j.id === jobId);
     if (!canDragJobs || !current || current.status === targetStatus) return;
+    // Voltar para rascunho não é uma transição válida (rascunho só é publicado).
+    if (targetStatus === 'DRAFT') return;
 
     // Fechar exige valor final e candidato aprovado: abre o modal em vez de trocar o status direto.
     if (targetStatus === 'CLOSED') {
@@ -277,6 +286,16 @@ const JobList: React.FC = () => {
       fetchJobs(0);
     } catch {
       setError('Erro ao mover vaga');
+    }
+  };
+
+  const runJobAction = async (action: () => Promise<void>, successTitle: string) => {
+    try {
+      await action();
+      addToast({ type: 'success', title: successTitle });
+      fetchJobs(currentPage);
+    } catch (err) {
+      addToast({ type: 'error', title: getErrorMessage(err, 'Não foi possível alterar a vaga') });
     }
   };
 
@@ -346,7 +365,8 @@ const JobList: React.FC = () => {
         <div className="flex items-center gap-4 flex-wrap">
           {/* Status chips */}
           <div className="flex items-center gap-1.5">
-            {(Object.entries(STATUS_CONFIG) as [StatusFilter, typeof STATUS_CONFIG.ACTIVE][]).map(([key, cfg]) => {
+            {visibleStatuses(canDragJobs).map((key) => {
+              const cfg = STATUS_CONFIG[key];
               const active = selectedStatuses.includes(key);
               const count = statusCounts[key] || 0;
               return (
@@ -436,7 +456,7 @@ const JobList: React.FC = () => {
       {/* KANBAN VIEW */}
       {viewMode === 'kanban' && jobs && (
         <div className="flex gap-3 p-4 overflow-x-auto min-h-[calc(100vh-200px)]">
-          {KANBAN_COLUMNS.map((status) => {
+          {visibleStatuses(canDragJobs).map((status) => {
             const cfg = STATUS_CONFIG[status];
             const columnJobs = (jobs.content || [])
               .filter(j => j.status === status)
@@ -658,8 +678,8 @@ const JobList: React.FC = () => {
                 </span>
                 {userRole === 'admin' && (
                   <>
-                    <Button variant="secondary" size="sm" disabled={!single || single.status !== 'ACTIVE'} onClick={() => single && apiService.pauseJob(single.id!).then(() => fetchJobs(currentPage))}>Pausar</Button>
-                    <Button variant="secondary" size="sm" disabled={!single || single.status !== 'PAUSED'} onClick={() => single && apiService.activateJob(single.id!).then(() => fetchJobs(currentPage))}>Ativar</Button>
+                    <Button variant="secondary" size="sm" disabled={!single || single.status !== 'ACTIVE'} onClick={() => single && runJobAction(() => apiService.pauseJob(single.id!), 'Vaga pausada com sucesso')}>Pausar</Button>
+                    <Button variant="secondary" size="sm" disabled={!single || (single.status !== 'PAUSED' && single.status !== 'DRAFT')} onClick={() => single && runJobAction(() => apiService.activateJob(single.id!), single.status === 'DRAFT' ? 'Vaga publicada com sucesso' : 'Vaga ativada com sucesso')}>{single?.status === 'DRAFT' ? 'Publicar' : 'Ativar'}</Button>
                     <Button variant="danger" size="sm" disabled={!single || single.status === 'CLOSED'} onClick={() => single && setClosingJob(single)}>Fechar</Button>
                   </>
                 )}

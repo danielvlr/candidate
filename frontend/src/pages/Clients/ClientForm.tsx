@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiService } from '../../services/api';
 import { ClientDTO, ClientStatus, ClientType } from '../../types/api';
-import { Input, Textarea, Select, Button, Card, CardBody } from '../../components/ui';
+import { Input, Textarea, Select, Button, Card, CardBody, useToast } from '../../components/ui';
+import { getErrorMessage } from '../../services/apiError';
+import { blankStringsToNull } from '../../utils/payload';
 
 interface ClientFormProps {
   mode: 'create' | 'edit';
@@ -35,7 +37,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ mode }) => {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const { addToast } = useToast();
 
   useEffect(() => {
     if (mode === 'edit' && id) {
@@ -73,18 +75,19 @@ const ClientForm: React.FC<ClientFormProps> = ({ mode }) => {
       setLoading(true);
       setError(null);
 
+      const payload = blankStringsToNull(formData);
       if (mode === 'create') {
-        await apiService.createClient(formData);
-        setSuccessMessage('Empresa criada com sucesso!');
+        await apiService.createClient(payload);
+        addToast({ type: 'success', title: 'Empresa criada com sucesso' });
       } else if (id) {
-        await apiService.updateClient(parseInt(id), formData);
-        setSuccessMessage('Empresa atualizada com sucesso!');
+        await apiService.updateClient(parseInt(id), payload);
+        addToast({ type: 'success', title: 'Empresa atualizada com sucesso' });
       }
 
       navigate('/clients');
     } catch (err) {
-      setError(mode === 'create' ? 'Erro ao criar empresa' : 'Erro ao atualizar empresa');
-      console.error('Error saving client:', err);
+      const fallback = mode === 'create' ? 'Erro ao criar empresa' : 'Erro ao atualizar empresa';
+      setError(getErrorMessage(err, fallback));
     } finally {
       setLoading(false);
     }
@@ -126,12 +129,6 @@ const ClientForm: React.FC<ClientFormProps> = ({ mode }) => {
         {error && (
           <div className="mb-6 rounded-lg border border-error-200 bg-error-50 px-4 py-3 text-sm text-error-700 dark:border-error-800 dark:bg-error-900/20 dark:text-error-400">
             {error}
-          </div>
-        )}
-
-        {successMessage && (
-          <div className="mb-6 rounded-lg border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-700 dark:border-success-800 dark:bg-success-900/20 dark:text-success-400">
-            {successMessage}
           </div>
         )}
 

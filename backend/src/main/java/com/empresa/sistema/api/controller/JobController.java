@@ -31,9 +31,6 @@ public class JobController {
     @Autowired
     private JobService jobService;
 
-    @Autowired
-    private JobMapper jobMapper;
-
     @GetMapping
     public ResponseEntity<Page<JobResponse>> getAllJobs(
             @AuthenticationPrincipal AuthenticatedUser principal,
@@ -204,9 +201,8 @@ public class JobController {
     public ResponseEntity<JobResponse> closeJobWithValue(
             @PathVariable Long id,
             @Valid @RequestBody com.empresa.sistema.api.dto.request.CloseJobRequest request) {
-        Job updated = jobService.closeJobWithValue(
-            id, request.getFinalValue(), request.getClosedAt(), request.getNotes(), request.getApprovedCandidateId());
-        return ResponseEntity.ok(jobMapper.toResponse(updated));
+        return ResponseEntity.ok(jobService.closeJobWithValue(
+            id, request.getFinalValue(), request.getClosedAt(), request.getNotes(), request.getApprovedCandidateId()));
     }
 
     @GetMapping("/kanban")
@@ -264,8 +260,7 @@ public class JobController {
             @PathVariable Long id,
             @RequestBody Map<String, String> body) {
         Job.PipelineStage stage = Job.PipelineStage.valueOf(body.get("pipelineStage"));
-        Job updated = jobService.updatePipelineStage(id, stage);
-        return ResponseEntity.ok(jobMapper.toResponse(updated));
+        return ResponseEntity.ok(jobService.updatePipelineStage(id, stage));
     }
 
     @PatchMapping("/{id}/status")
@@ -273,7 +268,6 @@ public class JobController {
             @PathVariable Long id,
             @RequestBody Map<String, String> body) {
         Job.JobStatus newStatus = Job.JobStatus.valueOf(body.get("status"));
-        Job updated = jobService.updateJobStatus(id, newStatus);
-        return ResponseEntity.ok(jobMapper.toResponse(updated));
+        return ResponseEntity.ok(jobService.updateJobStatus(id, newStatus));
     }
 }

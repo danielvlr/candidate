@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useHeadhunterFilter } from '../../context/HeadhunterFilterContext';
 import { CandidateDTO } from '../../types/api';
 import { Badge, Button, Card, CardBody, Modal, useToast } from '../../components/ui';
+import { formatLocalDate } from '../../utils/date';
 
 const getInitials = (name: string) =>
   name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
@@ -45,7 +46,7 @@ const statusVariant: Record<string, string> = {
 const workPrefLabel: Record<string, string> = {
   REMOTE: 'Remoto',
   ONSITE: 'Presencial',
-  HYBRID: 'Hibrido',
+  HYBRID: 'Híbrido',
 };
 
 const CandidateDetailView: React.FC = () => {
@@ -459,13 +460,13 @@ const CandidateDetailView: React.FC = () => {
                 )}
                 {candidate.desiredSalary != null && (
                   <div>
-                    <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Pretensao Salarial</h3>
+                    <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Pretensão Salarial</h3>
                     <p className="text-sm text-gray-900 dark:text-white">{formatCurrency(candidate.desiredSalary)}</p>
                   </div>
                 )}
                 {candidate.workPreference && (
                   <div>
-                    <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Preferencia</h3>
+                    <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Preferência</h3>
                     <p className="text-sm text-gray-900 dark:text-white">{workPrefLabel[candidate.workPreference] || candidate.workPreference}</p>
                   </div>
                 )}
@@ -586,13 +587,13 @@ const CandidateDetailView: React.FC = () => {
                 {candidate.dateOfBirth && (
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-500 dark:text-gray-400">Nascimento</span>
-                    <span className="text-sm text-gray-900 dark:text-white">{new Date(candidate.dateOfBirth).toLocaleDateString('pt-BR')}</span>
+                    <span className="text-sm text-gray-900 dark:text-white">{formatLocalDate(candidate.dateOfBirth)}</span>
                   </div>
                 )}
                 {candidate.availabilityDate && (
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-500 dark:text-gray-400">Disponibilidade</span>
-                    <span className="text-sm text-gray-900 dark:text-white">{new Date(candidate.availabilityDate).toLocaleDateString('pt-BR')}</span>
+                    <span className="text-sm text-gray-900 dark:text-white">{formatLocalDate(candidate.availabilityDate)}</span>
                   </div>
                 )}
                 <div className="flex justify-between">

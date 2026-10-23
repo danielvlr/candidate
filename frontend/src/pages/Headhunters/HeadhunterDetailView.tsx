@@ -96,7 +96,7 @@ const HeadhunterDetailView: React.FC = () => {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <p className="text-sm text-red-600 dark:text-red-400 mb-3">{error || 'Headhunter nao encontrado'}</p>
+          <p className="text-sm text-red-600 dark:text-red-400 mb-3">{error || 'Headhunter não encontrado'}</p>
           <Button variant="outline" size="sm" onClick={() => navigate('/headhunters')}>
             Voltar para lista
           </Button>
@@ -159,7 +159,7 @@ const HeadhunterDetailView: React.FC = () => {
           <Card>
             <CardBody>
               <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
-                Informacoes
+                Informações
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -175,7 +175,7 @@ const HeadhunterDetailView: React.FC = () => {
                   <p className="text-sm text-gray-900 dark:text-white">{formatCurrency(headhunter.fixedCost)}</p>
                 </div>
                 <div>
-                  <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Custo Variavel</h3>
+                  <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Custo Variável</h3>
                   <p className="text-sm text-gray-900 dark:text-white">{formatPercent(headhunter.variableCost)}</p>
                 </div>
                 {headhunter.linkedinUrl && (
@@ -188,7 +188,7 @@ const HeadhunterDetailView: React.FC = () => {
                 )}
                 {headhunter.responsibleAreas && (
                   <div className="sm:col-span-2">
-                    <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Areas de Atuacao</h3>
+                    <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Áreas de Atuação</h3>
                     <p className="text-sm text-gray-900 dark:text-white">{headhunter.responsibleAreas}</p>
                   </div>
                 )}
@@ -215,7 +215,7 @@ const HeadhunterDetailView: React.FC = () => {
               ) : jobs.length === 0 ? (
                 <div className="rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700 p-6 text-center">
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Nenhuma vaga atribuida a este headhunter.
+                    Nenhuma vaga atribuída a este headhunter.
                   </p>
                 </div>
               ) : (

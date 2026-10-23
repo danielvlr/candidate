@@ -19,6 +19,8 @@ import {
   SkeletonCard,
   useToast,
 } from '../../components/ui';
+import { formatLocalDate } from '../../utils/date';
+import { translateAssessoradoText } from '../../utils/assessoradoStatus';
 
 type Tab = 'informacoes' | 'vagas' | 'historico';
 
@@ -69,6 +71,9 @@ const HISTORY_TYPE_LABELS: Record<AssessoradoHistoryType, string> = {
   [AssessoradoHistoryType.JOB_SUGGESTED]: 'Vaga Sugerida',
   [AssessoradoHistoryType.JOB_APPLIED]: 'Candidatura',
   [AssessoradoHistoryType.FEEDBACK]: 'Feedback',
+  [AssessoradoHistoryType.CREATED]: 'Criação',
+  [AssessoradoHistoryType.UPDATED]: 'Atualização',
+  [AssessoradoHistoryType.STATUS_CHANGED]: 'Status Alterado',
 };
 
 const HISTORY_TYPE_BADGE: Record<
@@ -83,10 +88,12 @@ const HISTORY_TYPE_BADGE: Record<
   [AssessoradoHistoryType.JOB_SUGGESTED]: 'urgent',
   [AssessoradoHistoryType.JOB_APPLIED]: 'hired',
   [AssessoradoHistoryType.FEEDBACK]: 'inactive',
+  [AssessoradoHistoryType.CREATED]: 'hired',
+  [AssessoradoHistoryType.UPDATED]: 'info',
+  [AssessoradoHistoryType.STATUS_CHANGED]: 'featured',
 };
 
-const formatDate = (dateString: string) =>
-  new Date(dateString).toLocaleDateString('pt-BR');
+const formatDate = formatLocalDate;
 
 const formatDateTime = (dateString: string) =>
   new Date(dateString).toLocaleString('pt-BR');
@@ -562,7 +569,8 @@ const AssessoradoDetailView: React.FC = () => {
           ) : (
             <div className="space-y-4">
               {matchingJobs.map((match, idx) => {
-                const scorePct = Math.round(match.matchScore * 100);
+                // matchScore já é porcentagem (0-100), igual ao dashboard do CPARTNER.
+                const scorePct = Math.round(match.matchScore);
                 return (
                   <Card key={match.job.id ?? idx} hover>
                     <CardBody>
@@ -677,12 +685,12 @@ const AssessoradoDetailView: React.FC = () => {
                               {HISTORY_TYPE_LABELS[entry.type]}
                             </Badge>
                             <span className="text-sm font-medium text-gray-900 dark:text-white/90">
-                              {entry.title}
+                              {translateAssessoradoText(entry.title)}
                             </span>
                           </div>
                           {entry.description && (
                             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                              {entry.description}
+                              {translateAssessoradoText(entry.description)}
                             </p>
                           )}
                           <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">

@@ -35,8 +35,26 @@ import {
   PublicInvitationResponse,
   SelfRegisterRequest,
 } from '../types/api';
+import { buildApiError } from './apiError';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+
+// O backend devolve nome/e-mail/headline do candidato achatados (candidateName...);
+// as telas leem `assessorado.candidate`, então montamos o objeto a partir dos campos planos.
+function withCandidate(assessorado: AssessoradoDTO): AssessoradoDTO {
+  if (assessorado.candidate || !assessorado.candidateName) return assessorado;
+  return {
+    ...assessorado,
+    candidate: {
+      id: assessorado.candidateId,
+      fullName: assessorado.candidateName,
+      email: assessorado.candidateEmail ?? '',
+      headline: assessorado.candidateHeadline,
+      skills: assessorado.candidateSkills,
+      profilePictureUrl: assessorado.candidateProfilePictureUrl,
+    },
+  };
+}
 
 class ApiService {
   private async request<T>(
@@ -57,7 +75,7 @@ class ApiService {
       const response = await fetch(url, config);
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw await buildApiError(response);
       }
 
       // 204 ou 200 sem corpo: não há JSON para ler (evita "Unexpected end of JSON input")
@@ -190,7 +208,7 @@ class ApiService {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw await buildApiError(response);
       }
 
       return await response.json();
@@ -586,11 +604,12 @@ class ApiService {
     pagination: PaginationParams = {}
   ): Promise<PageResponse<AssessoradoDTO>> {
     const queryString = this.buildQueryParams(pagination);
-    return this.request<PageResponse<AssessoradoDTO>>(`/assessorados?${queryString}`);
+    const page = await this.request<PageResponse<AssessoradoDTO>>(`/assessorados?${queryString}`);
+    return { ...page, content: (page.content ?? []).map(withCandidate) };
   }
 
   async getAssessoradoById(id: number): Promise<AssessoradoDTO> {
-    return this.request<AssessoradoDTO>(`/assessorados/${id}`);
+    return withCandidate(await this.request<AssessoradoDTO>(`/assessorados/${id}`));
   }
 
   async getAssessoradosBySenior(
@@ -598,21 +617,26 @@ class ApiService {
     pagination: PaginationParams = {}
   ): Promise<PageResponse<AssessoradoDTO>> {
     const queryString = this.buildQueryParams(pagination);
-    return this.request<PageResponse<AssessoradoDTO>>(`/assessorados/senior/${seniorId}?${queryString}`);
+    const page = await this.request<PageResponse<AssessoradoDTO>>(
+      `/assessorados/senior/${seniorId}?${queryString}`
+    );
+    return { ...page, content: (page.content ?? []).map(withCandidate) };
   }
 
   async createAssessorado(request: AssessoradoCreateRequest): Promise<AssessoradoDTO> {
-    return this.request<AssessoradoDTO>('/assessorados', {
+    const created = await this.request<AssessoradoDTO>('/assessorados', {
       method: 'POST',
       body: JSON.stringify(request),
     });
+    return withCandidate(created);
   }
 
   async updateAssessorado(id: number, request: AssessoradoCreateRequest): Promise<AssessoradoDTO> {
-    return this.request<AssessoradoDTO>(`/assessorados/${id}`, {
+    const updated = await this.request<AssessoradoDTO>(`/assessorados/${id}`, {
       method: 'PUT',
       body: JSON.stringify(request),
     });
+    return withCandidate(updated);
   }
 
   async deleteAssessorado(id: number): Promise<void> {
@@ -630,7 +654,7 @@ class ApiService {
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      throw await buildApiError(response);
     }
   }
 
@@ -643,7 +667,8 @@ class ApiService {
   }
 
   async getAssessoradoHistory(assessoradoId: number): Promise<AssessoradoHistoryDTO[]> {
-    return this.request<AssessoradoHistoryDTO[]>(`/assessorados/${assessoradoId}/history`);
+    const history = await this.request<AssessoradoHistoryDTO[]>(`/assessorados/${assessoradoId}/history`);
+    return history.map((entry) => ({ ...entry, type: entry.type ?? entry.actionType! }));
   }
 
   async getMatchingJobs(assessoradoId: number): Promise<JobMatchDTO[]> {

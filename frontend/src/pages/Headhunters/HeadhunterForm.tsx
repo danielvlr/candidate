@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiService } from '../../services/api';
 import type { HeadhunterDTO } from '../../types/api';
-import { Input, Textarea, Select, Button, Card, CardBody } from '../../components/ui';
+import { Input, Textarea, Select, Button, Card, CardBody, useToast } from '../../components/ui';
+import { getErrorMessage } from '../../services/apiError';
 
 interface HeadhunterFormProps {
   mode: 'create' | 'edit';
@@ -74,6 +75,7 @@ const validate = (form: HeadhunterFormState): string | null => {
 const HeadhunterForm: React.FC<HeadhunterFormProps> = ({ mode }) => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const { addToast } = useToast();
   const [formData, setFormData] = useState<HeadhunterFormState>(EMPTY_FORM);
   const [loading, setLoading] = useState(mode === 'edit');
   const [saving, setSaving] = useState(false);
@@ -108,12 +110,14 @@ const HeadhunterForm: React.FC<HeadhunterFormProps> = ({ mode }) => {
       const payload = toPayload(formData);
       if (mode === 'create') {
         await apiService.createHeadhunter(payload);
+        addToast({ type: 'success', title: 'Headhunter criado com sucesso' });
       } else if (id) {
         await apiService.updateHeadhunter(Number(id), payload);
+        addToast({ type: 'success', title: 'Headhunter atualizado com sucesso' });
       }
       navigate('/headhunters');
     } catch (err) {
-      setError(err instanceof Error && err.message ? err.message : 'Erro ao salvar headhunter');
+      setError(getErrorMessage(err, 'Erro ao salvar headhunter'));
     } finally {
       setSaving(false);
     }

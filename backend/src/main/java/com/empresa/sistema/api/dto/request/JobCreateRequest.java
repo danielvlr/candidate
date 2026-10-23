@@ -41,6 +41,9 @@ public class JobCreateRequest {
     @DecimalMin(value = "0.0", message = "Salário máximo deve ser positivo")
     private Double salaryMax;
 
+    /** Opcional: apenas DRAFT (rascunho) ou ACTIVE; omitido, a vaga nasce ativa. */
+    private Job.JobStatus status;
+
     private Job.JobType jobType;
     private Job.WorkMode workMode;
     private Job.ExperienceLevel experienceLevel;

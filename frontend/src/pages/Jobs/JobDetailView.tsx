@@ -15,13 +15,16 @@ import {
   useToast,
 } from '../../components/ui';
 import { JobTimeline } from '../../components/job/JobTimeline';
-// import { JobShortlist } from '../../components/job/JobShortlist';
+import { JobShortlist } from '../../components/job/JobShortlist';
+import { ApiError, getErrorMessage } from '../../services/apiError';
+import { formatLocalDate } from '../../utils/date';
 import { AddActivityModal } from '../../components/job/AddActivityModal';
 import { SendCandidatesModal } from '../../components/job/SendCandidatesModal';
 import { CloseJobModal } from '../../components/job/CloseJobModal';
 import WarrantyBreachModal from '../Warranty/WarrantyBreachModal';
 
-type ActiveTab = 'detalhes' | 'candidatos' | 'historico';
+// enviados = shortlists enviadas ao cliente; candidatos = candidaturas vinculadas à vaga.
+type ActiveTab = 'detalhes' | 'enviados' | 'candidatos' | 'historico';
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   APPLIED: { label: 'Mapeado', color: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300' },
@@ -202,10 +205,11 @@ const JobDetailView: React.FC = () => {
   const [confirmModal, setConfirmModal] = useState<{ action: string; jobId: number } | null>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>(() => {
     const tab = searchParams.get('tab');
-    if (tab === 'historico' || tab === 'candidatos') return tab;
+    if (tab === 'historico' || tab === 'candidatos' || tab === 'enviados') return tab;
     return 'detalhes';
   });
   const [applicationsCount, setApplicationsCount] = useState(0);
+  const [shortlistsCount, setShortlistsCount] = useState(0);
   const [historyCount, setHistoryCount] = useState(0);
   const [showAddActivity, setShowAddActivity] = useState(false);
   const [showSendCandidates, setShowSendCandidates] = useState(false);
@@ -217,14 +221,22 @@ const JobDetailView: React.FC = () => {
     const fetchJob = async () => {
       if (!id) return;
 
+      // Limpa tudo da vaga anterior: se esta busca falhar, nada antigo pode ficar na tela.
+      setJob(null);
+      setWarranty(null);
+      setApplicationsCount(0);
+      setShortlistsCount(0);
+      setHistoryCount(0);
       try {
         setLoading(true);
         setError(null);
         const jobData = await apiService.getJobById(Number(id));
         setJob(jobData);
       } catch (err) {
-        setError('Erro ao carregar detalhes da vaga');
-        console.error('Error fetching job:', err);
+        // 404: cai no estado "Vaga não encontrada" (job nulo e sem erro).
+        if (!(err instanceof ApiError && err.status === 404)) {
+          setError(getErrorMessage(err, 'Erro ao carregar detalhes da vaga'));
+        }
       } finally {
         setLoading(false);
       }
@@ -238,13 +250,15 @@ const JobDetailView: React.FC = () => {
       if (!id) return;
       const jobId = Number(id);
       try {
-        // A aba "Candidatos Enviados" lista candidaturas, então o contador usa o total delas
-        const [applicationsPage, historyCounts] = await Promise.all([
+        // "Enviados ao cliente" conta shortlists; "Vinculados" conta candidaturas (/applications).
+        const [applicationsPage, shortlists, historyCounts] = await Promise.all([
           apiService.getApplicationsByJob(jobId, { page: 0, size: 1 }),
+          apiService.getShortlistsByJob(jobId),
           apiService.getJobHistoryCounts(jobId),
         ]);
         const historyTotal = Object.values(historyCounts).reduce((a, b) => a + b, 0);
         setApplicationsCount(applicationsPage.totalElements ?? 0);
+        setShortlistsCount(shortlists.length);
         setHistoryCount(historyTotal);
       } catch (err) {
         // counts are non-critical, ignore errors
@@ -521,6 +535,25 @@ const JobDetailView: React.FC = () => {
               Detalhes
             </button>
             <button
+              onClick={() => setActiveTab('enviados')}
+              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors duration-200 flex items-center gap-1.5 ${
+                activeTab === 'enviados'
+                  ? 'border-brand-500 text-brand-600 dark:text-brand-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200'
+              }`}
+            >
+              Enviados ao cliente
+              {shortlistsCount > 0 && (
+                <span className={`inline-flex items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-semibold ${
+                  activeTab === 'enviados'
+                    ? 'bg-brand-100 text-brand-700 dark:bg-brand-500/20 dark:text-brand-400'
+                    : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                }`}>
+                  {shortlistsCount}
+                </span>
+              )}
+            </button>
+            <button
               onClick={() => setActiveTab('candidatos')}
               className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors duration-200 flex items-center gap-1.5 ${
                 activeTab === 'candidatos'
@@ -528,7 +561,7 @@ const JobDetailView: React.FC = () => {
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200'
               }`}
             >
-              Candidatos Enviados
+              Vinculados
               {applicationsCount > 0 && (
                 <span className={`inline-flex items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-semibold ${
                   activeTab === 'candidatos'
@@ -561,7 +594,16 @@ const JobDetailView: React.FC = () => {
           </nav>
         </div>
 
-        {/* Tab: Candidatos */}
+        {/* Tab: Enviados ao cliente (shortlists) */}
+        {activeTab === 'enviados' && (
+          <JobShortlist
+            jobId={job.id!}
+            onSendCandidates={() => setShowSendCandidates(true)}
+            refreshKey={tabRefreshKey}
+          />
+        )}
+
+        {/* Tab: Vinculados (candidaturas) */}
         {activeTab === 'candidatos' && (
           <JobApplicationsList jobId={job.id!} onChange={() => setTabRefreshKey((k) => k + 1)} />
         )}
@@ -712,9 +754,9 @@ const JobDetailView: React.FC = () => {
                       Período
                     </span>
                     <p className="text-gray-900 dark:text-white/90 mt-0.5">
-                      {new Date(warranty.startDate).toLocaleDateString('pt-BR')}
+                      {formatLocalDate(warranty.startDate)}
                       {' — '}
-                      {new Date(warranty.endDate).toLocaleDateString('pt-BR')}
+                      {formatLocalDate(warranty.endDate)}
                     </p>
                   </div>
                 </div>
@@ -786,7 +828,7 @@ const JobDetailView: React.FC = () => {
                     Prazo para Candidatura
                   </span>
                   <p className="text-gray-900 dark:text-white/90 mt-0.5">
-                    {new Date(job.applicationDeadline).toLocaleDateString('pt-BR')}
+                    {formatLocalDate(job.applicationDeadline)}
                   </p>
                 </div>
               )}
@@ -860,7 +902,7 @@ const JobDetailView: React.FC = () => {
                     <div>
                       <span className="text-sm font-medium text-gray-500 dark:text-gray-400">1º envio ao cliente</span>
                       <p className="text-gray-900 dark:text-white/90 mt-0.5">
-                        {new Date(job.firstDeliveryAt).toLocaleDateString('pt-BR')}
+                        {formatLocalDate(job.firstDeliveryAt)}
                       </p>
                     </div>
                   )}
@@ -868,7 +910,7 @@ const JobDetailView: React.FC = () => {
                     <div>
                       <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Última entrega</span>
                       <p className="text-gray-900 dark:text-white/90 mt-0.5">
-                        {new Date(job.lastDeliveryAt).toLocaleDateString('pt-BR')}
+                        {formatLocalDate(job.lastDeliveryAt)}
                       </p>
                     </div>
                   )}
@@ -876,7 +918,7 @@ const JobDetailView: React.FC = () => {
                     <div>
                       <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Congelada em</span>
                       <p className="text-gray-900 dark:text-white/90 mt-0.5">
-                        {new Date(job.frozenAt).toLocaleDateString('pt-BR')}
+                        {formatLocalDate(job.frozenAt)}
                       </p>
                     </div>
                   )}
@@ -884,7 +926,7 @@ const JobDetailView: React.FC = () => {
                     <div>
                       <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Fechada em</span>
                       <p className="text-gray-900 dark:text-white/90 mt-0.5">
-                        {new Date(job.closedAt).toLocaleDateString('pt-BR')}
+                        {formatLocalDate(job.closedAt)}
                       </p>
                     </div>
                   )}
@@ -1029,7 +1071,10 @@ const JobDetailView: React.FC = () => {
         jobHeadhunterId={job.headhunterId}
         isOpen={showSendCandidates}
         onClose={() => setShowSendCandidates(false)}
-        onSuccess={() => setTabRefreshKey((k) => k + 1)}
+        onSuccess={() => {
+          setTabRefreshKey((k) => k + 1);
+          setActiveTab('enviados');
+        }}
       />
 
       {/* Fechamento: valor final + candidato aprovado */}

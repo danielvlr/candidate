@@ -10,6 +10,7 @@ import {
   EmptyState,
   Skeleton,
 } from '../ui';
+import { translateJobStatusText } from '../../utils/jobStatus';
 
 interface JobTimelineProps {
   jobId: number;
@@ -391,7 +392,7 @@ export const JobTimeline: React.FC<JobTimelineProps> = ({ jobId, onAddActivity, 
                     <div className="flex items-start justify-between gap-2 mb-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-semibold text-gray-900 dark:text-white/90">
-                          {entry.title}
+                          {translateJobStatusText(entry.title)}
                         </span>
                         <Badge variant={colors.badgeVariant}>
                           {TYPE_LABELS[entry.type]}
@@ -410,7 +411,7 @@ export const JobTimeline: React.FC<JobTimelineProps> = ({ jobId, onAddActivity, 
 
                     {entry.description && (
                       <p className="text-sm text-gray-600 dark:text-gray-400 mb-1.5 leading-relaxed">
-                        {entry.description}
+                        {translateJobStatusText(entry.description)}
                       </p>
                     )}
 

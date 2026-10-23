@@ -26,6 +26,10 @@ public class HeadhunterCreateRequest {
     @Pattern(regexp = "\\d{10,11}", message = "Telefone deve ter 10 ou 11 dígitos")
     private String phone;
 
+    public void setPhone(String phone) {
+        this.phone = BlankToNull.of(phone);
+    }
+
     @NotNull(message = "Senioridade é obrigatória")
     private Headhunter.Seniority seniority;
 

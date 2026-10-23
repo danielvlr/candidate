@@ -635,7 +635,7 @@ const ClientDetailView: React.FC = () => {
             <Timeline
               entries={timeline}
               loading={timelineLoading}
-              emptyMessage="Nenhuma atividade registrada. Clique em '+ Nova nota' para comecar."
+              emptyMessage="Nenhuma atividade registrada. Clique em '+ Nova nota' para começar."
             />
 
             {/* Load more */}

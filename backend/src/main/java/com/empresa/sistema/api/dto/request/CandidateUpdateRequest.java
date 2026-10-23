@@ -36,6 +36,10 @@ public class CandidateUpdateRequest {
     @Pattern(regexp = "\\d{5}-?\\d{3}", message = "CEP deve ter formato válido")
     private String zipCode;
 
+    public void setZipCode(String zipCode) {
+        this.zipCode = BlankToNull.of(zipCode);
+    }
+
     @Size(max = 200, message = "Headline deve ter no máximo 200 caracteres")
     private String headline;
 

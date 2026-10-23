@@ -14,6 +14,7 @@ import {
   useToast,
 } from '../../components/ui';
 import WarrantyBreachModal from './WarrantyBreachModal';
+import { formatLocalDate } from '../../utils/date';
 
 const STATUS_COLORS: Record<string, string> = {
   ACTIVE: 'bg-green-100 text-green-800 dark:bg-green-500/10 dark:text-green-400',
@@ -89,8 +90,7 @@ const WarrantyDashboard: React.FC = () => {
     });
   }, [warranties, selectedClient, selectedHeadhunterId]);
 
-  const formatDate = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString('pt-BR');
+  const formatDate = formatLocalDate;
 
   const summaryCards = [
     {
