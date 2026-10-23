@@ -118,6 +118,8 @@ Como o acesso funciona hoje:
 | BUG-29 | Baixa | Vaga detalhe | Ao navegar para uma vaga que falha (404), a tela mantém os dados da vaga anterior | [Chrome] (rodada 2) |
 | BUG-30 | Média | Assessorados | "Vagas Compatíveis" no detalhe do assessorado mostra "6500% compatível" | [Chrome] (rodada 2) |
 | BUG-31 | Baixa | UI/Textos | Nome do candidato ausente nos cards de assessorado, histórico com códigos crus, acentos e toasts restantes | [Chrome] (rodada 2) |
+| BUG-32 | Baixa | Headhunters | Lista de headhunters (convite/filtro) não atualiza após cadastrar, só recarregando | [Chrome] (8.5) |
+| BUG-33 | Média | E-mail | Tela promete e-mail de aprovação ao candidato, mas ele não existe | [Chrome] (8.5) |
 
 ## 5. Detalhamento
 
@@ -430,4 +432,34 @@ Código `fix/qa-lote-f-rodada2` contra Postgres 16 limpo, exercitado na tela:
 | BUG-30 | Aba Vagas Compatíveis | "30% compatível" (igual ao dashboard) |
 | BUG-31 | Nome no card e no match; histórico; acentos; toasts; foto ao salvar; Blacklist; login após logout | "Ana Aprovada" e "Match: Ana Aprovada (30%)"; "Fase alterada de Onboarding para Busca Ativa"; "Informações", "CUSTO VARIÁVEL", "Híbrido"; toasts presentes; foto enviada no salvar; modal "Bloquear candidato"; login cai em `/` |
 
-Ainda não verificável neste ambiente: entrega real de e-mail (sem SMTP) e o caminho de sucesso da importação do LinkedIn (sem `OPENAI_API_KEY`). Os dois precisam ser conferidos em staging/produção com as credenciais configuradas.
+### 8.5 E-mails e importação do LinkedIn (com SMTP e OpenAI de teste)
+
+Para cobrir o que dependia de credenciais, o backend do lote F rodou com:
+- **SMTP de teste:** MailHog (`SPRING_MAIL_HOST=localhost`, porta 1025, sem autenticação). Os e-mails foram lidos na interface do MailHog pelo Chrome.
+- **OpenAI falsa:** um servidor local em `CHATGPT_API_URL=http://localhost:18080` responde `/v1/chat/completions` com um perfil pronto.
+- **Alerta de garantia:** `WARRANTY_NOTIFICATION_CRON` a cada minuto.
+
+| Fluxo | Verificação no Chrome | Resultado |
+|---|---|---|
+| Redefinição de senha | `/forgot-password` → e-mail "[Camarmo] Redefinição de senha" no MailHog → link do e-mail → nova senha → login pela tela | OK; senha antiga passa a dar 401 |
+| Convite de candidato | Convite pela tela → "Convite enviado" (201) → e-mail "Convite para cadastro" com "Hugo Headhunter te convidou" → link do e-mail → cadastro → aprovação | OK, mas **nenhum e-mail de aprovação** (BUG-33) |
+| Alerta de garantia | Vaga fechada há 80 dias (garantia de 90) → e-mail "[Camarmo] Garantia expirando" | OK: só para o headhunter, conteúdo correto, `notification_sent_at` marcado e sem reenvio no minuto seguinte; a categoria aparece crua ("NOSSO_HEADHUNTER") |
+| Importação do LinkedIn | PDF com texto → "Processar PDF" → formulário preenchido → salvar | OK: nome, e-mail, cidade/UF, headline, skills, LinkedIn, experiência (atual) e formação gravados |
+
+#### BUG-32 — Lista de headhunters não atualiza sem recarregar (Baixa)
+- **Evidência [Chrome]:** depois de cadastrar um headhunter, o select "Headhunter responsável" do convite (e o filtro global) continua só com "Selecione...", e o convite é bloqueado. Recarregando a página, o headhunter aparece.
+- **Causa provável:** a lista vem do `HeadhunterFilterContext`, carregado uma vez na montagem do app.
+- **Correção:** recarregar a lista do contexto depois de criar, editar ou mudar o status de um headhunter (método `refresh()` no contexto), ou buscar a lista ao abrir o modal.
+
+#### BUG-33 — E-mail de aprovação prometido não existe (Média)
+- **Evidência [Chrome]:**
+  - A tela final do cadastro por convite diz "Você receberá um e-mail assim que o headhunter responsável aprovar seu perfil".
+  - Depois de "Aprovar" (200, toast de sucesso), o MailHog não recebeu nada para o candidato.
+- **Causa:** `EmailService`/`GmailEmailService` só têm alerta de garantia, redefinição de senha e convite; não há envio na aprovação nem na rejeição.
+- **Correção:**
+  - Implementar e-mail de aprovação (e, opcionalmente, de rejeição) no fluxo de `approve`/`reject` de `CandidateInvitationService`, com falha de envio tratada sem desfazer a aprovação, e teste com `GmailEmailService` mockado.
+  - Ou ajustar o texto da tela, se o produto não quiser o e-mail.
+
+#### Pendências que dependem de decisão
+- **BUG-27 (b):** migrar `clients.description`/`clients.notes` de `oid` para `text` em produção (precisa de janela e backup).
+- **BUG-22:** definir o escopo do CPARTNER.
