@@ -1,5 +1,6 @@
 package com.empresa.sistema.domain.service;
 
+import com.empresa.sistema.api.dto.response.WarrantyResponse;
 import com.empresa.sistema.domain.entity.*;
 import com.empresa.sistema.domain.repository.WarrantyRepository;
 import com.empresa.sistema.domain.repository.WarrantyRuleRepository;
@@ -98,6 +99,45 @@ public class WarrantyService {
     @Transactional(readOnly = true)
     public List<Warranty> findAll() {
         return warrantyRepository.findAll();
+    }
+
+    // As respostas são montadas aqui, dentro da transação: Client.description/notes são @Lob (oid no
+    // Postgres) e só podem ser lidos com transação aberta.
+
+    @Transactional(readOnly = true)
+    public List<WarrantyResponse> listResponses(Warranty.WarrantyStatus status, Long scopeHeadhunterId) {
+        List<Warranty> warranties = scopeHeadhunterId != null
+                ? warrantyRepository.findByHeadhunterId(scopeHeadhunterId)
+                : (status != null ? warrantyRepository.findByStatus(status) : warrantyRepository.findAll());
+        return warranties.stream()
+                .filter(w -> status == null || w.getStatus() == status)
+                .map(WarrantyResponse::fromEntity)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public WarrantyResponse findResponseById(Long id) {
+        return WarrantyResponse.fromEntity(findById(id));
+    }
+
+    @Transactional(readOnly = true)
+    public List<WarrantyResponse> findResponsesByJobId(Long jobId) {
+        return warrantyRepository.findByJobId(jobId).stream().map(WarrantyResponse::fromEntity).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<WarrantyResponse> findResponsesByHeadhunterId(Long headhunterId) {
+        return warrantyRepository.findByHeadhunterId(headhunterId).stream()
+                .map(WarrantyResponse::fromEntity).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<WarrantyResponse> findExpiringResponses(int daysBefore) {
+        return findExpiringWarranties(daysBefore).stream().map(WarrantyResponse::fromEntity).toList();
+    }
+
+    public WarrantyResponse markAsBreachResponse(Long warrantyId, String reason) {
+        return WarrantyResponse.fromEntity(markAsBreach(warrantyId, reason));
     }
 
     public void markNotificationSent(Long warrantyId) {

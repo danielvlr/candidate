@@ -20,6 +20,18 @@ public class ClientCreateRequest {
     @Pattern(regexp = "\\d{14}", message = "CNPJ deve ter 14 dígitos")
     private String cnpj;
 
+    public void setCnpj(String cnpj) {
+        this.cnpj = BlankToNull.of(cnpj);
+    }
+
+    public void setZipCode(String zipCode) {
+        this.zipCode = BlankToNull.of(zipCode);
+    }
+
+    public void setContactPhone(String contactPhone) {
+        this.contactPhone = BlankToNull.of(contactPhone);
+    }
+
     @Size(max = 200, message = "Endereço deve ter no máximo 200 caracteres")
     private String address;
 

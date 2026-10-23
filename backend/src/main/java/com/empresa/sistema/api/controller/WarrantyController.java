@@ -31,47 +31,32 @@ public class WarrantyController {
     public ResponseEntity<List<WarrantyResponse>> getAllWarranties(
             @RequestParam(required = false) Warranty.WarrantyStatus status,
             @AuthenticationPrincipal AuthenticatedUser principal) {
-        List<Warranty> warranties = HeadhunterScope.isHeadhunter(principal)
-                ? warrantyService.findByHeadhunterId(HeadhunterScope.resolve(principal, null))
-                : (status != null ? warrantyService.findByStatus(status) : warrantyService.findAll());
-        List<WarrantyResponse> response = warranties.stream()
-                .filter(w -> status == null || w.getStatus() == status)
-                .map(WarrantyResponse::fromEntity)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(response);
+        Long scopeHeadhunterId = HeadhunterScope.isHeadhunter(principal)
+                ? HeadhunterScope.resolve(principal, null) : null;
+        return ResponseEntity.ok(warrantyService.listResponses(status, scopeHeadhunterId));
     }
 
     @GetMapping("/warranties/{id}")
     public ResponseEntity<WarrantyResponse> getWarrantyById(@PathVariable Long id) {
-        Warranty warranty = warrantyService.findById(id);
-        return ResponseEntity.ok(WarrantyResponse.fromEntity(warranty));
+        return ResponseEntity.ok(warrantyService.findResponseById(id));
     }
 
     @GetMapping("/warranties/job/{jobId}")
     public ResponseEntity<List<WarrantyResponse>> getWarrantiesByJob(@PathVariable Long jobId) {
-        List<WarrantyResponse> response = warrantyService.findByJobId(jobId).stream()
-                .map(WarrantyResponse::fromEntity)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(warrantyService.findResponsesByJobId(jobId));
     }
 
     @GetMapping("/warranties/headhunter/{headhunterId}")
     public ResponseEntity<List<WarrantyResponse>> getWarrantiesByHeadhunter(
             @PathVariable Long headhunterId, @AuthenticationPrincipal AuthenticatedUser principal) {
-        List<WarrantyResponse> response = warrantyService.findByHeadhunterId(
-                HeadhunterScope.resolve(principal, headhunterId)).stream()
-                .map(WarrantyResponse::fromEntity)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(warrantyService.findResponsesByHeadhunterId(
+                HeadhunterScope.resolve(principal, headhunterId)));
     }
 
     @GetMapping("/warranties/expiring")
     public ResponseEntity<List<WarrantyResponse>> getExpiringWarranties(
             @RequestParam(defaultValue = "10") int days) {
-        List<WarrantyResponse> response = warrantyService.findExpiringWarranties(days).stream()
-                .map(WarrantyResponse::fromEntity)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(warrantyService.findExpiringResponses(days));
     }
 
     @PostMapping("/warranties/{id}/breach")
@@ -79,8 +64,7 @@ public class WarrantyController {
             @PathVariable Long id,
             @RequestBody Map<String, String> body) {
         String reason = body.getOrDefault("reason", "Sem motivo informado");
-        Warranty warranty = warrantyService.markAsBreach(id, reason);
-        return ResponseEntity.ok(WarrantyResponse.fromEntity(warranty));
+        return ResponseEntity.ok(warrantyService.markAsBreachResponse(id, reason));
     }
 
     @GetMapping("/warranties/count")

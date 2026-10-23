@@ -24,6 +24,10 @@ public class HeadhunterUpdateRequest {
     @Pattern(regexp = "\\d{10,11}", message = "Telefone deve ter 10 ou 11 dígitos")
     private String phone;
 
+    public void setPhone(String phone) {
+        this.phone = BlankToNull.of(phone);
+    }
+
     private Headhunter.Seniority seniority;
 
     @Size(max = 500, message = "Áreas responsáveis devem ter no máximo 500 caracteres")

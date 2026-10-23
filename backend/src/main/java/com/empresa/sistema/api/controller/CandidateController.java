@@ -9,6 +9,7 @@ import com.empresa.sistema.domain.repository.CandidateStatusLogRepository;
 import com.empresa.sistema.domain.service.CandidateService;
 import com.empresa.sistema.domain.service.LinkedInService;
 import com.empresa.sistema.domain.service.FileUploadService;
+import com.empresa.sistema.domain.service.exception.BusinessException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -148,27 +149,20 @@ public class CandidateController {
     @PostMapping("/import-linkedin-pdf")
     public ResponseEntity<CandidateResponse> importFromLinkedInPdf(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) {
-            return ResponseEntity.badRequest().build();
+            throw new BusinessException("Nenhum arquivo enviado");
         }
 
-        // Validate file type more robustly
         String contentType = file.getContentType();
         String filename = file.getOriginalFilename();
 
         if (contentType == null ||
             (!contentType.equals("application/pdf") &&
              (filename == null || !filename.toLowerCase().endsWith(".pdf")))) {
-            return ResponseEntity.badRequest().build();
+            throw new BusinessException("O arquivo enviado não é um PDF válido");
         }
 
-        try {
-            CandidateResponse candidateData = linkedInService.extractCandidateDataFromPdf(file);
-            return ResponseEntity.ok(candidateData);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().build();
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        // Erros de negócio viram 400 com mensagem pelo GlobalExceptionHandler.
+        return ResponseEntity.ok(linkedInService.extractCandidateDataFromPdf(file));
     }
 
     @PostMapping("/{id}/photo")
