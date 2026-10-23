@@ -20,7 +20,7 @@ const TYPE_LABELS: Record<HistoryType, string> = {
   [HistoryType.OFFER_REJECTED]: 'Proposta Recusada',
   [HistoryType.CONTRACT_SIGNED]: 'Contrato Assinado',
   [HistoryType.CANDIDATE_STARTED]: 'Candidato Contratado',
-  [HistoryType.GUARANTEE_PERIOD]: 'Periodo de Garantia',
+  [HistoryType.GUARANTEE_PERIOD]: 'Período de Garantia',
   [HistoryType.OTHER]: 'Outro',
 };
 

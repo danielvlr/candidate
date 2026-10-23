@@ -140,7 +140,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ mode }) => {
           <Card>
             <CardBody>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
-                Informacoes da Empresa
+                Informações da Empresa
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -166,12 +166,12 @@ const ClientForm: React.FC<ClientFormProps> = ({ mode }) => {
                 />
 
                 <Input
-                  label="Setor / Industria"
+                  label="Setor / Indústria"
                   type="text"
                   name="industry"
                   value={formData.industry || ''}
                   onChange={handleInputChange}
-                  placeholder="Ex: Tecnologia da Informacao"
+                  placeholder="Ex: Tecnologia da Informação"
                 />
 
                 <Input
@@ -180,7 +180,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ mode }) => {
                   name="companySize"
                   value={formData.companySize || ''}
                   onChange={handleInputChange}
-                  placeholder="Ex: 100-500 funcionarios"
+                  placeholder="Ex: 100-500 funcionários"
                 />
 
                 <Select
@@ -190,10 +190,10 @@ const ClientForm: React.FC<ClientFormProps> = ({ mode }) => {
                   onChange={handleInputChange}
                   options={[
                     { value: ClientType.STARTUP, label: 'Startup' },
-                    { value: ClientType.SME, label: 'PME (Pequena/Media Empresa)' },
+                    { value: ClientType.SME, label: 'PME (Pequena/Média Empresa)' },
                     { value: ClientType.ENTERPRISE, label: 'Enterprise (Grande Empresa)' },
                     { value: ClientType.MULTINATIONAL, label: 'Multinacional' },
-                    { value: ClientType.GOVERNMENT, label: 'Governo / Setor Publico' },
+                    { value: ClientType.GOVERNMENT, label: 'Governo / Setor Público' },
                     { value: ClientType.NGO, label: 'ONG / Terceiro Setor' },
                     { value: ClientType.CONSULTING, label: 'Consultoria' },
                   ]}
@@ -237,13 +237,13 @@ const ClientForm: React.FC<ClientFormProps> = ({ mode }) => {
           <Card>
             <CardBody>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
-                Endereco
+                Endereço
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-2">
                   <Input
-                    label="Endereco"
+                    label="Endereço"
                     type="text"
                     name="address"
                     value={formData.address || ''}
@@ -258,7 +258,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ mode }) => {
                   name="city"
                   value={formData.city || ''}
                   onChange={handleInputChange}
-                  placeholder="Ex: Sao Paulo"
+                  placeholder="Ex: São Paulo"
                 />
 
                 <Input
@@ -280,7 +280,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ mode }) => {
                 />
 
                 <Input
-                  label="Pais"
+                  label="País"
                   type="text"
                   name="country"
                   value={formData.country || ''}
@@ -307,7 +307,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ mode }) => {
                     name="contactPersonName"
                     value={formData.contactPersonName || ''}
                     onChange={handleInputChange}
-                    placeholder="Ex: Joao Silva"
+                    placeholder="Ex: João Silva"
                   />
                 </div>
 
@@ -337,17 +337,17 @@ const ClientForm: React.FC<ClientFormProps> = ({ mode }) => {
           <Card>
             <CardBody>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
-                Descricao
+                Descrição
               </h3>
 
               <div className="space-y-6">
                 <Textarea
-                  label="Descricao da Empresa"
+                  label="Descrição da Empresa"
                   name="description"
                   rows={4}
                   value={formData.description || ''}
                   onChange={handleInputChange}
-                  placeholder="Descreva a empresa, sua area de atuacao, cultura e diferenciais..."
+                  placeholder="Descreva a empresa, sua área de atuação, cultura e diferenciais..."
                 />
 
                 <Textarea
@@ -356,7 +356,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ mode }) => {
                   rows={3}
                   value={formData.notes || ''}
                   onChange={handleInputChange}
-                  placeholder="Anotacoes internas sobre o relacionamento com esta empresa..."
+                  placeholder="Anotações internas sobre o relacionamento com esta empresa..."
                 />
               </div>
             </CardBody>
@@ -381,7 +381,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ mode }) => {
                 ? 'Salvando...'
                 : mode === 'create'
                 ? 'Criar Empresa'
-                : 'Salvar Alteracoes'}
+                : 'Salvar Alterações'}
             </Button>
           </div>
         </form>

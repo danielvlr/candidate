@@ -10,6 +10,7 @@ import {
   WarrantyDTO,
   WarrantyStatus,
 } from '../../types/api';
+import { translateJobStatusText } from '../../utils/jobStatus';
 
 export type ActivitySeverity = 'success' | 'danger' | 'warning' | 'info' | 'muted';
 export type ActivityCategory = 'business' | 'pipeline' | 'warranty' | 'note' | 'newcomer';
@@ -209,7 +210,7 @@ function humanMessageFromHistory(entry: JobHistoryDTO): string {
         ? `Entrevista realizada com ${candidate} · ${job}`
         : `Entrevista realizada · ${job}`;
     case HistoryType.STATUS_CHANGED:
-      return `${job}: ${entry.title}`;
+      return `${job}: ${translateJobStatusText(entry.title)}`;
     case HistoryType.NOTE:
       return headhunter
         ? `${headhunter} anotou em ${job}`
@@ -296,7 +297,7 @@ export function buildActivityFeed(opts: BuildOptions): ActivityEvent[] {
       kind: kindFromHistoryType(h.type),
       icon: iconFromHistoryType(h.type),
       message: humanMessageFromHistory(h),
-      detail: h.description && h.description !== h.title ? h.description : undefined,
+      detail: h.description && h.description !== h.title ? translateJobStatusText(h.description) : undefined,
       jobId: h.jobId,
       candidateId: h.candidateId,
       href: h.jobId ? `/jobs/${h.jobId}` : undefined,
@@ -316,7 +317,8 @@ export function buildActivityFeed(opts: BuildOptions): ActivityEvent[] {
       message: messageFromWarranty(w),
       jobId: w.jobId,
       warrantyId: w.id,
-      href: `/warranties`,
+      // /warranties está desativada: leva para a vaga da garantia
+      href: w.jobId ? `/jobs/${w.jobId}` : undefined,
     });
   }
 

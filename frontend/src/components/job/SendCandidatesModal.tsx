@@ -299,14 +299,14 @@ export const SendCandidatesModal: React.FC<SendCandidatesModalProps> = ({
                 htmlFor="notes"
                 className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300"
               >
-                Observacoes
+                Observações
                 <span className="ml-1.5 text-xs font-normal text-gray-400">(opcional)</span>
               </label>
               <textarea
                 id="notes"
                 name="notes"
                 rows={2}
-                placeholder="Observacoes internas sobre o envio..."
+                placeholder="Observações internas sobre o envio..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 className="w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 transition-colors duration-200 focus:border-brand-300 focus:outline-none focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-white/[0.03] dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-700"
@@ -319,14 +319,14 @@ export const SendCandidatesModal: React.FC<SendCandidatesModalProps> = ({
                 htmlFor="presentationText"
                 className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300"
               >
-                Texto de Apresentacao
+                Texto de Apresentação
                 <span className="ml-1.5 text-xs font-normal text-gray-400">(opcional)</span>
               </label>
               <textarea
                 id="presentationText"
                 name="presentationText"
                 rows={3}
-                placeholder="Texto de apresentacao para o cliente..."
+                placeholder="Texto de apresentação para o cliente..."
                 value={presentationText}
                 onChange={(e) => setPresentationText(e.target.value)}
                 className="w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 transition-colors duration-200 focus:border-brand-300 focus:outline-none focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-white/[0.03] dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-700"

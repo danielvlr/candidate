@@ -237,7 +237,7 @@ const CandidateDetailView: React.FC = () => {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <p className="text-sm text-red-600 dark:text-red-400 mb-3">{error || 'Candidato nao encontrado'}</p>
+          <p className="text-sm text-red-600 dark:text-red-400 mb-3">{error || 'Candidato não encontrado'}</p>
           <Button variant="outline" size="sm" onClick={() => navigate('/candidates')}>
             Voltar para lista
           </Button>
@@ -425,7 +425,7 @@ const CandidateDetailView: React.FC = () => {
         <div className="lg:col-span-2 space-y-6">
           <Card>
             <CardBody>
-              <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">Informacoes</h2>
+              <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">Informações</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Email</h3>
@@ -451,7 +451,7 @@ const CandidateDetailView: React.FC = () => {
                 )}
                 {(candidate.city || candidate.state) && (
                   <div>
-                    <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Localizacao</h3>
+                    <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Localização</h3>
                     <p className="text-sm text-gray-900 dark:text-white">
                       {[candidate.city, candidate.state].filter(Boolean).join(', ')}
                     </p>
@@ -488,7 +488,7 @@ const CandidateDetailView: React.FC = () => {
             <Card>
               <CardBody>
                 <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
-                  Historico de Movimentacao ({timeline.length})
+                  Histórico de Movimentação ({timeline.length})
                 </h2>
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                   {timeline.map((item) => (
@@ -576,8 +576,8 @@ const CandidateDetailView: React.FC = () => {
                   </div>
                 )}
                 <div className="flex justify-between">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">Relocacao</span>
-                  <span className="text-sm text-gray-900 dark:text-white">{candidate.willingToRelocate ? 'Sim' : 'Nao'}</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Relocação</span>
+                  <span className="text-sm text-gray-900 dark:text-white">{candidate.willingToRelocate ? 'Sim' : 'Não'}</span>
                 </div>
               </div>
             </CardBody>

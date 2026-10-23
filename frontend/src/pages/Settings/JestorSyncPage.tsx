@@ -53,7 +53,7 @@ const JestorSyncPage: React.FC = () => {
       const data = await apiService.getJestorSyncHistory(0, 20);
       setHistory(data.content ?? []);
     } catch {
-      addToast({ type: 'error', title: 'Erro ao carregar historico de sincronizacao' });
+      addToast({ type: 'error', title: 'Erro ao carregar histórico de sincronização' });
     } finally {
       setLoadingHistory(false);
     }
@@ -68,7 +68,7 @@ const JestorSyncPage: React.FC = () => {
     setConnectionResult(null);
     try {
       await apiService.testJestorConnection();
-      setConnectionResult({ ok: true, message: 'Conexao estabelecida com sucesso.' });
+      setConnectionResult({ ok: true, message: 'Conexão estabelecida com sucesso.' });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Falha ao conectar com o Jestor.';
       setConnectionResult({ ok: false, message: msg });
@@ -83,7 +83,7 @@ const JestorSyncPage: React.FC = () => {
     try {
       const results = await apiService.triggerJestorSync();
       setSyncResults(results ?? []);
-      addToast({ type: 'success', title: 'Sincronizacao concluida' });
+      addToast({ type: 'success', title: 'Sincronização concluída' });
       fetchHistory();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro ao sincronizar.';
@@ -99,10 +99,10 @@ const JestorSyncPage: React.FC = () => {
         {/* Page header */}
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white/90">
-            Integracao Jestor
+            Integração Jestor
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Gerencie a sincronizacao de dados entre o sistema e o Jestor
+            Gerencie a sincronização de dados entre o sistema e o Jestor
           </p>
         </div>
 
@@ -110,7 +110,7 @@ const JestorSyncPage: React.FC = () => {
         <Card>
           <CardHeader>
             <h2 className="text-base font-semibold text-gray-900 dark:text-white/90">
-              Conexao
+              Conexão
             </h2>
           </CardHeader>
           <CardBody>
@@ -121,7 +121,7 @@ const JestorSyncPage: React.FC = () => {
                 loading={testingConnection}
                 onClick={handleTestConnection}
               >
-                Testar Conexao
+                Testar Conexão
               </Button>
               {connectionResult && (
                 <span
@@ -143,7 +143,7 @@ const JestorSyncPage: React.FC = () => {
         <Card>
           <CardHeader>
             <h2 className="text-base font-semibold text-gray-900 dark:text-white/90">
-              Sincronizacao
+              Sincronização
             </h2>
           </CardHeader>
           <CardBody>
@@ -207,7 +207,7 @@ const JestorSyncPage: React.FC = () => {
           <CardHeader>
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold text-gray-900 dark:text-white/90">
-                Historico
+                Histórico
               </h2>
               <Button variant="ghost" size="sm" onClick={fetchHistory} disabled={loadingHistory}>
                 Atualizar
@@ -226,7 +226,7 @@ const JestorSyncPage: React.FC = () => {
               </div>
             ) : history.length === 0 ? (
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Nenhum registro de sincronizacao encontrado.
+                Nenhum registro de sincronização encontrado.
               </p>
             ) : (
               <div className="overflow-x-auto">

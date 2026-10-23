@@ -66,7 +66,7 @@ export const NewNoteModal: React.FC<NewNoteModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.description.trim()) {
-      setDescriptionError('Descricao e obrigatoria');
+      setDescriptionError('Descrição é obrigatória');
       return;
     }
     setDescriptionError('');
@@ -207,9 +207,9 @@ export const NewNoteModal: React.FC<NewNoteModalProps> = ({
 
           {/* Title */}
           <Input
-            label="Titulo"
+            label="Título"
             name="title"
-            placeholder="Titulo da nota (opcional)"
+            placeholder="Título da nota (opcional)"
             value={form.title}
             onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
           />
@@ -220,7 +220,7 @@ export const NewNoteModal: React.FC<NewNoteModalProps> = ({
               htmlFor="description"
               className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300"
             >
-              Descricao <span className="text-error-500">*</span>
+              Descrição <span className="text-error-500">*</span>
             </label>
             <textarea
               id="description"
