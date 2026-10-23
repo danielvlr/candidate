@@ -33,6 +33,7 @@ public class JestorController {
 
     @PostMapping("/sync")
     public ResponseEntity<List<SyncResult>> triggerSync() {
+        requireConfigured();
         List<SyncResult> results = syncService.fullSync();
         return ResponseEntity.ok(results);
     }
@@ -54,6 +55,7 @@ public class JestorController {
 
     @PostMapping("/test-connection")
     public ResponseEntity<Map<String, Object>> testConnection() {
+        requireConfigured();
         try {
             Map<String, Object> result = jestorClient.getOrganization();
             return ResponseEntity.ok(result);
@@ -74,6 +76,7 @@ public class JestorController {
     public ResponseEntity<Map<String, Object>> probe(
             @RequestParam(required = false) String table,
             @RequestParam(defaultValue = "5") int sampleSize) {
+        requireConfigured();
         try {
             String resolved = (table == null || table.isBlank()) ? jestorConfig.getJobsTable() : table;
             int safeSize = Math.max(1, Math.min(sampleSize, 50));
@@ -98,6 +101,13 @@ public class JestorController {
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
                     .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /** Sem URL/token a integração fica desligada; evita chamar o Jestor com credencial vazia. */
+    private void requireConfigured() {
+        if (!jestorConfig.isConfigured()) {
+            throw new IllegalStateException("Integração com o Jestor não configurada");
         }
     }
 }
