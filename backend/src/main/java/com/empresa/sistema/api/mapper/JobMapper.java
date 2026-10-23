@@ -23,12 +23,16 @@ public interface JobMapper {
     @Mapping(target = "clientId", source = "client.id")
     @Mapping(target = "headhunterId", source = "headhunter.id")
     @Mapping(target = "headhunterName", source = "headhunter.fullName")
+    @Mapping(target = "approvedCandidateId", source = "approvedCandidate.id")
+    @Mapping(target = "approvedCandidateName", source = "approvedCandidate.fullName")
     JobResponse toResponse(Job job);
 
     // Detailed job response
     @Mapping(target = "client", source = "client")
     @Mapping(target = "headhunter", source = "headhunter")
     @Mapping(target = "applications", source = "applications")
+    @Mapping(target = "approvedCandidateId", source = "approvedCandidate.id")
+    @Mapping(target = "approvedCandidateName", source = "approvedCandidate.fullName")
     @Mapping(target = "shortlists", ignore = true)
     @Mapping(target = "history", ignore = true)
     @Mapping(target = "totalApplications", ignore = true)

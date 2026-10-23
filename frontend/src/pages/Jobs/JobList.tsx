@@ -7,6 +7,8 @@ import { useHeadhunterFilter } from '../../context/HeadhunterFilterContext';
 import { useNavigate } from 'react-router';
 import { Button, Card, CardHeader, CardBody, EmptyState, SkeletonCard } from '../../components/ui';
 import { useListSelection } from '../../hooks/useListSelection';
+import { CloseJobModal } from '../../components/job/CloseJobModal';
+import { formatDaysAgo, pluralDays } from '../../utils/days';
 
 type ViewMode = 'list' | 'kanban';
 type StatusFilter = 'ACTIVE' | 'WARRANTY' | 'PAUSED' | 'CLOSED';
@@ -23,15 +25,6 @@ const STATUS_CONFIG: Record<StatusFilter, { label: string; color: string; bg: st
 
 const KANBAN_COLUMNS: StatusFilter[] = ['ACTIVE', 'WARRANTY', 'PAUSED', 'CLOSED'];
 
-const formatDate = (d: string) => {
-  if (!d) return '';
-  const date = new Date(d);
-  const now = new Date();
-  const diff = Math.floor((now.getTime() - date.getTime()) / 86400000);
-  if (diff === 0) return 'Hoje';
-  if (diff === 1) return '1d';
-  return `${diff}d`;
-};
 
 const MONTH_LABELS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
@@ -93,6 +86,7 @@ const JobList: React.FC = () => {
   const [dateTo, setDateTo] = useState<string>('');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [showExpiredClosed, setShowExpiredClosed] = useState(false);
+  const [closingJob, setClosingJob] = useState<JobDTO | null>(null);
   const [jobHistoryCache, setJobHistoryCache] = useState<Record<number, { type: string; title: string; createdAt: string }[]>>({});
   const { userRole } = useUserRole();
   const { selectedClientId } = useClientFilter();
@@ -526,10 +520,17 @@ const JobList: React.FC = () => {
                               <div className="flex-1 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                                 <div className={`h-full rounded-full ${urgent ? 'bg-red-500' : remaining <= 30 ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${pct}%` }} />
                               </div>
-                              <span className={`text-[10px] font-bold flex-shrink-0 ${urgent ? 'text-red-500' : remaining <= 30 ? 'text-amber-500' : 'text-emerald-500'}`}>
-                                {`${remaining}/${gDays}d`}
+                              <span
+                                title={`Restam ${pluralDays(remaining)} de ${pluralDays(gDays)} de garantia`}
+                                className={`text-[10px] font-bold flex-shrink-0 ${urgent ? 'text-red-500' : remaining <= 30 ? 'text-amber-500' : 'text-emerald-500'}`}>
+                                {`Garantia: ${remaining} de ${pluralDays(gDays)}`}
                               </span>
                             </div>
+                            {job.approvedCandidateName && (
+                              <p className="mt-1 text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                                Aprovado: <span className="font-medium text-gray-700 dark:text-gray-300">{job.approvedCandidateName}</span>
+                              </p>
+                            )}
                           </div>
                         );
                       })()}
@@ -554,8 +555,8 @@ const JobList: React.FC = () => {
                         })()}>
                           {(() => {
                             const lastHist = job.id && jobHistoryCache[job.id]?.[0]?.createdAt;
-                            if (lastHist) return formatDate(lastHist);
-                            if ((job as any).startDate) return formatDate((job as any).startDate);
+                            if (lastHist) return `Último contato: ${formatDaysAgo(lastHist)}`;
+                            if ((job as any).startDate) return `Início: ${formatDaysAgo((job as any).startDate)}`;
                             return '';
                           })()}
                         </span>
@@ -573,7 +574,7 @@ const JobList: React.FC = () => {
                                 'bg-gray-300'
                               }`} />
                               <span className="text-[10px] text-gray-400 dark:text-gray-500 truncate flex-1">{h.title}</span>
-                              <span className="text-[9px] text-gray-300 dark:text-gray-600 flex-shrink-0">{formatDate(h.createdAt)}</span>
+                              <span className="text-[9px] text-gray-300 dark:text-gray-600 flex-shrink-0">{formatDaysAgo(h.createdAt)}</span>
                             </div>
                           ))}
                           <button
@@ -651,17 +652,7 @@ const JobList: React.FC = () => {
                   <>
                     <Button variant="secondary" size="sm" disabled={!single || single.status !== 'ACTIVE'} onClick={() => single && apiService.pauseJob(single.id!).then(() => fetchJobs(currentPage))}>Pausar</Button>
                     <Button variant="secondary" size="sm" disabled={!single || single.status !== 'PAUSED'} onClick={() => single && apiService.activateJob(single.id!).then(() => fetchJobs(currentPage))}>Ativar</Button>
-                    <Button variant="danger" size="sm" disabled={!single || single.status === 'CLOSED'} onClick={() => {
-                      if (!single) return;
-                      const raw = window.prompt('Informe o valor pelo qual a vaga foi fechada (R$):');
-                      if (raw == null) return;
-                      const parsed = parseFloat(raw.replace(',', '.'));
-                      if (Number.isNaN(parsed) || parsed < 0) {
-                        window.alert('Valor inválido. Informe um número >= 0.');
-                        return;
-                      }
-                      apiService.closeJobWithValue(single.id!, { finalValue: parsed }).then(() => fetchJobs(currentPage));
-                    }}>Fechar</Button>
+                    <Button variant="danger" size="sm" disabled={!single || single.status === 'CLOSED'} onClick={() => single && setClosingJob(single)}>Fechar</Button>
                   </>
                 )}
                 <Button variant="ghost" size="sm" disabled={!single} onClick={() => single && navigate(`/jobs/${single.id}`)}>Detalhes</Button>
@@ -699,7 +690,7 @@ const JobList: React.FC = () => {
                             if (d === null) return null;
                             return (
                               <span className="text-[10px] font-medium text-amber-600 dark:text-amber-400">
-                                · há {d}d
+                                · pausada há {pluralDays(d)}
                               </span>
                             );
                           })()}
@@ -725,7 +716,7 @@ const JobList: React.FC = () => {
 
                       {/* Date */}
                       {job.createdAt && (
-                        <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0 w-12 text-right">{formatDate(job.createdAt)}</span>
+                        <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0 whitespace-nowrap text-right">Criada {formatDaysAgo(job.createdAt)}</span>
                       )}
                     </div>
                   );
@@ -745,6 +736,19 @@ const JobList: React.FC = () => {
             <p className="text-center text-xs text-gray-400 dark:text-gray-500 py-3">Todas as vagas carregadas</p>
           )}
         </div>
+      )}
+
+      {closingJob?.id && (
+        <CloseJobModal
+          isOpen
+          jobId={closingJob.id}
+          jobValue={closingJob.jobValue}
+          onClose={() => setClosingJob(null)}
+          onClosed={() => {
+            setClosingJob(null);
+            fetchJobs(currentPage);
+          }}
+        />
       )}
     </div>
   );

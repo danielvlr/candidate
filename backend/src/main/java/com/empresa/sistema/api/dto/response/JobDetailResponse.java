@@ -51,6 +51,8 @@ public class JobDetailResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private HeadhunterResponse headhunter;
+    private Long approvedCandidateId;
+    private String approvedCandidateName;
 
     // Related data
     private List<JobApplicationResponse> applications;

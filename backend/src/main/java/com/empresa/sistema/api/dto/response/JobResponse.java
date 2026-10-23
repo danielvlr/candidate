@@ -21,6 +21,8 @@ public class JobResponse {
     private String companyName;
     private Long clientId;
     private ClientSummaryResponse client;
+    private Long approvedCandidateId;
+    private String approvedCandidateName;
     private Long headhunterId;
     private String headhunterName;
     private String location;

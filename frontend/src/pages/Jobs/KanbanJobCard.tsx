@@ -1,6 +1,7 @@
 import React from 'react';
 import { useDrag } from 'react-dnd';
 import { JobDTO } from '../../types/api';
+import { pluralDays } from '../../utils/days';
 
 export const JOB_ITEM_TYPE = 'JOB_CARD';
 
@@ -35,16 +36,16 @@ const toneFor = (daysLeft: number): Tone => {
 };
 
 const formatDeadline = (daysLeft: number): string => {
-  if (daysLeft < 0) return `Vencida há ${Math.abs(daysLeft)}d`;
+  if (daysLeft < 0) return `Vencida há ${pluralDays(Math.abs(daysLeft))}`;
   if (daysLeft === 0) return 'Vence hoje';
   if (daysLeft === 1) return 'Vence amanhã';
-  return `Vence em ${daysLeft}d`;
+  return `Vence em ${pluralDays(daysLeft)}`;
 };
 
 const formatWarranty = (daysLeft: number): string => {
-  if (daysLeft < 0) return `Garantia expirou há ${Math.abs(daysLeft)}d`;
+  if (daysLeft < 0) return `Garantia expirou há ${pluralDays(Math.abs(daysLeft))}`;
   if (daysLeft === 0) return 'Garantia expira hoje';
-  return `Reposição: ${daysLeft}d restantes`;
+  return `Reposição: ${pluralDays(daysLeft)} restantes`;
 };
 
 interface BadgeProps {
@@ -165,7 +166,7 @@ export const KanbanJobCard: React.FC<KanbanJobCardProps> = ({ job }) => {
         <div className="flex items-center gap-2">
           {daysSinceCreation !== null && (
             <span title={job.createdAt ? new Date(job.createdAt).toLocaleDateString('pt-BR') : ''}>
-              Criada há {daysSinceCreation}d
+              Criada há {pluralDays(daysSinceCreation)}
             </span>
           )}
           {job.applicationsCount != null && job.applicationsCount > 0 && (
