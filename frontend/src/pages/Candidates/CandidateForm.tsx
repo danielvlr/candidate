@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiService } from '../../services/api';
 import { CandidateDTO, CandidateStatus, WorkPreference, ExperienceDTO, EducationDTO } from '../../types/api';
-import { Input, Textarea, Select, Button, Card, CardBody } from '../../components/ui';
+import { Input, Textarea, Select, Button, Card, CardBody, useToast } from '../../components/ui';
+import { buildApiError, getErrorMessage } from '../../services/apiError';
+import { blankStringsToNull } from '../../utils/payload';
 
 interface CandidateFormProps {
   mode: 'create' | 'edit';
@@ -11,6 +13,7 @@ interface CandidateFormProps {
 const CandidateForm: React.FC<CandidateFormProps> = ({ mode }) => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const { addToast } = useToast();
 
   const [formData, setFormData] = useState<CandidateDTO>({
     fullName: '',
@@ -163,6 +166,23 @@ const CandidateForm: React.FC<CandidateFormProps> = ({ mode }) => {
     }));
   };
 
+  const uploadPhoto = async (candidateId: string, file: File): Promise<string> => {
+    const body = new FormData();
+    body.append('file', file);
+
+    const response = await fetch(`/api/v1/candidates/${candidateId}/photo`, {
+      method: 'POST',
+      body,
+    });
+
+    if (!response.ok) {
+      throw await buildApiError(response);
+    }
+
+    const result = (await response.json()) as { url: string };
+    return result.url;
+  };
+
   const handlePhotoUpload = async (file: File) => {
     if (!id) {
       setError('ID do candidato não encontrado. Salve o candidato primeiro.');
@@ -171,28 +191,15 @@ const CandidateForm: React.FC<CandidateFormProps> = ({ mode }) => {
 
     setIsUploadingPhoto(true);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const response = await fetch(`/api/v1/candidates/${id}/photo`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error('Erro ao fazer upload da foto');
-      }
-
-      const result = await response.json();
+      const url = await uploadPhoto(id, file);
       setFormData(prev => ({
         ...prev,
-        profilePictureUrl: result.url
+        profilePictureUrl: url
       }));
 
       setPhotoFile(null);
     } catch (err) {
-      setError('Erro ao fazer upload da foto');
-      console.error('Photo upload error:', err);
+      setError(getErrorMessage(err, 'Erro ao fazer upload da foto'));
     } finally {
       setIsUploadingPhoto(false);
     }
@@ -241,8 +248,7 @@ const CandidateForm: React.FC<CandidateFormProps> = ({ mode }) => {
 
       setLinkedInError(null);
     } catch (err) {
-      setLinkedInError(`Erro ao importar dados do LinkedIn: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
-      console.error('Error importing LinkedIn data:', err);
+      setLinkedInError(getErrorMessage(err, 'Erro ao importar dados do LinkedIn'));
     } finally {
       setIsLoadingLinkedIn(false);
     }
@@ -256,15 +262,19 @@ const CandidateForm: React.FC<CandidateFormProps> = ({ mode }) => {
       setError(null);
 
       if (mode === 'create') {
-        await apiService.createCandidate(formData);
+        await apiService.createCandidate(blankStringsToNull(formData));
+        addToast({ type: 'success', title: 'Candidato criado com sucesso' });
       } else if (id) {
-        await apiService.updateCandidate(parseInt(id), formData);
+        // Foto escolhida e não enviada: envia junto com o salvamento em vez de descartá-la.
+        const profilePictureUrl = photoFile ? await uploadPhoto(id, photoFile) : formData.profilePictureUrl;
+        await apiService.updateCandidate(parseInt(id), blankStringsToNull({ ...formData, profilePictureUrl }));
+        addToast({ type: 'success', title: 'Candidato atualizado com sucesso' });
       }
 
       navigate('/candidates');
     } catch (err) {
-      setError(mode === 'create' ? 'Erro ao criar candidato' : 'Erro ao atualizar candidato');
-      console.error('Error saving candidate:', err);
+      const fallback = mode === 'create' ? 'Erro ao criar candidato' : 'Erro ao atualizar candidato';
+      setError(getErrorMessage(err, fallback));
     } finally {
       setLoading(false);
     }

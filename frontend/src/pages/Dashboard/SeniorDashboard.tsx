@@ -7,6 +7,7 @@ import {
   JobMatchDTO,
 } from '../../types/api';
 import { apiService } from '../../services/api';
+import { formatLocalDate } from '../../utils/date';
 import {
   Badge,
   Card,
@@ -68,8 +69,7 @@ const STATUS_BADGE: Record<AssessoradoStatus, 'active' | 'paused' | 'hired' | 'i
   [AssessoradoStatus.CANCELLED]: 'inactive',
 };
 
-const formatDate = (dateString: string) =>
-  new Date(dateString).toLocaleDateString('pt-BR');
+const formatDate = formatLocalDate;
 
 interface SuggestedJob {
   id: number;

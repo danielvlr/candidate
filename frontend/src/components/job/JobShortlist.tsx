@@ -10,6 +10,7 @@ import {
   EmptyState,
   Skeleton,
 } from '../ui';
+import { formatLocalDate } from '../../utils/date';
 
 interface JobShortlistProps {
   jobId: number;
@@ -20,7 +21,7 @@ interface JobShortlistProps {
 const STATUS_LABELS: Record<ShortlistStatus, string> = {
   [ShortlistStatus.SENT]: 'Enviado',
   [ShortlistStatus.VIEWED]: 'Visualizado',
-  [ShortlistStatus.UNDER_REVIEW]: 'Em Analise',
+  [ShortlistStatus.UNDER_REVIEW]: 'Em Análise',
   [ShortlistStatus.INTERVIEW_REQUESTED]: 'Entrevista Sol.',
   [ShortlistStatus.APPROVED]: 'Aprovado',
   [ShortlistStatus.REJECTED]: 'Rejeitado',
@@ -40,7 +41,7 @@ const STATUS_BADGE_VARIANT: Record<ShortlistStatus, React.ComponentProps<typeof 
 const STATUS_OPTIONS: { value: ShortlistStatus; label: string }[] = [
   { value: ShortlistStatus.SENT, label: 'Enviado' },
   { value: ShortlistStatus.VIEWED, label: 'Visualizado' },
-  { value: ShortlistStatus.UNDER_REVIEW, label: 'Em Analise' },
+  { value: ShortlistStatus.UNDER_REVIEW, label: 'Em Análise' },
   { value: ShortlistStatus.INTERVIEW_REQUESTED, label: 'Entrevista Solicitada' },
   { value: ShortlistStatus.APPROVED, label: 'Aprovado' },
   { value: ShortlistStatus.REJECTED, label: 'Rejeitado' },
@@ -111,7 +112,7 @@ export const JobShortlist: React.FC<JobShortlistProps> = ({ jobId, onSendCandida
     return (
       <Card>
         <CardHeader>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white/90">Candidatos Enviados</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white/90">Enviados ao cliente</h2>
         </CardHeader>
         <CardBody>
           <div className="space-y-4">
@@ -140,12 +141,15 @@ export const JobShortlist: React.FC<JobShortlistProps> = ({ jobId, onSendCandida
           </Button>
         }
       >
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white/90">Candidatos Enviados</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white/90">Enviados ao cliente</h2>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+          Candidatos apresentados ao cliente (shortlist). Os candidatos apenas associados à vaga ficam em "Vinculados".
+        </p>
       </CardHeader>
       <CardBody>
         {shortlist.length === 0 ? (
           <EmptyState
-            title="Nenhum candidato enviado"
+            title="Nenhum candidato enviado ao cliente"
             description="Ainda não há candidatos na shortlist desta vaga."
             actionLabel="Enviar Candidatos"
             onAction={onSendCandidates}
@@ -190,7 +194,7 @@ export const JobShortlist: React.FC<JobShortlistProps> = ({ jobId, onSendCandida
                     </p>
                   )}
                   <p className="text-xs text-gray-400 dark:text-gray-500">
-                    Enviado em {new Date(item.sentAt).toLocaleDateString('pt-BR')}
+                    Enviado em {formatLocalDate(item.sentAt)}
                     {item.headhunterName && ` por ${item.headhunterName}`}
                   </p>
                   {item.clientFeedback && (

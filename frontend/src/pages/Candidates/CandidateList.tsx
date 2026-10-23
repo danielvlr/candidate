@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiService } from '../../services/api';
 import { CandidateDTO, PageResponse, CandidateFilters, PaginationParams } from '../../types/api';
-import { Badge, Button, Card, CardHeader, CardBody, EmptyState, Pagination, SkeletonCard, useToast } from '../../components/ui';
+import { Badge, Button, Card, CardHeader, CardBody, EmptyState, Modal, Pagination, SkeletonCard, Textarea, useToast } from '../../components/ui';
+import { getErrorMessage } from '../../services/apiError';
 import { useListSelection } from '../../hooks/useListSelection';
 import { useClientFilter } from '../../context/ClientFilterContext';
 import InviteCandidateModal from '../../components/candidate/InviteCandidateModal';
@@ -73,6 +74,9 @@ const CandidateList: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [blacklistTargetId, setBlacklistTargetId] = useState<number | null>(null);
+  const [blacklistReason, setBlacklistReason] = useState('');
+  const [blacklisting, setBlacklisting] = useState(false);
 
   const activeFilterCount = [filters.headline, filters.city, filters.minSalary]
     .filter(Boolean).length;
@@ -153,15 +157,27 @@ const CandidateList: React.FC = () => {
     fetchCandidates(currentPage);
   };
 
-  const handleBlacklistCandidate = async (id: number) => {
-    const reason = prompt('Motivo para blacklist (opcional):');
-    if (reason === null) return;
+  const openBlacklistModal = (id: number) => {
+    setBlacklistReason('');
+    setBlacklistTargetId(id);
+  };
+
+  const closeBlacklistModal = () => {
+    if (!blacklisting) setBlacklistTargetId(null);
+  };
+
+  const handleConfirmBlacklist = async () => {
+    if (blacklistTargetId === null) return;
+    setBlacklisting(true);
     try {
-      await apiService.blacklistCandidate(id, reason || undefined);
-    } catch {
-      addToast({ type: 'error', title: 'Erro ao bloquear candidato' });
+      await apiService.blacklistCandidate(blacklistTargetId, blacklistReason.trim() || undefined);
+    } catch (err) {
+      addToast({ type: 'error', title: getErrorMessage(err, 'Erro ao bloquear candidato') });
+      setBlacklisting(false);
       return;
     }
+    setBlacklisting(false);
+    setBlacklistTargetId(null);
     addToast({ type: 'success', title: 'Candidato bloqueado' });
     fetchCandidates(currentPage);
   };
@@ -332,7 +348,7 @@ const CandidateList: React.FC = () => {
                 <Button variant="secondary" size="sm" disabled={!single || single.status === 'ACTIVE'} onClick={() => single && handleActivateCandidate(single.id!)}>
                   Ativar
                 </Button>
-                <Button variant="danger" size="sm" disabled={!single || single.status === 'BLACKLISTED'} onClick={() => single && handleBlacklistCandidate(single.id!)}>
+                <Button variant="danger" size="sm" disabled={!single || single.status === 'BLACKLISTED'} onClick={() => single && openBlacklistModal(single.id!)}>
                   Blacklist
                 </Button>
                 <Button variant="ghost" size="sm" disabled={!single} onClick={() => single && navigate(`/candidates/${single.id}/edit`)}>
@@ -462,6 +478,26 @@ const CandidateList: React.FC = () => {
         isOpen={inviteModalOpen}
         onClose={() => setInviteModalOpen(false)}
       />
+
+      <Modal
+        isOpen={blacklistTargetId !== null}
+        onClose={closeBlacklistModal}
+        title="Bloquear candidato"
+        description="O candidato bloqueado deixa de aparecer nas buscas ativas. Você pode reativá-lo depois."
+        confirmLabel="Bloquear"
+        variant="danger"
+        onConfirm={handleConfirmBlacklist}
+        loading={blacklisting}
+      >
+        <Textarea
+          label="Motivo (opcional)"
+          name="blacklistReason"
+          rows={3}
+          value={blacklistReason}
+          onChange={(e) => setBlacklistReason(e.target.value)}
+          placeholder="Ex: não compareceu à entrevista"
+        />
+      </Modal>
     </div>
   );
 };

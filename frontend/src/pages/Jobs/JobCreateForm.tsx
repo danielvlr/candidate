@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { apiService } from '../../services/api';
 import { JobDTO, JobType, WorkMode, ExperienceLevel, JobStatus, ClientDTO, ClientSummaryDTO, ClientType, HeadhunterDTO, ServiceCategory } from '../../types/api';
-import { Input, Textarea, Select, Button, Card, CardBody } from '../../components/ui';
+import { Input, Textarea, Select, Button, Card, CardBody, useToast } from '../../components/ui';
+import { getErrorMessage } from '../../services/apiError';
 
 interface JobCreateFormProps {
   mode?: 'create' | 'edit';
@@ -48,6 +49,7 @@ const JobCreateForm: React.FC<JobCreateFormProps> = ({ mode = 'create' }) => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const isEdit = mode === 'edit';
+  const { addToast } = useToast();
   const [headhunters, setHeadhunters] = useState<HeadhunterDTO[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -279,6 +281,7 @@ const JobCreateForm: React.FC<JobCreateFormProps> = ({ mode = 'create' }) => {
     try {
       if (isEdit && id) {
         await apiService.updateJob(Number(id), toJobPayload(formData));
+        addToast({ type: 'success', title: 'Vaga atualizada com sucesso' });
         navigate(`/jobs/${id}`);
       } else {
         const jobData = {
@@ -287,11 +290,15 @@ const JobCreateForm: React.FC<JobCreateFormProps> = ({ mode = 'create' }) => {
         };
 
         await apiService.createJob(toJobPayload(jobData));
+        addToast({
+          type: 'success',
+          title: publish ? 'Vaga publicada com sucesso' : 'Vaga salva como rascunho',
+        });
         navigate('/jobs');
       }
     } catch (err) {
-      setError(isEdit ? 'Erro ao salvar a vaga. Tente novamente.' : 'Erro ao criar vaga. Tente novamente.');
-      console.error('Error saving job:', err);
+      const fallback = isEdit ? 'Erro ao salvar a vaga. Tente novamente.' : 'Erro ao criar vaga. Tente novamente.';
+      setError(getErrorMessage(err, fallback));
     } finally {
       setLoading(false);
     }
@@ -324,12 +331,12 @@ const JobCreateForm: React.FC<JobCreateFormProps> = ({ mode = 'create' }) => {
           {/* Basic Information */}
           <Card>
             <CardBody>
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Informacoes Basicas</h2>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Informações Básicas</h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-2">
                   <Input
-                    label="Titulo da Vaga"
+                    label="Título da Vaga"
                     required
                     type="text"
                     name="title"
@@ -433,13 +440,13 @@ const JobCreateForm: React.FC<JobCreateFormProps> = ({ mode = 'create' }) => {
                 </div>
 
                 <Input
-                  label="Localizacao"
+                  label="Localização"
                   required
                   type="text"
                   name="location"
                   value={formData.location}
                   onChange={handleInputChange}
-                  placeholder="Ex: Sao Paulo, SP"
+                  placeholder="Ex: São Paulo, SP"
                 />
 
                 <Select
@@ -450,9 +457,9 @@ const JobCreateForm: React.FC<JobCreateFormProps> = ({ mode = 'create' }) => {
                   onChange={handleInputChange}
                   options={[
                     { value: JobType.FULL_TIME, label: 'Tempo Integral' },
-                    { value: JobType.PART_TIME, label: 'Meio Periodo' },
+                    { value: JobType.PART_TIME, label: 'Meio Período' },
                     { value: JobType.CONTRACT, label: 'Contrato' },
-                    { value: JobType.INTERNSHIP, label: 'Estagio' },
+                    { value: JobType.INTERNSHIP, label: 'Estágio' },
                     { value: JobType.FREELANCE, label: 'Freelance' },
                   ]}
                 />
@@ -466,21 +473,21 @@ const JobCreateForm: React.FC<JobCreateFormProps> = ({ mode = 'create' }) => {
                   options={[
                     { value: WorkMode.REMOTE, label: 'Remoto' },
                     { value: WorkMode.ONSITE, label: 'Presencial' },
-                    { value: WorkMode.HYBRID, label: 'Hibrido' },
+                    { value: WorkMode.HYBRID, label: 'Híbrido' },
                   ]}
                 />
 
                 <Select
-                  label="Nivel de Experiencia"
+                  label="Nível de Experiência"
                   required
                   name="experienceLevel"
                   value={formData.experienceLevel}
                   onChange={handleInputChange}
                   options={[
                     { value: ExperienceLevel.ENTRY, label: 'Iniciante' },
-                    { value: ExperienceLevel.JUNIOR, label: 'Junior' },
+                    { value: ExperienceLevel.JUNIOR, label: 'Júnior' },
                     { value: ExperienceLevel.MID, label: 'Pleno' },
-                    { value: ExperienceLevel.SENIOR, label: 'Senior' },
+                    { value: ExperienceLevel.SENIOR, label: 'Sênior' },
                     { value: ExperienceLevel.LEAD, label: 'Lead/Especialista' },
                   ]}
                 />
@@ -488,7 +495,7 @@ const JobCreateForm: React.FC<JobCreateFormProps> = ({ mode = 'create' }) => {
 
               <div className="mt-6">
                 <Textarea
-                  label="Descricao da Vaga"
+                  label="Descrição da Vaga"
                   required
                   name="description"
                   value={formData.description}
@@ -503,11 +510,11 @@ const JobCreateForm: React.FC<JobCreateFormProps> = ({ mode = 'create' }) => {
           {/* Responsible headhunter and commercial terms */}
           <Card>
             <CardBody>
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Responsavel e Condicoes Comerciais</h2>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Responsável e Condições Comerciais</h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Select
-                  label="Headhunter Responsavel"
+                  label="Headhunter Responsável"
                   name="headhunterId"
                   value={formData.headhunterId ?? ''}
                   onChange={handleHeadhunterChange}
@@ -518,7 +525,7 @@ const JobCreateForm: React.FC<JobCreateFormProps> = ({ mode = 'create' }) => {
                 />
 
                 <Select
-                  label="Categoria de Servico"
+                  label="Categoria de Serviço"
                   name="serviceCategory"
                   value={formData.serviceCategory ?? ''}
                   onChange={handleInputChange}
@@ -551,11 +558,11 @@ const JobCreateForm: React.FC<JobCreateFormProps> = ({ mode = 'create' }) => {
           {/* Salary and Benefits */}
           <Card>
             <CardBody>
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Remuneracao e Beneficios</h2>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Remuneração e Benefícios</h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Input
-                  label="Salario Minimo (R$)"
+                  label="Salário Mínimo (R$)"
                   type="number"
                   name="minSalary"
                   value={formData.minSalary || ''}
@@ -565,7 +572,7 @@ const JobCreateForm: React.FC<JobCreateFormProps> = ({ mode = 'create' }) => {
                 />
 
                 <Input
-                  label="Salario Maximo (R$)"
+                  label="Salário Máximo (R$)"
                   type="number"
                   name="maxSalary"
                   value={formData.maxSalary || ''}
@@ -576,12 +583,12 @@ const JobCreateForm: React.FC<JobCreateFormProps> = ({ mode = 'create' }) => {
 
                 <div className="md:col-span-2">
                   <Textarea
-                    label="Beneficios"
+                    label="Benefícios"
                     name="benefits"
                     value={formData.benefits || ''}
                     onChange={handleInputChange}
                     rows={3}
-                    placeholder="Ex: Vale alimentacao, plano de saude, home office..."
+                    placeholder="Ex: Vale alimentação, plano de saúde, home office..."
                   />
                 </div>
               </div>
@@ -591,7 +598,7 @@ const JobCreateForm: React.FC<JobCreateFormProps> = ({ mode = 'create' }) => {
           {/* Skills and Additional Info */}
           <Card>
             <CardBody>
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Habilidades e Informacoes Adicionais</h2>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Habilidades e Informações Adicionais</h2>
 
               <div className="space-y-6">
                 <Textarea
@@ -668,7 +675,7 @@ const JobCreateForm: React.FC<JobCreateFormProps> = ({ mode = 'create' }) => {
               loading={loading}
             >
               {isEdit
-                ? (loading ? 'Salvando...' : 'Salvar Alteracoes')
+                ? (loading ? 'Salvando...' : 'Salvar Alterações')
                 : (loading ? 'Publicando...' : 'Publicar Vaga')}
             </Button>
           </div>
@@ -721,7 +728,7 @@ const JobCreateForm: React.FC<JobCreateFormProps> = ({ mode = 'create' }) => {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <Input
-                    label="Setor/Industria"
+                    label="Setor/Indústria"
                     name="industry"
                     value={quickCreateData.industry}
                     onChange={handleQuickCreateChange}
@@ -750,7 +757,7 @@ const JobCreateForm: React.FC<JobCreateFormProps> = ({ mode = 'create' }) => {
                     name="city"
                     value={quickCreateData.city}
                     onChange={handleQuickCreateChange}
-                    placeholder="Ex: Sao Paulo"
+                    placeholder="Ex: São Paulo"
                   />
                   <Input
                     label="Estado"

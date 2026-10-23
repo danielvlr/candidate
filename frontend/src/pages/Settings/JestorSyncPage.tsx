@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../../services/api';
+import { getErrorMessage } from '../../services/apiError';
 import { SyncResultDTO, SyncLogDTO } from '../../types/api';
 import {
   Button,
@@ -70,7 +71,7 @@ const JestorSyncPage: React.FC = () => {
       await apiService.testJestorConnection();
       setConnectionResult({ ok: true, message: 'Conexão estabelecida com sucesso.' });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Falha ao conectar com o Jestor.';
+      const msg = getErrorMessage(err, 'Falha ao conectar com o Jestor.');
       setConnectionResult({ ok: false, message: msg });
     } finally {
       setTestingConnection(false);
@@ -86,7 +87,7 @@ const JestorSyncPage: React.FC = () => {
       addToast({ type: 'success', title: 'Sincronização concluída' });
       fetchHistory();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Erro ao sincronizar.';
+      const msg = getErrorMessage(err, 'Erro ao sincronizar.');
       addToast({ type: 'error', title: msg });
     } finally {
       setSyncing(false);

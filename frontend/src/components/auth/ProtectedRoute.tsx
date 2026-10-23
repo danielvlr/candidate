@@ -16,14 +16,16 @@ function FullScreenLoader() {
 
 /** Só renderiza o conteúdo com usuário autenticado; senão manda para /signin guardando a rota de origem. */
 export function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { status } = useAuth();
+  const { status, signedOutByUser } = useAuth();
   const location = useLocation();
 
   if (status === 'loading') {
     return <FullScreenLoader />;
   }
   if (status === 'unauthenticated') {
-    return <Navigate to="/signin" replace state={{ from: location }} />;
+    // "Sair" não guarda a rota: o próximo usuário não deve herdar a última página do anterior.
+    const state = signedOutByUser ? undefined : { from: location };
+    return <Navigate to="/signin" replace state={state} />;
   }
   return <>{children}</>;
 }

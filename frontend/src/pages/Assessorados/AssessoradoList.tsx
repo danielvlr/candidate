@@ -19,6 +19,7 @@ import { useToast } from '../../components/ui';
 import AssessoradoKanban from './AssessoradoKanban';
 import { PHASE_LABELS, STATUS_LABELS, STATUS_BADGE } from './mockData';
 import { apiService } from '../../services/api';
+import { formatLocalDate } from '../../utils/date';
 
 const PHASE_BADGE: Record<
   AssessoradoPhase,
@@ -46,8 +47,7 @@ const AVATAR_GRADIENTS = [
 const getGradient = (name: string) =>
   AVATAR_GRADIENTS[name.charCodeAt(0) % AVATAR_GRADIENTS.length];
 
-const formatDate = (dateString: string) =>
-  new Date(dateString).toLocaleDateString('pt-BR');
+const formatDate = formatLocalDate;
 
 type ViewMode = 'list' | 'kanban';
 
