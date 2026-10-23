@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiService } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { useHeadhunterFilter } from '../../context/HeadhunterFilterContext';
 import { CandidateDTO } from '../../types/api';
 import { Badge, Button, Card, CardBody, Modal, useToast } from '../../components/ui';
 
@@ -67,8 +68,21 @@ const CandidateDetailView: React.FC = () => {
   const [resending, setResending] = useState(false);
 
   const { user } = useAuth();
-  // Headhunter logado responde pela ação; fallback 1 só para perfis sem vínculo (admin).
-  const resolvedHeadhunterId = user?.headhunterId ?? 1;
+  const { selectedHeadhunterId } = useHeadhunterFilter();
+  // Headhunter logado responde pela ação; admin usa o headhunter escolhido no filtro global.
+  const resolvedHeadhunterId = user?.headhunterId ?? selectedHeadhunterId;
+
+  const requireHeadhunterId = (): number | null => {
+    if (resolvedHeadhunterId == null) {
+      addToast({
+        type: 'warning',
+        title: 'Selecione um headhunter',
+        message: 'Escolha o headhunter responsável no filtro do topo antes de realizar esta ação.',
+      });
+      return null;
+    }
+    return resolvedHeadhunterId;
+  };
 
   useEffect(() => {
     if (id) {
@@ -144,9 +158,11 @@ const CandidateDetailView: React.FC = () => {
 
   const handleApprove = async () => {
     if (!candidate?.id) return;
+    const headhunterId = requireHeadhunterId();
+    if (headhunterId == null) return;
     try {
       setApproving(true);
-      const updated = await apiService.approveCandidate(candidate.id, resolvedHeadhunterId);
+      const updated = await apiService.approveCandidate(candidate.id, headhunterId);
       setCandidate(updated);
       addToast({ type: 'success', title: 'Candidato aprovado', message: `${candidate.fullName} foi aprovado com sucesso.` });
     } catch (err: unknown) {
@@ -164,9 +180,11 @@ const CandidateDetailView: React.FC = () => {
 
   const handleReject = async () => {
     if (!candidate?.id || !rejectionReason.trim()) return;
+    const headhunterId = requireHeadhunterId();
+    if (headhunterId == null) return;
     try {
       setRejecting(true);
-      const updated = await apiService.rejectCandidate(candidate.id, rejectionReason.trim(), resolvedHeadhunterId);
+      const updated = await apiService.rejectCandidate(candidate.id, rejectionReason.trim(), headhunterId);
       setCandidate(updated);
       setRejectModalOpen(false);
       setRejectionReason('');
@@ -187,9 +205,11 @@ const CandidateDetailView: React.FC = () => {
 
   const handleResend = async () => {
     if (!candidate?.id) return;
+    const headhunterId = requireHeadhunterId();
+    if (headhunterId == null) return;
     try {
       setResending(true);
-      const { status, data } = await apiService.resendInvitation(candidate.id, resolvedHeadhunterId);
+      const { status, data } = await apiService.resendInvitation(candidate.id, headhunterId);
       if (status === 201) {
         addToast({ type: 'success', title: 'Convite reenviado', message: `Convite enviado para ${data.email}` });
       } else {

@@ -60,6 +60,7 @@ public interface JobMapper {
     // Request to Entity mappings
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "client", ignore = true) // Will be set in service based on clientId
+    @Mapping(target = "headhunter", ignore = true) // Will be set in service based on headhunterId
     @Mapping(target = "status", ignore = true) // Will be set in service
     @Mapping(target = "viewsCount", ignore = true)
     @Mapping(target = "applicationsCount", ignore = true)
@@ -72,6 +73,7 @@ public interface JobMapper {
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "client", ignore = true) // Will be handled in service based on clientId
+    @Mapping(target = "headhunter", ignore = true) // Will be handled in service based on headhunterId
     @Mapping(target = "viewsCount", ignore = true)
     @Mapping(target = "applicationsCount", ignore = true)
     @Mapping(target = "createdAt", ignore = true)

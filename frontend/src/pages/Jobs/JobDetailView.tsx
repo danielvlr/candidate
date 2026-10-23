@@ -463,6 +463,13 @@ const JobDetailView: React.FC = () => {
             </Button>
             {userRole === 'admin' && (
               <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate(`/jobs/${job.id}/edit`)}
+                >
+                  Editar
+                </Button>
                 {job.status === 'ACTIVE' && (
                   <Button
                     variant="outline"
