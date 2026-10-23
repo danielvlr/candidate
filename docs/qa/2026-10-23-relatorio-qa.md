@@ -109,6 +109,15 @@ Como o acesso funciona hoje:
 | BUG-20 | Baixa | Links | Links para `/warranties` (rota comentada) caem na página em branco | [Código] |
 | BUG-21 | Baixa | UI/Textos | Títulos errados, "Dashboard-admin", "TailAdmin", textos sem acento, status em inglês | [Chrome] |
 | BUG-22 | Baixa (decisão) | Escopo CPARTNER | CPARTNER vê todas as vagas e todos os assessorados; não há vínculo CPARTNER ↔ senior | [API][Código] |
+| BUG-23 | **Alta** | Formulários | CNPJ/CEP vazios são recusados: não dá para criar empresa sem CNPJ+CEP nem candidato sem CEP | [Chrome] (rodada 2) |
+| BUG-24 | Média | Frontend | Mensagens de erro do backend são descartadas ("HTTP error! status: 409/500", "Erro ao criar empresa") | [Chrome] (rodada 2) |
+| BUG-25 | Média | Vagas | "Salvar como Rascunho" cria a vaga como ACTIVE | [Chrome] (rodada 2) |
+| BUG-26 | Média | Vaga detalhe | Candidatos enviados (shortlist) não aparecem em nenhum lugar da vaga | [Chrome] (rodada 2) |
+| BUG-27 | **Alta** | Postgres | `Client.description/notes` (`@Lob` → `oid`) lidos fora de transação: fechar vaga devolve 500 (mas grava) e o card de garantia quebra | [Chrome] (rodada 2) |
+| BUG-28 | Baixa | Datas | Datas `LocalDate` exibidas um dia antes (fuso) | [Chrome] (rodada 2) |
+| BUG-29 | Baixa | Vaga detalhe | Ao navegar para uma vaga que falha (404), a tela mantém os dados da vaga anterior | [Chrome] (rodada 2) |
+| BUG-30 | Média | Assessorados | "Vagas Compatíveis" no detalhe do assessorado mostra "6500% compatível" | [Chrome] (rodada 2) |
+| BUG-31 | Baixa | UI/Textos | Nome do candidato ausente nos cards de assessorado, histórico com códigos crus, acentos e toasts restantes | [Chrome] (rodada 2) |
 
 ## 5. Detalhamento
 
@@ -289,3 +298,118 @@ Lotes pensados para mexer em arquivos diferentes e evitar conflito. Itens com "(
 | Fora (decisão) | BUG-22 | Escopo do CPARTNER |
 
 Ações manuais (não dá para agente fazer): **rotacionar o token do Jestor** (BUG-01) e confirmar `JESTOR_API_TOKEN` no Render.
+
+## 8. Rodada 2 — teste completo na tela com o código corrigido
+
+A primeira rodada deixou várias funcionalidades verificadas só por API ou código. A rodada 2 exercitou **todas na tela**:
+- código: `main` + os 5 PRs de correção (#15–#19) combinados;
+- banco: Postgres 16 descartável e limpo, sem sync do Jestor;
+- dados: todos criados pelos próprios formulários.
+
+### 8.1 Funcionalidades exercitadas no Chrome
+
+| Perfil | Funcionalidade | Resultado |
+|---|---|---|
+| Público | Esqueci a senha (formulário) | OK — mensagem neutra |
+| Público | Reset com token inválido | OK — "link inválido ou expirado" |
+| Público | Cadastro por convite: sem aceitar LGPD (bloqueado), com aceite (204 "Cadastro recebido!"), link reaproveitado ("Convite inválido") | OK |
+| Todos | Login pela tela (admin, headhunter), logout pelo menu "Sair" | OK |
+| ADMIN | Dashboard: KPIs, feed com status traduzido, clique no KPI | OK |
+| ADMIN | Empresa: criar, editar, nova nota na timeline | OK (criar exige CNPJ/CEP — BUG-23) |
+| ADMIN | Headhunter: criar, editar, detalhe, desativar/ativar (persistem) | OK |
+| ADMIN | Usuários: novo usuário (3 perfis), trocar perfil, "Sem vínculo", desativar (login 401) e reativar; próprio perfil travado | OK |
+| ADMIN | Integração Jestor: testar conexão, sincronizar (409 sem token), histórico | Funciona; mensagem crua (BUG-24) |
+| ADMIN | Vaga: criar com headhunter/categoria/valor/garantia, editar, rascunho | OK; rascunho vira ACTIVE (BUG-25) |
+| ADMIN | Vaga detalhe: adicionar atividade (com data), enviar candidatos (shortlist), vincular candidato, pausar/ativar, fechar com aprovado, registrar breach | OK; shortlist invisível (BUG-26); fechar com empresa com descrição → 500 (BUG-27) |
+| ADMIN | Lista de vagas: pausar pela barra, "Fechar" abre modal; kanban: arrastar para "Fechada" abre modal, para "Pausada" grava | OK |
+| ADMIN | Candidato: criar, editar, nota, foto (upload + exibição), convite (exige headhunter), aprovar/rejeitar (exige headhunter no filtro), reenviar convite | OK (criar exige CEP — BUG-23) |
+| ADMIN | Importar LinkedIn por PDF | Erro tratado de forma crua (BUG-24); sucesso não testável sem `OPENAI_API_KEY` |
+| HEADHUNTER | Dashboard próprio, kanban sem arrastar, busca global só com as próprias vagas, vaga alheia → 404 | OK (tela antiga mantida ao navegar — BUG-29) |
+| HEADHUNTER | Convite sem escolher headhunter, blacklist/ativar candidato (persistem, lista não quebra), reenviar | OK |
+| HEADHUNTER | Rotas de admin redirecionam; Empresas acessível | OK |
+| CPARTNER | Menu, dashboard sem dados fictícios, `/candidates` `/clients` `/headhunters` redirecionam | OK |
+| CPARTNER | Assessorado: criar pelo formulário, editar, alterar fase, pausar/ativar, abas Vagas Compatíveis e Histórico, lista, kanban (arrastar grava a fase) | OK; "6500%" (BUG-30); textos (BUG-31) |
+
+**Correções da rodada 1 confirmadas na tela:**
+- BUG-03 (busca e vaga alheia), 04, 05, 07, 09, 10, 11, 12, 13, 14, 15, 17 e 18;
+- BUG-21: menu, login e status traduzidos;
+- BUG-02, 03 e 06 também pela API: 403 para headhunter, 404 para vaga alheia, 400 sem detalhe interno.
+
+**Não testável neste ambiente:**
+- entrega real de e-mails (sem SMTP local; a tela trata a falha);
+- caminho de sucesso da importação do LinkedIn (sem `OPENAI_API_KEY`).
+
+### 8.2 Bugs novos
+
+#### BUG-23 — CNPJ/CEP vazios bloqueiam cadastros (Alta)
+- **Evidência [Chrome]:**
+  - `/clients/new` preenchido sem CNPJ e CEP → `POST /clients` 400 `{"fieldErrors":{"zipCode":"CEP deve ter formato válido","cnpj":"CNPJ deve ter 14 dígitos"}}`.
+  - `/candidates/new` sem CEP → `POST /candidates` 400 (`zipCode`).
+  - A tela mostra só "Erro ao criar empresa" / "Erro ao criar candidato".
+- **Causa:** o formulário envia `""` nos campos opcionais, e as validações `@Pattern`/`@Size` do backend reprovam string vazia.
+- **Correção:** normalizar `""` → `null` no frontend (ou no DTO, com `@JsonSetter`/trim) e/ou ajustar as regex para aceitar vazio. Teste de integração criando empresa e candidato sem CNPJ/CEP.
+
+#### BUG-24 — Mensagens do backend descartadas (Média)
+- **Evidência [Chrome]:**
+  - Jestor: "✗ HTTP error! status: 409" (o backend manda "Integração com o Jestor não configurada").
+  - Importar PDF: "HTTP error! status: 500" (o backend sabe que "Não foi possível extrair texto do PDF enviado").
+  - Empresa/candidato: "Erro ao criar..." sem os `fieldErrors`.
+- **Causa:** `request()` em `services/api.ts` lança `Error('HTTP error! status: N')` sem ler o corpo.
+- **Correção:**
+  - Ler `message`/`fieldErrors` do corpo e lançar um erro tipado; as telas mostram a mensagem e marcam os campos inválidos.
+  - No backend, o erro de negócio do `LinkedInService` deve virar 422/400, não 500.
+
+#### BUG-25 — "Salvar como Rascunho" publica a vaga (Média)
+- **Evidência [Chrome]:** "Analista de Dados Pleno" salva como rascunho → `status=ACTIVE`.
+- **Correção:** o create deve aceitar o status (DRAFT) vindo do formulário; o kanban/lista precisa mostrar os rascunhos (ligado ao BUG-16).
+
+#### BUG-26 — Candidatos enviados (shortlist) somem (Média)
+- **Evidência [Chrome]:**
+  - "Enviar 2 Candidato(s)" → `POST /shortlists` 201 e toast de sucesso.
+  - A aba "Candidatos Enviados" continua "Nenhum candidato vinculado". Ela lista candidaturas (`/applications`), não shortlists, e `JobShortlist` está comentado.
+- **Correção:** reativar a listagem de shortlists na vaga (com status de aprovação do cliente) ou unificar o envio com as candidaturas. Renomear as abas para evitar confusão ("Enviados ao cliente" × "Vinculados").
+
+#### BUG-27 — `@Lob` da empresa quebra respostas no Postgres (Alta)
+- **Evidência [Chrome]:**
+  - Empresa criada pela tela (com descrição/notas) → fechar vaga → `POST /jobs/2/close` **500**.
+  - Log: `HibernateException: Unable to access lob stream` em `JobMapperImpl.toClientSummary` ← `JobController.closeJobWithValue`.
+  - **A vaga foi fechada e a garantia criada mesmo assim**, mas a tela mostrou erro e "Ativa".
+  - Mesmo erro em `GET /warranties/job/{id}` (`WarrantyResponse.fromEntity`), que alimenta o card de garantia.
+- **Causa:**
+  - `Client.description` e `Client.notes` são `@Lob String` e no Postgres viraram colunas `oid`, que só podem ser lidas dentro de transação.
+  - Os controllers montam a resposta fora da transação do service.
+  - As empresas vindas do Jestor têm esses campos nulos, por isso a rodada 1 não pegou. O H2 também não reproduz.
+- **Correção (cuidado com dados de produção):**
+  - (a) Imediata: montar as respostas dentro do service transacional, ou `@Transactional(readOnly = true)` nesses endpoints.
+  - (b) Definitiva: trocar `@Lob` por `@Column(columnDefinition = "TEXT")` **com migração** do `oid` existente (`lo_get`/`convert_from`), porque `ddl-auto=update` não converte tipo.
+  - Validar contra Postgres (docker), como manda o CLAUDE.md.
+
+#### BUG-28 — Datas exibidas um dia antes (Baixa)
+- **Evidência [Chrome]:**
+  - Garantia com `startDate=2026-10-23`/`endDate=2027-01-21` exibida como "22/10/2026 — 20/01/2027".
+  - Assessorado com início 20/10 exibido "19/10/2026".
+- **Causa:** `new Date('YYYY-MM-DD')` interpreta como UTC e a exibição em America/Sao_Paulo volta um dia.
+- **Correção:** formatar `LocalDate` sem conversão de fuso (split da string ou `new Date(y, m-1, d)`), num helper único.
+
+#### BUG-29 — Tela de vaga mantém dados antigos após erro (Baixa)
+- **Evidência [Chrome]:** como headhunter, ir de `/jobs/1` para `/jobs/2` (alheia, 404) pela navegação interna mantém a "Dev Java Sênior" na tela. Abrindo direto aparece "Erro ao carregar vaga".
+- **Correção:** limpar `job` quando o `id` muda e no erro. Mensagem "Vaga não encontrada" para 404.
+
+#### BUG-30 — "6500% compatível" (Média)
+- **Evidência [Chrome]:** aba "Vagas Compatíveis" do assessorado mostra "6500% compatível". No dashboard do CPARTNER, a mesma vaga aparece como "65%".
+- **Correção:** o detalhe multiplica por 100 um score que já vem em porcentagem; alinhar com o dashboard.
+
+#### BUG-31 — Textos e UX restantes (Baixa)
+- Cards de assessorado (lista/kanban) mostram "Candidato" em vez do nome; o dashboard do CPARTNER mostra "Match: Assessorado".
+- O histórico do assessorado mostra códigos crus ("PAUSED para ACTIVE", "ONBOARDING para ACTIVE_SEARCH").
+- Rótulos sem acento: `JobCreateForm` ("Titulo", "Localizacao", "Responsavel", "Servico", "Salvar Alteracoes"), `HeadhunterDetailView` ("Informacoes", "CUSTO VARIAVEL", "atribuida"), `CandidateDetailView` ("PRETENSAO", "PREFERENCIA", "Hibrido"), texto da timeline da empresa ("comecar").
+- Criar empresa/headhunter/candidato/vaga e pausar pela lista não mostram toast de sucesso.
+- Foto do candidato: escolher a foto e clicar em "Salvar Alterações" sem clicar em "Upload" descarta a foto sem aviso.
+- Blacklist pede o motivo num `window.prompt` nativo (o resto usa modal).
+- Depois do login, o usuário cai na última página do usuário anterior (ex.: headhunter caiu em `/jobs`), não no dashboard.
+
+### 8.3 Plano de correção da rodada 2
+
+| Lote | Bugs | Observação |
+|---|---|---|
+| F — Rodada 2 | BUG-23, 24, 25, 26, 27 (a), 28, 29, 30, 31 | Depende dos PRs #15–#19 (mesmos arquivos); base = integração dos 5 lotes. BUG-27 (b) exige migração e decisão de janela. |
