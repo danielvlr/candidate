@@ -1,10 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AssessoradoDTO,
   AssessoradoPhase,
-  AssessoradoHistoryDTO,
-  AssessoradoHistoryType,
 } from '../../types/api';
 import {
   Badge,
@@ -68,7 +66,6 @@ const AssessoradoList: React.FC = () => {
   } = useListSelection<AssessoradoDTO>();
 
   const [assessorados, setAssessorados] = useState<AssessoradoDTO[]>([]);
-  const [, setHistory] = useState<AssessoradoHistoryDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     return (localStorage.getItem(STORAGE_KEY) as ViewMode) || 'kanban';
@@ -76,24 +73,26 @@ const AssessoradoList: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(0);
   const pageSize = 20;
 
-  useEffect(() => {
-    Promise.all([
-      apiService.getAssessorados().then(res => res.content || []),
-      Promise.resolve([]), // history loaded per-assessorado
-    ])
-      .then(([assessoradoData, historyData]) => {
-        setAssessorados(assessoradoData);
-        setHistory(historyData);
-      })
-      .catch(err => console.error('Error loading assessorados:', err))
-      .finally(() => setLoading(false));
+  const loadAssessorados = useCallback(async () => {
+    try {
+      const res = await apiService.getAssessorados({ size: 500 });
+      setAssessorados(res.content || []);
+    } catch (err) {
+      console.error('Error loading assessorados:', err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadAssessorados();
+  }, [loadAssessorados]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, viewMode);
   }, [viewMode]);
 
-  const handlePhaseChange = (
+  const handlePhaseChange = async (
     id: number,
     fromPhase: AssessoradoPhase,
     toPhase: AssessoradoPhase
@@ -103,26 +102,22 @@ const AssessoradoList: React.FC = () => {
 
     const name = assessorado.candidate?.fullName ?? 'Candidato';
 
-    setAssessorados((prev) =>
-      prev.map((a) =>
-        a.id === id ? { ...a, currentPhase: toPhase } : a
-      )
-    );
-
-    const newEntry: AssessoradoHistoryDTO = {
-      id: Date.now(),
-      assessoradoId: id,
-      type: AssessoradoHistoryType.PHASE_CHANGED,
-      title: `Fase alterada de ${PHASE_LABELS[fromPhase]} para ${PHASE_LABELS[toPhase]}`,
-      createdAt: new Date().toISOString(),
-    };
-    setHistory((prev) => [newEntry, ...prev]);
-
-    addToast({
-      type: 'success',
-      title: 'Fase alterada',
-      message: `${name}: ${PHASE_LABELS[fromPhase]} → ${PHASE_LABELS[toPhase]}`,
-    });
+    try {
+      await apiService.changeAssessoradoPhase(id, toPhase);
+      await loadAssessorados();
+      addToast({
+        type: 'success',
+        title: 'Fase alterada',
+        message: `${name}: ${PHASE_LABELS[fromPhase]} → ${PHASE_LABELS[toPhase]}`,
+      });
+    } catch (err) {
+      console.error('Error changing phase:', err);
+      addToast({
+        type: 'error',
+        title: 'Erro ao alterar fase',
+        message: `Não foi possível mover ${name}. Tente novamente.`,
+      });
+    }
   };
 
   // Pagination for list view

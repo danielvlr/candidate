@@ -27,6 +27,8 @@ public class JobCreateRequest {
     @NotNull(message = "Cliente é obrigatório")
     private Long clientId;
 
+    private Long headhunterId;
+
     @Size(max = 100, message = "Empresa deve ter no máximo 100 caracteres")
     private String companyName;
 

@@ -10,12 +10,14 @@ import com.empresa.sistema.domain.entity.Job;
 import com.empresa.sistema.domain.entity.JobApplication;
 import com.empresa.sistema.domain.entity.JobHistory;
 import com.empresa.sistema.domain.entity.Client;
+import com.empresa.sistema.domain.entity.Headhunter;
 import com.empresa.sistema.domain.entity.Shortlist;
 import com.empresa.sistema.domain.repository.CandidateRepository;
 import com.empresa.sistema.domain.repository.JobApplicationRepository;
 import com.empresa.sistema.domain.repository.JobRepository;
 import com.empresa.sistema.domain.repository.JobHistoryRepository;
 import com.empresa.sistema.domain.repository.ClientRepository;
+import com.empresa.sistema.domain.repository.HeadhunterRepository;
 import com.empresa.sistema.domain.service.exception.ResourceNotFoundException;
 import com.empresa.sistema.domain.service.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +40,7 @@ public class JobService {
     private final JobRepository jobRepository;
     private final JobHistoryRepository jobHistoryRepository;
     private final ClientRepository clientRepository;
+    private final HeadhunterRepository headhunterRepository;
     private final JobMapper jobMapper;
     private final ShortlistService shortlistService;
     private final JobHistoryService jobHistoryService;
@@ -165,6 +168,7 @@ public class JobService {
 
         // Definir cliente
         job.setClient(client);
+        job.setHeadhunter(resolveHeadhunter(request.getHeadhunterId()));
 
         // Definir valores padrão
         if (job.getStatus() == null) {
@@ -208,11 +212,23 @@ public class JobService {
             existingJob.setClient(client);
         }
 
+        if (request.getHeadhunterId() != null) {
+            existingJob.setHeadhunter(resolveHeadhunter(request.getHeadhunterId()));
+        }
+
         // Usar MapStruct para atualizar apenas campos não nulos
         jobMapper.updateEntityFromRequest(request, existingJob);
 
         Job updatedJob = jobRepository.save(existingJob);
         return jobMapper.toResponse(updatedJob);
+    }
+
+    private Headhunter resolveHeadhunter(Long headhunterId) {
+        if (headhunterId == null) {
+            return null;
+        }
+        return headhunterRepository.findById(headhunterId)
+            .orElseThrow(() -> new BusinessException("Headhunter não encontrado com ID: " + headhunterId));
     }
 
     public void delete(Long id) {

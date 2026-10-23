@@ -215,16 +215,7 @@ const AssessoradoDetailView: React.FC = () => {
         ? AssessoradoStatus.PAUSED
         : AssessoradoStatus.ACTIVE;
     try {
-      await apiService.updateAssessorado(parseInt(id), {
-        candidateId: assessorado.candidateId,
-        seniorId: assessorado.seniorId,
-        advisoryStartDate: assessorado.advisoryStartDate,
-        advisoryEndDate: assessorado.advisoryEndDate,
-        currentPhase: assessorado.currentPhase,
-        specializations: assessorado.specializations,
-        objectives: assessorado.objectives,
-        notes: assessorado.notes,
-      });
+      await apiService.changeAssessoradoStatus(parseInt(id), newStatus);
       setAssessorado({ ...assessorado, status: newStatus });
     } catch (err) {
       console.error('Error toggling status:', err);

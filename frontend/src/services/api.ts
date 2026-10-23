@@ -177,13 +177,6 @@ class ApiService {
   }
 
   // LinkedIn Integration methods
-  async importFromLinkedIn(linkedInUrl: string): Promise<CandidateDTO> {
-    return this.request<CandidateDTO>('/candidates/import-linkedin', {
-      method: 'POST',
-      body: JSON.stringify({ linkedInUrl }),
-    });
-  }
-
   async importFromLinkedInPdf(file: File): Promise<CandidateDTO> {
     const formData = new FormData();
     formData.append('file', file);
@@ -205,13 +198,6 @@ class ApiService {
       console.error('PDF upload failed:', error);
       throw error;
     }
-  }
-
-  async validateLinkedInUrl(linkedInUrl: string): Promise<{ valid: boolean }> {
-    return this.request<{ valid: boolean }>('/candidates/validate-linkedin', {
-      method: 'POST',
-      body: JSON.stringify({ linkedInUrl }),
-    });
   }
 
   // Job API methods
@@ -635,11 +621,25 @@ class ApiService {
     });
   }
 
-  async changeAssessoradoPhase(id: number, phase: string): Promise<void> {
-    return this.request<void>(`/assessorados/${id}/phase`, {
+  // PATCH de fase/status respondem 204 (sem corpo), então não passam por request()
+  private async patchWithoutBody(endpoint: string, body: Record<string, string>): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'PATCH',
-      body: JSON.stringify({ phase }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
     });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+  }
+
+  async changeAssessoradoPhase(id: number, phase: string): Promise<void> {
+    return this.patchWithoutBody(`/assessorados/${id}/phase`, { phase });
+  }
+
+  async changeAssessoradoStatus(id: number, status: string): Promise<void> {
+    return this.patchWithoutBody(`/assessorados/${id}/status`, { status });
   }
 
   async getAssessoradoHistory(assessoradoId: number): Promise<AssessoradoHistoryDTO[]> {

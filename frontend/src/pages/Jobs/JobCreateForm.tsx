@@ -1,11 +1,54 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useParams } from 'react-router';
 import { apiService } from '../../services/api';
-import { JobDTO, JobType, WorkMode, ExperienceLevel, JobStatus, ClientDTO, ClientSummaryDTO, ClientType } from '../../types/api';
+import { JobDTO, JobType, WorkMode, ExperienceLevel, JobStatus, ClientDTO, ClientSummaryDTO, ClientType, HeadhunterDTO, ServiceCategory } from '../../types/api';
 import { Input, Textarea, Select, Button, Card, CardBody } from '../../components/ui';
 
-const JobCreateForm: React.FC = () => {
+interface JobCreateFormProps {
+  mode?: 'create' | 'edit';
+}
+
+// O backend usa nomes diferentes de JobDTO para alguns campos; tolera ambos ao carregar a vaga.
+type JobResponseFields = JobDTO & {
+  salaryMin?: number;
+  salaryMax?: number;
+  skillsRequired?: string;
+  isFeatured?: boolean;
+  isUrgent?: boolean;
+};
+
+const SERVICE_CATEGORY_OPTIONS = [
+  { value: '', label: 'Selecione...' },
+  { value: ServiceCategory.PROJETOS, label: 'Projetos' },
+  { value: ServiceCategory.NOSSO_HEADHUNTER, label: 'Nosso Headhunter' },
+  { value: ServiceCategory.TATICAS, label: 'Táticas' },
+];
+
+const toFormData = (job: JobResponseFields): JobDTO => ({
+  ...job,
+  minSalary: job.minSalary ?? job.salaryMin,
+  maxSalary: job.maxSalary ?? job.salaryMax,
+  skills: job.skills ?? job.skillsRequired,
+  featured: job.featured ?? job.isFeatured ?? false,
+  urgent: job.urgent ?? job.isUrgent ?? false,
+});
+
+const toJobPayload = (data: JobDTO): JobDTO => ({
+  ...data,
+  ...{
+    salaryMin: data.minSalary,
+    salaryMax: data.maxSalary,
+    skillsRequired: data.skills,
+    isFeatured: data.featured,
+    isUrgent: data.urgent,
+  },
+});
+
+const JobCreateForm: React.FC<JobCreateFormProps> = ({ mode = 'create' }) => {
   const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const isEdit = mode === 'edit';
+  const [headhunters, setHeadhunters] = useState<HeadhunterDTO[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState<JobDTO>({
@@ -110,6 +153,47 @@ const JobCreateForm: React.FC = () => {
     loadCompanies();
   }, []);
 
+  // Load headhunters for the responsible selector
+  useEffect(() => {
+    const loadHeadhunters = async () => {
+      try {
+        const result = await apiService.getHeadhunters({ size: 500 });
+        setHeadhunters(result.content);
+      } catch {
+        setHeadhunters([]);
+      }
+    };
+    loadHeadhunters();
+  }, []);
+
+  // Load the job when editing
+  useEffect(() => {
+    if (!isEdit || !id) return;
+    const loadJob = async () => {
+      try {
+        setLoading(true);
+        const job = await apiService.getJobById(Number(id));
+        setFormData(toFormData(job));
+        setCompanySearch(job.companyName || '');
+        if (job.clientId) {
+          setSelectedCompany({
+            id: job.clientId,
+            companyName: job.companyName,
+            contactEmail: job.client?.contactEmail,
+            city: job.client?.city,
+            state: job.client?.state,
+            industry: job.client?.industry,
+          });
+        }
+      } catch {
+        setError('Erro ao carregar a vaga para edição.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadJob();
+  }, [isEdit, id]);
+
   // Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -171,9 +255,14 @@ const JobCreateForm: React.FC = () => {
     } else {
       setFormData(prev => ({
         ...prev,
-        [name]: value
+        [name]: name === 'serviceCategory' && !value ? undefined : value
       }));
     }
+  };
+
+  const handleHeadhunterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    setFormData(prev => ({ ...prev, headhunterId: value ? Number(value) : undefined }));
   };
 
   const handleSubmit = async (e: React.FormEvent, publish: boolean = false) => {
@@ -188,16 +277,21 @@ const JobCreateForm: React.FC = () => {
     setError(null);
 
     try {
-      const jobData = {
-        ...formData,
-        status: publish ? JobStatus.ACTIVE : JobStatus.DRAFT
-      };
+      if (isEdit && id) {
+        await apiService.updateJob(Number(id), toJobPayload(formData));
+        navigate(`/jobs/${id}`);
+      } else {
+        const jobData = {
+          ...formData,
+          status: publish ? JobStatus.ACTIVE : JobStatus.DRAFT
+        };
 
-      await apiService.createJob(jobData);
-      navigate('/jobs');
+        await apiService.createJob(toJobPayload(jobData));
+        navigate('/jobs');
+      }
     } catch (err) {
-      setError('Erro ao criar vaga. Tente novamente.');
-      console.error('Error creating job:', err);
+      setError(isEdit ? 'Erro ao salvar a vaga. Tente novamente.' : 'Erro ao criar vaga. Tente novamente.');
+      console.error('Error saving job:', err);
     } finally {
       setLoading(false);
     }
@@ -209,14 +303,14 @@ const JobCreateForm: React.FC = () => {
         <div className="mb-8">
           <div className="flex items-center gap-4 mb-4">
             <button
-              onClick={() => navigate('/jobs')}
+              onClick={() => navigate(isEdit && id ? `/jobs/${id}` : '/jobs')}
               className="text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Criar Nova Vaga</h1>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{isEdit ? 'Editar Vaga' : 'Criar Nova Vaga'}</h1>
           </div>
         </div>
 
@@ -406,6 +500,54 @@ const JobCreateForm: React.FC = () => {
             </CardBody>
           </Card>
 
+          {/* Responsible headhunter and commercial terms */}
+          <Card>
+            <CardBody>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Responsavel e Condicoes Comerciais</h2>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Select
+                  label="Headhunter Responsavel"
+                  name="headhunterId"
+                  value={formData.headhunterId ?? ''}
+                  onChange={handleHeadhunterChange}
+                  options={[
+                    { value: '', label: 'Sem headhunter' },
+                    ...headhunters.map((hh) => ({ value: String(hh.id), label: hh.fullName })),
+                  ]}
+                />
+
+                <Select
+                  label="Categoria de Servico"
+                  name="serviceCategory"
+                  value={formData.serviceCategory ?? ''}
+                  onChange={handleInputChange}
+                  options={SERVICE_CATEGORY_OPTIONS}
+                />
+
+                <Input
+                  label="Valor da Vaga (R$)"
+                  type="number"
+                  name="jobValue"
+                  value={formData.jobValue ?? ''}
+                  onChange={handleInputChange}
+                  min="0"
+                  placeholder="Ex: 15000"
+                />
+
+                <Input
+                  label="Dias de Garantia"
+                  type="number"
+                  name="guaranteeDays"
+                  value={formData.guaranteeDays ?? ''}
+                  onChange={handleInputChange}
+                  min="0"
+                  placeholder="Ex: 90"
+                />
+              </div>
+            </CardBody>
+          </Card>
+
           {/* Salary and Benefits */}
           <Card>
             <CardBody>
@@ -501,21 +643,23 @@ const JobCreateForm: React.FC = () => {
             <Button
               type="button"
               variant="outline"
-              onClick={() => navigate('/jobs')}
+              onClick={() => navigate(isEdit && id ? `/jobs/${id}` : '/jobs')}
               disabled={loading}
             >
               Cancelar
             </Button>
 
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={(e) => handleSubmit(e, false)}
-              disabled={loading}
-              loading={loading}
-            >
-              {loading ? 'Salvando...' : 'Salvar como Rascunho'}
-            </Button>
+            {!isEdit && (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={(e) => handleSubmit(e, false)}
+                disabled={loading}
+                loading={loading}
+              >
+                {loading ? 'Salvando...' : 'Salvar como Rascunho'}
+              </Button>
+            )}
 
             <Button
               type="submit"
@@ -523,7 +667,9 @@ const JobCreateForm: React.FC = () => {
               disabled={loading || !formData.title || !formData.clientId || !formData.location || !formData.description}
               loading={loading}
             >
-              {loading ? 'Publicando...' : 'Publicar Vaga'}
+              {isEdit
+                ? (loading ? 'Salvando...' : 'Salvar Alteracoes')
+                : (loading ? 'Publicando...' : 'Publicar Vaga')}
             </Button>
           </div>
         </form>
