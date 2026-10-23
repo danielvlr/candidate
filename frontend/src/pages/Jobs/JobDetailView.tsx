@@ -18,6 +18,7 @@ import { JobTimeline } from '../../components/job/JobTimeline';
 // import { JobShortlist } from '../../components/job/JobShortlist';
 import { AddActivityModal } from '../../components/job/AddActivityModal';
 import { SendCandidatesModal } from '../../components/job/SendCandidatesModal';
+import { CloseJobModal } from '../../components/job/CloseJobModal';
 import WarrantyBreachModal from '../Warranty/WarrantyBreachModal';
 
 type ActiveTab = 'detalhes' | 'candidatos' | 'historico';
@@ -207,7 +208,6 @@ const JobDetailView: React.FC = () => {
   const [historyCount, setHistoryCount] = useState(0);
   const [showAddActivity, setShowAddActivity] = useState(false);
   const [showSendCandidates, setShowSendCandidates] = useState(false);
-  const [closingFinalValue, setClosingFinalValue] = useState<string>('');
   const [tabRefreshKey, setTabRefreshKey] = useState(0);
   const [warranty, setWarranty] = useState<WarrantyDTO | null>(null);
   const [showBreachModal, setShowBreachModal] = useState(false);
@@ -265,7 +265,14 @@ const JobDetailView: React.FC = () => {
     fetchWarranty();
   }, [id, tabRefreshKey]);
 
-  const handleStatusChange = async (action: 'activate' | 'pause' | 'close') => {
+  const handleJobClosed = async () => {
+    setConfirmModal(null);
+    if (!job?.id) return;
+    setJob(await apiService.getJobById(job.id));
+    setTabRefreshKey((k) => k + 1);
+  };
+
+  const handleStatusChange = async (action: 'activate' | 'pause') => {
     if (!job?.id) return;
 
     setActionLoading(true);
@@ -279,30 +286,13 @@ const JobDetailView: React.FC = () => {
           await apiService.pauseJob(job.id);
           addToast({ type: 'success', title: 'Vaga pausada com sucesso' });
           break;
-        case 'close': {
-          const parsed = parseFloat(closingFinalValue);
-          if (!closingFinalValue || Number.isNaN(parsed) || parsed < 0) {
-            addToast({
-              type: 'error',
-              title: 'Valor de fechamento obrigatório',
-              message: 'Informe o valor pelo qual a vaga foi fechada antes de prosseguir.',
-            });
-            setActionLoading(false);
-            return;
-          }
-          await apiService.closeJobWithValue(job.id, { finalValue: parsed });
-          addToast({ type: 'success', title: 'Vaga fechada com sucesso' });
-          setClosingFinalValue('');
-          break;
-        }
       }
 
       // Refresh job data
       const updatedJob = await apiService.getJobById(job.id);
       setJob(updatedJob);
     } catch (err) {
-      const label =
-        action === 'activate' ? 'ativar' : action === 'pause' ? 'pausar' : 'fechar';
+      const label = action === 'activate' ? 'ativar' : 'pausar';
       setError(`Erro ao ${label} a vaga`);
       addToast({
         type: 'error',
@@ -316,7 +306,7 @@ const JobDetailView: React.FC = () => {
 
   const handleConfirmAction = () => {
     if (!confirmModal) return;
-    handleStatusChange(confirmModal.action as 'activate' | 'pause' | 'close');
+    handleStatusChange(confirmModal.action as 'activate' | 'pause');
   };
 
   const formatJobType = (type: string) => {
@@ -889,6 +879,20 @@ const JobDetailView: React.FC = () => {
                       </p>
                     </div>
                   )}
+                  {job.approvedCandidateName && (
+                    <div>
+                      <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Candidato aprovado</span>
+                      <p className="mt-0.5">
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/candidates/${job.approvedCandidateId}`)}
+                          className="text-brand-600 hover:underline dark:text-brand-400"
+                        >
+                          {job.approvedCandidateName}
+                        </button>
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Flags booleanas */}
@@ -1019,67 +1023,32 @@ const JobDetailView: React.FC = () => {
         onSuccess={() => setTabRefreshKey((k) => k + 1)}
       />
 
-      {/* Confirmation Modal for destructive actions */}
+      {/* Fechamento: valor final + candidato aprovado */}
+      {job?.id && (
+        <CloseJobModal
+          isOpen={confirmModal?.action === 'close'}
+          jobId={job.id}
+          jobValue={job.jobValue}
+          onClose={() => setConfirmModal(null)}
+          onClosed={handleJobClosed}
+        />
+      )}
+
+      {/* Confirmation Modal for pause/activate */}
       <Modal
-        isOpen={confirmModal !== null}
-        onClose={() => { setConfirmModal(null); setClosingFinalValue(''); }}
-        title={
-          confirmModal?.action === 'close'
-            ? 'Fechar Vaga'
-            : confirmModal?.action === 'pause'
-            ? 'Pausar Vaga'
-            : 'Ativar Vaga'
-        }
+        isOpen={confirmModal !== null && confirmModal.action !== 'close'}
+        onClose={() => setConfirmModal(null)}
+        title={confirmModal?.action === 'pause' ? 'Pausar Vaga' : 'Ativar Vaga'}
         description={
-          confirmModal?.action === 'close'
-            ? 'Informe o valor final da vaga e confirme o fechamento.'
-            : confirmModal?.action === 'pause'
+          confirmModal?.action === 'pause'
             ? 'Tem certeza que deseja pausar esta vaga? Ela ficará invisível para candidatos.'
             : 'Tem certeza que deseja ativar esta vaga? Ela ficará visível para candidatos.'
         }
-        confirmLabel={
-          confirmModal?.action === 'close'
-            ? 'Fechar Vaga'
-            : confirmModal?.action === 'pause'
-            ? 'Pausar Vaga'
-            : 'Ativar Vaga'
-        }
+        confirmLabel={confirmModal?.action === 'pause' ? 'Pausar Vaga' : 'Ativar Vaga'}
         cancelLabel="Cancelar"
         onConfirm={handleConfirmAction}
-        variant={confirmModal?.action === 'close' ? 'danger' : 'default'}
         loading={actionLoading}
-      >
-        {confirmModal?.action === 'close' && (
-          <div className="mt-4 space-y-3">
-            {job?.jobValue && (
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500 dark:text-gray-400">Valor previsto:</span>
-                <span className="font-medium text-gray-900 dark:text-white">
-                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(job.jobValue)}
-                </span>
-              </div>
-            )}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Valor de fechamento (R$) <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                required
-                placeholder="Ex: 8500.00"
-                value={closingFinalValue}
-                onChange={(e) => setClosingFinalValue(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500"
-              />
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Obrigatório informar o valor pelo qual a vaga foi fechada.
-              </p>
-            </div>
-          </div>
-        )}
-      </Modal>
+      />
     </div>
   );
 };

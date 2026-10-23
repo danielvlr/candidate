@@ -5,10 +5,14 @@ import com.empresa.sistema.api.dto.request.JobUpdateRequest;
 import com.empresa.sistema.api.dto.response.JobResponse;
 import com.empresa.sistema.api.dto.response.JobDetailResponse;
 import com.empresa.sistema.api.mapper.JobMapper;
+import com.empresa.sistema.domain.entity.Candidate;
 import com.empresa.sistema.domain.entity.Job;
+import com.empresa.sistema.domain.entity.JobApplication;
 import com.empresa.sistema.domain.entity.JobHistory;
 import com.empresa.sistema.domain.entity.Client;
 import com.empresa.sistema.domain.entity.Shortlist;
+import com.empresa.sistema.domain.repository.CandidateRepository;
+import com.empresa.sistema.domain.repository.JobApplicationRepository;
 import com.empresa.sistema.domain.repository.JobRepository;
 import com.empresa.sistema.domain.repository.JobHistoryRepository;
 import com.empresa.sistema.domain.repository.ClientRepository;
@@ -37,6 +41,9 @@ public class JobService {
     private final JobMapper jobMapper;
     private final ShortlistService shortlistService;
     private final JobHistoryService jobHistoryService;
+    private final CandidateRepository candidateRepository;
+    private final JobApplicationRepository jobApplicationRepository;
+    private final WarrantyService warrantyService;
 
     @Transactional(readOnly = true)
     public Page<JobResponse> findAll(Pageable pageable) {
@@ -383,23 +390,48 @@ public class JobService {
         return saved;
     }
 
-    public Job closeJobWithValue(Long jobId, java.math.BigDecimal finalValue, LocalDateTime closedAt, String notes) {
+    public Job closeJobWithValue(Long jobId, java.math.BigDecimal finalValue, LocalDateTime closedAt, String notes,
+                                 Long approvedCandidateId) {
         Job job = jobRepository.findById(jobId)
             .orElseThrow(() -> new ResourceNotFoundException("Vaga não encontrada com ID: " + jobId));
         if (finalValue == null) {
             throw new BusinessException("Valor de fechamento é obrigatório.");
         }
+        if (approvedCandidateId == null) {
+            throw new BusinessException("Candidato aprovado é obrigatório.");
+        }
+        Candidate approved = candidateRepository.findById(approvedCandidateId)
+            .orElseThrow(() -> new ResourceNotFoundException("Candidato não encontrado com ID: " + approvedCandidateId));
         String oldStatus = job.getStatus() != null ? job.getStatus().name() : "N/A";
         JobStatusTransition.validate(job.getStatus(), Job.JobStatus.CLOSED);
         job.setFinalValue(finalValue);
         job.setStatus(Job.JobStatus.CLOSED);
         job.setClosedAt(closedAt != null ? closedAt : LocalDateTime.now());
+        job.setApprovedCandidate(approved);
         Job saved = jobRepository.save(job);
+        hireApprovedCandidate(saved, approved);
         String detail = "Vaga fechada por R$ " + finalValue
+            + " — candidato aprovado: " + approved.getFullName()
             + (notes != null && !notes.isBlank() ? " — " + notes : "");
         recordHistory(saved, JobHistory.HistoryType.STATUS_CHANGED,
             "Status alterado de " + oldStatus + " para CLOSED. " + detail);
         return saved;
+    }
+
+    /** Marca a candidatura (criando se preciso) como contratada e abre a garantia a partir do fechamento. */
+    private void hireApprovedCandidate(Job job, Candidate candidate) {
+        JobApplication application = jobApplicationRepository
+            .findByCandidateIdAndJobId(candidate.getId(), job.getId())
+            .orElseGet(() -> new JobApplication(candidate, job));
+        application.setStatus(JobApplication.ApplicationStatus.HIRED);
+        application.setHiredAt(job.getClosedAt());
+        if (application.getReviewedAt() == null) {
+            application.setReviewedAt(job.getClosedAt());
+        }
+        JobApplication saved = jobApplicationRepository.save(application);
+        candidate.setStatus(Candidate.CandidateStatus.HIRED);
+        candidateRepository.save(candidate);
+        warrantyService.createWarrantyOnHire(saved, job.getClosedAt().toLocalDate());
     }
 
     private void recordHistory(Job job, JobHistory.HistoryType type, String description) {

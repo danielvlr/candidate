@@ -27,6 +27,10 @@ public class WarrantyService {
     private final WarrantyRuleRepository warrantyRuleRepository;
 
     public Warranty createWarrantyOnHire(JobApplication application) {
+        return createWarrantyOnHire(application, LocalDate.now());
+    }
+
+    public Warranty createWarrantyOnHire(JobApplication application, LocalDate startDate) {
         // Prevent duplicate warranties
         if (warrantyRepository.existsByJobApplicationId(application.getId())) {
             log.warn("Warranty already exists for application {}", application.getId());
@@ -35,15 +39,15 @@ public class WarrantyService {
 
         Job job = application.getJob();
         int days = resolveGuaranteeDays(job);
-
-        LocalDate startDate = LocalDate.now();
         LocalDate endDate = startDate.plusDays(days);
 
         Warranty warranty = Warranty.builder()
                 .job(job)
                 .jobApplication(application)
                 .headhunter(job.getHeadhunter())
-                .serviceCategory(job.getServiceCategory())
+                // Coluna obrigatória; vagas sem categoria usam a padrão (os dias já vêm de job.guaranteeDays).
+                .serviceCategory(job.getServiceCategory() != null
+                        ? job.getServiceCategory() : Job.ServiceCategory.NOSSO_HEADHUNTER)
                 .guaranteeDays(days)
                 .startDate(startDate)
                 .endDate(endDate)

@@ -164,6 +164,11 @@ public class Job {
     @JoinColumn(name = "headhunter_id")
     private Headhunter headhunter;
 
+    /** Candidato aprovado informado ao fechar a vaga. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "approved_candidate_id")
+    private Candidate approvedCandidate;
+
     @Column(name = "jestor_id", unique = true)
     private String jestorId;
 

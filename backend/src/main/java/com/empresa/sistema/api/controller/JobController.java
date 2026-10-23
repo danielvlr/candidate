@@ -201,7 +201,7 @@ public class JobController {
             @PathVariable Long id,
             @Valid @RequestBody com.empresa.sistema.api.dto.request.CloseJobRequest request) {
         Job updated = jobService.closeJobWithValue(
-            id, request.getFinalValue(), request.getClosedAt(), request.getNotes());
+            id, request.getFinalValue(), request.getClosedAt(), request.getNotes(), request.getApprovedCandidateId());
         return ResponseEntity.ok(jobMapper.toResponse(updated));
     }
 

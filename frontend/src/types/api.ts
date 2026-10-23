@@ -83,6 +83,8 @@ export interface JobDTO {
   jobValue?: number;
   finalValue?: number;
   closedAt?: string;
+  approvedCandidateId?: number;
+  approvedCandidateName?: string;
   lastDeliveryAt?: string;
   firstDeliveryAt?: string;
   frozenAt?: string;

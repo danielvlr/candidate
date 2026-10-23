@@ -267,7 +267,7 @@ class ApiService {
 
   async closeJobWithValue(
     id: number,
-    body: { finalValue: number; closedAt?: string; notes?: string },
+    body: { finalValue: number; approvedCandidateId: number; closedAt?: string; notes?: string },
   ): Promise<JobDTO> {
     return this.request<JobDTO>(`/jobs/${id}/close`, {
       method: 'POST',

@@ -23,4 +23,7 @@ public class CloseJobRequest {
     private LocalDateTime closedAt;
 
     private String notes;
+
+    @NotNull(message = "Candidato aprovado é obrigatório")
+    private Long approvedCandidateId;
 }
