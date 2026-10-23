@@ -71,10 +71,38 @@ export default function App() {
               }
             >
               <Route index path="/" element={<DashboardRoute />} />
-              <Route path="/candidates" element={<CandidateList />} />
-              <Route path="/candidates/new" element={<CandidateForm mode="create" />} />
-              <Route path="/candidates/:id" element={<CandidateDetailView />} />
-              <Route path="/candidates/:id/edit" element={<CandidateForm mode="edit" />} />
+              <Route
+                path="/candidates"
+                element={
+                  <RoleBasedRoute allowedRoles={['admin', 'headhunter']}>
+                    <CandidateList />
+                  </RoleBasedRoute>
+                }
+              />
+              <Route
+                path="/candidates/new"
+                element={
+                  <RoleBasedRoute allowedRoles={['admin', 'headhunter']}>
+                    <CandidateForm mode="create" />
+                  </RoleBasedRoute>
+                }
+              />
+              <Route
+                path="/candidates/:id"
+                element={
+                  <RoleBasedRoute allowedRoles={['admin', 'headhunter']}>
+                    <CandidateDetailView />
+                  </RoleBasedRoute>
+                }
+              />
+              <Route
+                path="/candidates/:id/edit"
+                element={
+                  <RoleBasedRoute allowedRoles={['admin', 'headhunter']}>
+                    <CandidateForm mode="edit" />
+                  </RoleBasedRoute>
+                }
+              />
               <Route path="/jobs" element={<JobList />} />
               <Route
                 path="/jobs/create"
@@ -85,10 +113,38 @@ export default function App() {
                 }
               />
               <Route path="/jobs/:id" element={<JobDetailView />} />
-              <Route path="/clients" element={<ClientList />} />
-              <Route path="/clients/new" element={<ClientForm mode="create" />} />
-              <Route path="/clients/:id" element={<ClientDetailView />} />
-              <Route path="/clients/:id/edit" element={<ClientForm mode="edit" />} />
+              <Route
+                path="/clients"
+                element={
+                  <RoleBasedRoute allowedRoles={['admin', 'headhunter']}>
+                    <ClientList />
+                  </RoleBasedRoute>
+                }
+              />
+              <Route
+                path="/clients/new"
+                element={
+                  <RoleBasedRoute allowedRoles={['admin', 'headhunter']}>
+                    <ClientForm mode="create" />
+                  </RoleBasedRoute>
+                }
+              />
+              <Route
+                path="/clients/:id"
+                element={
+                  <RoleBasedRoute allowedRoles={['admin', 'headhunter']}>
+                    <ClientDetailView />
+                  </RoleBasedRoute>
+                }
+              />
+              <Route
+                path="/clients/:id/edit"
+                element={
+                  <RoleBasedRoute allowedRoles={['admin', 'headhunter']}>
+                    <ClientForm mode="edit" />
+                  </RoleBasedRoute>
+                }
+              />
               <Route
                 path="/assessorados"
                 element={
