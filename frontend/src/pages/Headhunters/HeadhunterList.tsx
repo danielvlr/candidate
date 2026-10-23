@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiService } from '../../services/api';
 import { useClientFilter } from '../../context/ClientFilterContext';
+import { useHeadhunterFilter } from '../../context/HeadhunterFilterContext';
 import { useToast } from '../../components/ui';
 import { useListSelection } from '../../hooks/useListSelection';
 import {
@@ -51,6 +52,7 @@ const HeadhunterList: React.FC = () => {
   const navigate = useNavigate();
   const { addToast } = useToast();
   const { selectedClientId } = useClientFilter();
+  const { refresh: refreshHeadhunters } = useHeadhunterFilter();
   const {
     selectedId: selectedHeadhunterId,
     selectedCount,
@@ -106,7 +108,7 @@ const HeadhunterList: React.FC = () => {
     const nextStatus = target.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
     try {
       await apiService.changeHeadhunterStatus(target.id, nextStatus);
-      await loadHeadhunters();
+      await Promise.all([loadHeadhunters(), refreshHeadhunters()]);
       addToast({
         type: 'success',
         title: nextStatus === 'ACTIVE' ? 'Headhunter ativado' : 'Headhunter desativado',
