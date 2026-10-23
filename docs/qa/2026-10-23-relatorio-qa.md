@@ -413,3 +413,21 @@ A primeira rodada deixou várias funcionalidades verificadas só por API ou cód
 | Lote | Bugs | Observação |
 |---|---|---|
 | F — Rodada 2 | BUG-23, 24, 25, 26, 27 (a), 28, 29, 30, 31 | Depende dos PRs #15–#19 (mesmos arquivos); base = integração dos 5 lotes. BUG-27 (b) exige migração e decisão de janela. |
+
+### 8.4 Verificação do lote F (PR #20) no Chrome
+
+Código `fix/qa-lote-f-rodada2` contra Postgres 16 limpo, exercitado na tela:
+
+| Bug | Verificação | Resultado |
+|---|---|---|
+| BUG-23 | Empresa sem CNPJ/CEP e candidatos sem CEP pelos formulários | 201, com toast de sucesso |
+| BUG-24 | Jestor sem token; importar PDF inválido | "Integração com o Jestor não configurada"; "Não foi possível extrair texto do PDF enviado" (agora 400) |
+| BUG-25 | "Salvar como Rascunho" → coluna "Rascunho" → "Publicar" | `DRAFT`, depois `ACTIVE` com toast |
+| BUG-26 | Enviar candidato | Aparece em "Enviados ao cliente", com status e "Enviado em ... por Hugo Headhunter" |
+| BUG-27 (a) | Fechar vaga de empresa com descrição/notas; card de garantia | `POST /close` 200, `GET /warranties/job/{id}` 200, card visível |
+| BUG-28 | Período da garantia; início do assessorado | "23/10/2026 — 21/01/2027" (= API); "Início: 20/10/2026" (= informado) |
+| BUG-29 | Headhunter navega de vaga própria para alheia e volta | "Vaga não encontrada" sem dados antigos; volta normal |
+| BUG-30 | Aba Vagas Compatíveis | "30% compatível" (igual ao dashboard) |
+| BUG-31 | Nome no card e no match; histórico; acentos; toasts; foto ao salvar; Blacklist; login após logout | "Ana Aprovada" e "Match: Ana Aprovada (30%)"; "Fase alterada de Onboarding para Busca Ativa"; "Informações", "CUSTO VARIÁVEL", "Híbrido"; toasts presentes; foto enviada no salvar; modal "Bloquear candidato"; login cai em `/` |
+
+Ainda não verificável neste ambiente: entrega real de e-mail (sem SMTP) e o caminho de sucesso da importação do LinkedIn (sem `OPENAI_API_KEY`). Os dois precisam ser conferidos em staging/produção com as credenciais configuradas.
