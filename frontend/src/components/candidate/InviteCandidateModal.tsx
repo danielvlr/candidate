@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal } from '../ui/Modal';
 import { useToast } from '../ui/Toast';
 import { apiService } from '../../services/api';
@@ -26,7 +26,12 @@ const InviteCandidateModal: React.FC<InviteCandidateModalProps> = ({
   const [emailError, setEmailError] = useState('');
 
   const { user } = useAuth();
-  const { selectedHeadhunterId, headhunters } = useHeadhunterFilter();
+  const { selectedHeadhunterId, headhunters, refresh } = useHeadhunterFilter();
+
+  // Garante a lista atualizada ao abrir (headhunters podem ter mudado em outra tela).
+  useEffect(() => {
+    if (isOpen) void refresh();
+  }, [isOpen, refresh]);
   const [chosenHeadhunterId, setChosenHeadhunterId] = useState<number | null>(null);
   // Headhunter logado responde pelo convite; admin usa o filtro global ou escolhe no modal.
   const resolvedHeadhunterId =

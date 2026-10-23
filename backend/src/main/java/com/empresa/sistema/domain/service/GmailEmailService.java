@@ -35,7 +35,7 @@ public class GmailEmailService implements EmailService {
         body.append("A garantia da vaga \"").append(jobTitle).append("\" para o cliente ").append(clientName);
         body.append(" está expirando em ").append(daysRemaining).append(" dias (").append(expirationDate.format(fmt)).append(").\n\n");
         body.append("Candidato contratado: ").append(candidateName).append("\n");
-        body.append("Categoria: ").append(serviceCategory).append("\n");
+        body.append("Categoria: ").append(categoryLabel(serviceCategory)).append("\n");
         body.append("Período de garantia: ").append(guaranteeDays).append(" dias\n");
         if (contactPersonName != null) {
             body.append("\nGestor: ").append(contactPersonName);
@@ -94,6 +94,69 @@ public class GmailEmailService implements EmailService {
 
     private static String escapeHtml(String value) {
         return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
+    }
+
+    /** Rótulo em pt-BR da categoria de serviço (recebida pelo nome do enum). */
+    static String categoryLabel(String serviceCategory) {
+        if (serviceCategory == null) {
+            return "N/A";
+        }
+        return switch (serviceCategory) {
+            case "NOSSO_HEADHUNTER" -> "Nosso Headhunter";
+            case "PROJETOS" -> "Projetos";
+            case "TATICAS" -> "Táticas";
+            case "EXECUTIVAS" -> "Executivas";
+            default -> serviceCategory;
+        };
+    }
+
+    public void sendCandidateApproved(String toEmail, String candidateName) throws MailException {
+        String safeName = candidateName != null ? candidateName : "candidato(a)";
+        String html = """
+            <!DOCTYPE html>
+            <html><head><meta charset="UTF-8"></head>
+            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
+                <h2 style="color: #4f46e5;">Cadastro aprovado</h2>
+                <p>Olá <strong>%s</strong>,</p>
+                <p>Seu perfil foi aprovado pelo headhunter responsável e já faz parte do nosso banco de talentos.</p>
+                <p>Entraremos em contato quando surgirem oportunidades compatíveis com o seu perfil.</p>
+                <p style="color:#999;font-size:12px;margin-top:32px;">Sistema Camarmo - Banco de Talentos</p>
+            </body></html>
+            """.formatted(escapeHtml(safeName));
+        sendHtml(toEmail, "[Camarmo] Seu cadastro foi aprovado", html, "candidate approved");
+    }
+
+    public void sendCandidateRejected(String toEmail, String candidateName, String reason) throws MailException {
+        String safeName = candidateName != null ? candidateName : "candidato(a)";
+        String reasonBlock = reason != null && !reason.isBlank()
+                ? "<p><strong>Motivo:</strong> " + escapeHtml(reason.trim()) + "</p>"
+                : "";
+        String html = """
+            <!DOCTYPE html>
+            <html><head><meta charset="UTF-8"></head>
+            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
+                <h2 style="color: #4f46e5;">Cadastro não aprovado</h2>
+                <p>Olá <strong>%s</strong>,</p>
+                <p>Agradecemos o seu interesse, mas não foi possível aprovar o seu cadastro neste momento.</p>
+                %s
+                <p style="color:#999;font-size:12px;margin-top:32px;">Sistema Camarmo - Banco de Talentos</p>
+            </body></html>
+            """.formatted(escapeHtml(safeName), reasonBlock);
+        sendHtml(toEmail, "[Camarmo] Atualização sobre o seu cadastro", html, "candidate rejected");
+    }
+
+    private void sendHtml(String toEmail, String subject, String html, String description) {
+        try {
+            MimeMessage msg = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(msg, false, "UTF-8");
+            helper.setTo(toEmail);
+            helper.setSubject(subject);
+            helper.setText(html, true);
+            mailSender.send(msg);
+            log.info("Email '{}' sent", description);
+        } catch (jakarta.mail.MessagingException e) {
+            throw new org.springframework.mail.MailSendException("Failed to build email: " + description, e);
+        }
     }
 
     public void sendInvite(String toEmail, String candidateName, String invitationUrl,

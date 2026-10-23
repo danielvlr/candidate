@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { HeadhunterDTO } from '../types/api';
 import { apiService } from '../services/api';
 import { useUserRole } from './UserRoleContext';
@@ -11,6 +11,8 @@ interface HeadhunterFilterContextType {
   setSelectedHeadhunterId: (id: number | null) => void;
   loading: boolean;
   locked: boolean;
+  /** Recarrega a lista de headhunters ativos (após cadastrar, editar ou mudar status). */
+  refresh: () => Promise<void>;
 }
 
 const HeadhunterFilterContext = createContext<HeadhunterFilterContextType | undefined>(undefined);
@@ -37,15 +39,20 @@ export const HeadhunterFilterProvider: React.FC<{ children: ReactNode }> = ({ ch
     ?? (isSimulatedHeadhunter ? DEFAULT_HEADHUNTER_ID : UNLINKED_HEADHUNTER_ID);
   const selectedHeadhunterId = locked ? lockedHeadhunterId : storedHeadhunterId;
 
-  useEffect(() => {
-    apiService.getHeadhunters({ page: 0, size: 100 })
-      .then((result) => {
-        const active = (result.content || []).filter(h => h.status === 'ACTIVE');
-        setHeadhunters(active);
-      })
-      .catch(() => setHeadhunters([]))
-      .finally(() => setLoading(false));
+  const refresh = useCallback(async (): Promise<void> => {
+    try {
+      const result = await apiService.getHeadhunters({ page: 0, size: 100 });
+      setHeadhunters((result.content || []).filter(h => h.status === 'ACTIVE'));
+    } catch {
+      setHeadhunters([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
 
   const setSelectedHeadhunterId = (id: number | null) => {
     if (locked) return;
@@ -63,7 +70,7 @@ export const HeadhunterFilterProvider: React.FC<{ children: ReactNode }> = ({ ch
 
   return (
     <HeadhunterFilterContext.Provider value={{
-      selectedHeadhunterId, selectedHeadhunter, headhunters, setSelectedHeadhunterId, loading, locked
+      selectedHeadhunterId, selectedHeadhunter, headhunters, setSelectedHeadhunterId, loading, locked, refresh
     }}>
       {children}
     </HeadhunterFilterContext.Provider>

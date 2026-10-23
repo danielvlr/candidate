@@ -68,7 +68,9 @@ public class CandidateInvitationController {
             @PathVariable Long candidateId,
             @RequestHeader(value = "X-Headhunter-Id") Long headhunterId,
             @AuthenticationPrincipal AuthenticatedUser principal) {
-        return ResponseEntity.ok(approvalService.approve(candidateId, HeadhunterScope.resolve(principal, headhunterId)));
+        CandidateResponse approved = approvalService.approve(candidateId, HeadhunterScope.resolve(principal, headhunterId));
+        notifyDecision(candidateId, () -> emailService.sendCandidateApproved(approved.getEmail(), approved.getFullName()));
+        return ResponseEntity.ok(approved);
     }
 
     @PostMapping("/candidates/{candidateId}/reject")
@@ -78,7 +80,18 @@ public class CandidateInvitationController {
             @RequestHeader(value = "X-Headhunter-Id") Long headhunterId,
             @AuthenticationPrincipal AuthenticatedUser principal) {
         String reason = body.getOrDefault("reason", "");
-        return ResponseEntity.ok(approvalService.reject(candidateId, reason, HeadhunterScope.resolve(principal, headhunterId)));
+        CandidateResponse rejected = approvalService.reject(candidateId, reason, HeadhunterScope.resolve(principal, headhunterId));
+        notifyDecision(candidateId, () -> emailService.sendCandidateRejected(rejected.getEmail(), rejected.getFullName(), reason));
+        return ResponseEntity.ok(rejected);
+    }
+
+    /** E-mail é best-effort, fora da transação: falha de envio não desfaz a decisão. */
+    private void notifyDecision(Long candidateId, Runnable send) {
+        try {
+            send.run();
+        } catch (RuntimeException e) {
+            log.error("candidate_decision_email_failed candidate_id={}", candidateId, e);
+        }
     }
 
     private ResponseEntity<InvitationCreatedResponse> sendAndRespond(InvitationCreatedResult result) {

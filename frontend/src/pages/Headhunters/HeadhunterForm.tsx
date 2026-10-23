@@ -4,6 +4,7 @@ import { apiService } from '../../services/api';
 import type { HeadhunterDTO } from '../../types/api';
 import { Input, Textarea, Select, Button, Card, CardBody, useToast } from '../../components/ui';
 import { getErrorMessage } from '../../services/apiError';
+import { useHeadhunterFilter } from '../../context/HeadhunterFilterContext';
 
 interface HeadhunterFormProps {
   mode: 'create' | 'edit';
@@ -76,6 +77,7 @@ const HeadhunterForm: React.FC<HeadhunterFormProps> = ({ mode }) => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { addToast } = useToast();
+  const { refresh: refreshHeadhunters } = useHeadhunterFilter();
   const [formData, setFormData] = useState<HeadhunterFormState>(EMPTY_FORM);
   const [loading, setLoading] = useState(mode === 'edit');
   const [saving, setSaving] = useState(false);
@@ -115,6 +117,7 @@ const HeadhunterForm: React.FC<HeadhunterFormProps> = ({ mode }) => {
         await apiService.updateHeadhunter(Number(id), payload);
         addToast({ type: 'success', title: 'Headhunter atualizado com sucesso' });
       }
+      await refreshHeadhunters();
       navigate('/headhunters');
     } catch (err) {
       setError(getErrorMessage(err, 'Erro ao salvar headhunter'));
