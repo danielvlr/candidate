@@ -54,16 +54,27 @@ public class UserService {
         if (id.equals(actingUserId) && request.role() != UserRole.ADMIN) {
             throw new BusinessException("Você não pode remover o seu próprio perfil de administrador");
         }
-        Long headhunterId = request.headhunterId() != null ? request.headhunterId() : user.getHeadhunterId();
-        if (request.headhunterId() != null && !headhunterRepository.existsById(request.headhunterId())) {
+        boolean clear = request.shouldClearHeadhunter();
+        if (!clear && request.headhunterId() != null && !headhunterRepository.existsById(request.headhunterId())) {
             throw new BusinessException("Headhunter não encontrado");
         }
+        Long headhunterId = resolveHeadhunterId(user, request, clear);
         AppUser updated = user.toBuilder().role(request.role()).headhunterId(headhunterId).build();
         return UserResponse.from(userRepository.save(updated));
     }
 
+    private static Long resolveHeadhunterId(AppUser user, UserRoleUpdateRequest request, boolean clear) {
+        if (clear) {
+            return null;
+        }
+        return request.headhunterId() != null ? request.headhunterId() : user.getHeadhunterId();
+    }
+
     @Transactional
-    public UserResponse setActive(Long id, boolean active) {
+    public UserResponse setActive(Long id, boolean active, Long actingUserId) {
+        if (!active && id.equals(actingUserId)) {
+            throw new BusinessException("Você não pode desativar o seu próprio usuário");
+        }
         AppUser user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
         return UserResponse.from(userRepository.save(user.toBuilder().active(active).build()));

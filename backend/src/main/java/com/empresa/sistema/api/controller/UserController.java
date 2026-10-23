@@ -40,12 +40,14 @@ public class UserController {
     }
 
     @PatchMapping("/{id}/activate")
-    public ResponseEntity<UserResponse> activate(@PathVariable Long id) {
-        return ResponseEntity.ok(userService.setActive(id, true));
+    public ResponseEntity<UserResponse> activate(@PathVariable Long id,
+                                                 @AuthenticationPrincipal AuthenticatedUser principal) {
+        return ResponseEntity.ok(userService.setActive(id, true, principal.id()));
     }
 
     @PatchMapping("/{id}/deactivate")
-    public ResponseEntity<UserResponse> deactivate(@PathVariable Long id) {
-        return ResponseEntity.ok(userService.setActive(id, false));
+    public ResponseEntity<UserResponse> deactivate(@PathVariable Long id,
+                                                   @AuthenticationPrincipal AuthenticatedUser principal) {
+        return ResponseEntity.ok(userService.setActive(id, false, principal.id()));
     }
 }

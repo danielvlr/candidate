@@ -126,6 +126,55 @@ class UserRoleManagementIntegrationTest {
                 .andExpect(jsonPath("$.message").value("Headhunter não encontrado"));
     }
 
+    @Test
+    void clearHeadhunterRemovesLink() throws Exception {
+        String adminToken = login(ADMIN_EMAIL, ADMIN_PASSWORD);
+        long userId = createUser(adminToken, "clear.role@test.com", "ADMIN");
+        Headhunter hh = saveHeadhunter("Pessoa Vinculada", "vinculada.role@test.com");
+        mvc.perform(patchRole(adminToken, userId, Map.of("role", "HEADHUNTER", "headhunterId", hh.getId())))
+                .andExpect(status().isOk());
+
+        mvc.perform(patchRole(adminToken, userId, Map.of("role", "HEADHUNTER", "clearHeadhunter", true)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.headhunterId").doesNotExist());
+    }
+
+    @Test
+    void nullHeadhunterIdWithoutClearKeepsLink() throws Exception {
+        String adminToken = login(ADMIN_EMAIL, ADMIN_PASSWORD);
+        long userId = createUser(adminToken, "keep.role@test.com", "ADMIN");
+        Headhunter hh = saveHeadhunter("Pessoa Mantida", "mantida.role@test.com");
+        mvc.perform(patchRole(adminToken, userId, Map.of("role", "HEADHUNTER", "headhunterId", hh.getId())))
+                .andExpect(status().isOk());
+
+        mvc.perform(patchRole(adminToken, userId, Map.of("role", "HEADHUNTER")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.headhunterId").value(hh.getId()));
+    }
+
+    @Test
+    void adminDeactivatesAndActivatesAnotherUser() throws Exception {
+        String adminToken = login(ADMIN_EMAIL, ADMIN_PASSWORD);
+        long userId = createUser(adminToken, "toggle.role@test.com", "HEADHUNTER");
+
+        mvc.perform(patch("/api/v1/users/{id}/deactivate", userId).header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.active").value(false));
+        mvc.perform(patch("/api/v1/users/{id}/activate", userId).header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.active").value(true));
+    }
+
+    @Test
+    void adminCannotDeactivateThemselves() throws Exception {
+        String adminToken = login(ADMIN_EMAIL, ADMIN_PASSWORD);
+        long adminId = currentUserId(adminToken);
+
+        mvc.perform(patch("/api/v1/users/{id}/deactivate", adminId).header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Você não pode desativar o seu próprio usuário"));
+    }
+
     private org.springframework.test.web.servlet.RequestBuilder patchRole(
             String token, long userId, Map<String, Object> body) throws Exception {
         return patch("/api/v1/users/{id}/role", userId)
