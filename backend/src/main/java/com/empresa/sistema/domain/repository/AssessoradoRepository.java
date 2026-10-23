@@ -17,6 +17,8 @@ public interface AssessoradoRepository extends JpaRepository<Assessorado, Long> 
 
     List<Assessorado> findBySeniorId(Long seniorId);
 
+    Page<Assessorado> findBySeniorId(Long seniorId, Pageable pageable);
+
     List<Assessorado> findByStatus(Assessorado.AssessoradoStatus status);
 
     List<Assessorado> findByCandidateId(Long candidateId);

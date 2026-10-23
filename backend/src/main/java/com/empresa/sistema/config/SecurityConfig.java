@@ -62,6 +62,7 @@ public class SecurityConfig {
                         .requestMatchers(antMatcher("/api/v1/users/**")).hasRole("ADMIN")
                         .requestMatchers(adminOnlyMatchers()).hasRole("ADMIN")
                         .requestMatchers(antMatcher("/api/v1/assessorados/**")).hasAnyRole("ADMIN", "CPARTNER")
+                        .requestMatchers(internalJobDataMatchers()).hasAnyRole("ADMIN", "HEADHUNTER")
                         .anyRequest().authenticated())
                 .exceptionHandling(e -> e
                         .authenticationEntryPoint((req, res, ex) ->
@@ -72,6 +73,18 @@ public class SecurityConfig {
                                         "Você não tem permissão para acessar este recurso")))
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
+    }
+
+    /** Dados internos das vagas (candidatos, shortlists, histórico, garantias, kanban): fora do alcance do CPARTNER. */
+    private static RequestMatcher[] internalJobDataMatchers() {
+        return new RequestMatcher[]{
+                antMatcher("/api/v1/shortlists/**"),
+                antMatcher("/api/v1/applications/**"),
+                antMatcher("/api/v1/job-history/**"),
+                antMatcher("/api/v1/warranties/**"),
+                antMatcher("/api/v1/jobs/kanban/**"),
+                antMatcher("/api/v1/jobs/kanban")
+        };
     }
 
     /**

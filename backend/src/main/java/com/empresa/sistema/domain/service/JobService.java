@@ -3,6 +3,7 @@ package com.empresa.sistema.domain.service;
 import com.empresa.sistema.api.dto.request.JobCreateRequest;
 import com.empresa.sistema.api.dto.request.JobUpdateRequest;
 import com.empresa.sistema.api.dto.response.JobResponse;
+import com.empresa.sistema.api.dto.response.PartnerJobView;
 import com.empresa.sistema.api.dto.response.JobDetailResponse;
 import com.empresa.sistema.api.mapper.JobMapper;
 import com.empresa.sistema.domain.entity.Candidate;
@@ -36,6 +37,9 @@ import java.util.stream.Collectors;
 @Transactional
 @RequiredArgsConstructor
 public class JobService {
+
+    /** Único status de vaga visível ao CPARTNER (vaga aberta); rascunho, pausada, fechada, expirada e garantia ficam de fora. */
+    public static final Job.JobStatus PARTNER_VISIBLE_STATUS = Job.JobStatus.ACTIVE;
 
     private final JobRepository jobRepository;
     private final JobHistoryRepository jobHistoryRepository;
@@ -82,6 +86,25 @@ public class JobService {
             || (job.getHeadhunter() != null && scopeHeadhunterId.equals(job.getHeadhunter().getId()));
     }
 
+    /** Vaga aberta (ACTIVE) sem dados internos, para o CPARTNER; as demais respondem como inexistentes. */
+    public JobResponse findOpenById(Long id) {
+        Job job = findOpenJob(id);
+        jobRepository.incrementViewsCount(id);
+        return PartnerJobView.of(jobMapper.toResponse(job));
+    }
+
+    public JobDetailResponse findOpenDetailById(Long id) {
+        Job job = findOpenJob(id);
+        jobRepository.incrementViewsCount(id);
+        return PartnerJobView.of(jobMapper.toDetailResponse(job));
+    }
+
+    private Job findOpenJob(Long id) {
+        return jobRepository.findById(id)
+            .filter(job -> job.getStatus() == PARTNER_VISIBLE_STATUS)
+            .orElseThrow(() -> new ResourceNotFoundException("Vaga não encontrada com ID: " + id));
+    }
+
     public JobDetailResponse findDetailById(Long id, Long scopeHeadhunterId) {
         Job job = findVisibleJob(id, scopeHeadhunterId);
 
@@ -113,8 +136,9 @@ public class JobService {
     }
 
     @Transactional(readOnly = true)
-    public Page<JobResponse> searchJobs(String search, Long scopeHeadhunterId, Pageable pageable) {
-        Page<Job> jobs = jobRepository.searchJobs(search, scopeHeadhunterId, pageable);
+    public Page<JobResponse> searchJobs(String search, Long scopeHeadhunterId, Job.JobStatus status,
+                                        Pageable pageable) {
+        Page<Job> jobs = jobRepository.searchJobs(search, scopeHeadhunterId, status, pageable);
         return jobs.map(jobMapper::toResponse);
     }
 
@@ -123,9 +147,18 @@ public class JobService {
                                         Job.WorkMode workMode, Job.ExperienceLevel experienceLevel,
                                         Double minSalary, Double maxSalary, Long clientId, Long headhunterId,
                                         Pageable pageable) {
+        return findWithFilters(location, companyName, jobType, workMode, experienceLevel,
+            minSalary, maxSalary, clientId, headhunterId, null, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<JobResponse> findWithFilters(String location, String companyName, Job.JobType jobType,
+                                        Job.WorkMode workMode, Job.ExperienceLevel experienceLevel,
+                                        Double minSalary, Double maxSalary, Long clientId, Long headhunterId,
+                                        Job.JobStatus status, Pageable pageable) {
         Page<Job> jobs = jobRepository.findWithFilters(
             location, companyName, jobType, workMode, experienceLevel,
-            minSalary, maxSalary, clientId, headhunterId, null, pageable);
+            minSalary, maxSalary, clientId, headhunterId, status, pageable);
         return jobs.map(jobMapper::toResponse);
     }
 

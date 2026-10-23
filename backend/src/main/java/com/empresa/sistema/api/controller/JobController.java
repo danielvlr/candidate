@@ -1,6 +1,8 @@
 package com.empresa.sistema.api.controller;
 
 import com.empresa.sistema.security.AuthenticatedUser;
+import com.empresa.sistema.security.CpartnerScope;
+import com.empresa.sistema.api.dto.response.PartnerJobView;
 import com.empresa.sistema.security.HeadhunterScope;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import com.empresa.sistema.api.dto.request.JobCreateRequest;
@@ -35,6 +37,10 @@ public class JobController {
     public ResponseEntity<Page<JobResponse>> getAllJobs(
             @AuthenticationPrincipal AuthenticatedUser principal,
             @PageableDefault(size = 20) Pageable pageable) {
+        if (CpartnerScope.isCpartner(principal)) {
+            return ResponseEntity.ok(openJobsFiltered(null, null, null, null, null, null, null, null, null,
+                pageable));
+        }
         Page<JobResponse> jobs = HeadhunterScope.isHeadhunter(principal)
             ? jobService.findWithFilters(null, null, null, null, null, null, null, null,
                 HeadhunterScope.resolve(principal, null), pageable)
@@ -45,6 +51,9 @@ public class JobController {
     @GetMapping("/{id}")
     public ResponseEntity<JobResponse> getJobById(
             @PathVariable Long id, @AuthenticationPrincipal AuthenticatedUser principal) {
+        if (CpartnerScope.isCpartner(principal)) {
+            return ResponseEntity.ok(jobService.findOpenById(id));
+        }
         JobResponse job = jobService.findById(id, HeadhunterScope.resolve(principal, null));
         return ResponseEntity.ok(job);
     }
@@ -52,6 +61,9 @@ public class JobController {
     @GetMapping("/{id}/detail")
     public ResponseEntity<JobDetailResponse> getJobDetail(
             @PathVariable Long id, @AuthenticationPrincipal AuthenticatedUser principal) {
+        if (CpartnerScope.isCpartner(principal)) {
+            return ResponseEntity.ok(jobService.findOpenDetailById(id));
+        }
         JobDetailResponse jobDetail = jobService.findDetailById(id, HeadhunterScope.resolve(principal, null));
         return ResponseEntity.ok(jobDetail);
     }
@@ -61,7 +73,11 @@ public class JobController {
             @RequestParam String q,
             @AuthenticationPrincipal AuthenticatedUser principal,
             @PageableDefault(size = 20) Pageable pageable) {
-        Page<JobResponse> jobs = jobService.searchJobs(q, HeadhunterScope.resolve(principal, null), pageable);
+        Job.JobStatus statusScope = CpartnerScope.isCpartner(principal) ? JobService.PARTNER_VISIBLE_STATUS : null;
+        Page<JobResponse> jobs = jobService.searchJobs(q, HeadhunterScope.resolve(principal, null), statusScope, pageable);
+        if (CpartnerScope.isCpartner(principal)) {
+            jobs = jobs.map(PartnerJobView::of);
+        }
         return ResponseEntity.ok(jobs);
     }
 
@@ -79,10 +95,22 @@ public class JobController {
             @AuthenticationPrincipal AuthenticatedUser principal,
             @PageableDefault(size = 20) Pageable pageable) {
 
+        if (CpartnerScope.isCpartner(principal)) {
+            return ResponseEntity.ok(openJobsFiltered(location, companyName, jobType, workMode, experienceLevel,
+                minSalary, maxSalary, clientId, headhunterId, pageable));
+        }
         Page<JobResponse> jobs = jobService.findWithFilters(
             location, companyName, jobType, workMode, experienceLevel,
             minSalary, maxSalary, clientId, HeadhunterScope.resolve(principal, headhunterId), pageable);
         return ResponseEntity.ok(jobs);
+    }
+
+    private Page<JobResponse> openJobsFiltered(String location, String companyName, Job.JobType jobType,
+            Job.WorkMode workMode, Job.ExperienceLevel experienceLevel, Double minSalary, Double maxSalary,
+            Long clientId, Long headhunterId, Pageable pageable) {
+        return jobService.findWithFilters(location, companyName, jobType, workMode, experienceLevel,
+            minSalary, maxSalary, clientId, headhunterId, JobService.PARTNER_VISIBLE_STATUS, pageable)
+            .map(PartnerJobView::of);
     }
 
     @GetMapping("/locations")
@@ -101,20 +129,25 @@ public class JobController {
     public ResponseEntity<List<JobResponse>> getJobsByStatus(
             @PathVariable Job.JobStatus status,
             @AuthenticationPrincipal AuthenticatedUser principal) {
+        if (CpartnerScope.isCpartner(principal)) {
+            return ResponseEntity.ok(status == JobService.PARTNER_VISIBLE_STATUS
+                ? PartnerJobView.of(jobService.findByStatus(status, null))
+                : List.of());
+        }
         List<JobResponse> jobs = jobService.findByStatus(status, HeadhunterScope.resolve(principal, null));
         return ResponseEntity.ok(jobs);
     }
 
     @GetMapping("/featured")
-    public ResponseEntity<List<JobResponse>> getFeaturedJobs() {
+    public ResponseEntity<List<JobResponse>> getFeaturedJobs(@AuthenticationPrincipal AuthenticatedUser principal) {
         List<JobResponse> jobs = jobService.findFeaturedJobs();
-        return ResponseEntity.ok(jobs);
+        return ResponseEntity.ok(CpartnerScope.isCpartner(principal) ? PartnerJobView.of(jobs) : jobs);
     }
 
     @GetMapping("/urgent")
-    public ResponseEntity<List<JobResponse>> getUrgentJobs() {
+    public ResponseEntity<List<JobResponse>> getUrgentJobs(@AuthenticationPrincipal AuthenticatedUser principal) {
         List<JobResponse> jobs = jobService.findUrgentJobs();
-        return ResponseEntity.ok(jobs);
+        return ResponseEntity.ok(CpartnerScope.isCpartner(principal) ? PartnerJobView.of(jobs) : jobs);
     }
 
     @PostMapping

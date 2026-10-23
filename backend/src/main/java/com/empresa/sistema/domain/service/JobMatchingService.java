@@ -2,6 +2,7 @@ package com.empresa.sistema.domain.service;
 
 import com.empresa.sistema.api.dto.response.JobMatchResponse;
 import com.empresa.sistema.api.dto.response.JobResponse;
+import com.empresa.sistema.api.dto.response.PartnerJobView;
 import com.empresa.sistema.api.mapper.JobMapper;
 import com.empresa.sistema.domain.entity.Assessorado;
 import com.empresa.sistema.domain.entity.Candidate;
@@ -26,8 +27,10 @@ public class JobMatchingService {
     private final AssessoradoRepository assessoradoRepository;
     private final JobMapper jobMapper;
 
-    public List<JobMatchResponse> findMatchingJobs(Long assessoradoId) {
+    /** scopeSeniorId nulo = sem escopo (e vagas completas); com escopo (CPARTNER) a vaga vem sem dados internos. */
+    public List<JobMatchResponse> findMatchingJobs(Long assessoradoId, Long scopeSeniorId) {
         Assessorado assessorado = assessoradoRepository.findById(assessoradoId)
+                .filter(a -> scopeSeniorId == null || scopeSeniorId.equals(a.getSenior().getId()))
                 .orElseThrow(() -> new IllegalArgumentException("Assessorado não encontrado"));
 
         Candidate candidate = assessorado.getCandidate();
@@ -99,7 +102,8 @@ public class JobMatchingService {
             }
 
             if (score > 20) {
-                JobResponse jobResponse = jobMapper.toResponse(job);
+                JobResponse full = jobMapper.toResponse(job);
+                JobResponse jobResponse = scopeSeniorId != null ? PartnerJobView.of(full) : full;
                 matches.add(JobMatchResponse.builder()
                         .job(jobResponse)
                         .matchScore(Math.min(score, 100))
