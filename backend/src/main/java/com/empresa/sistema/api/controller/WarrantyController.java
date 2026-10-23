@@ -29,14 +29,13 @@ public class WarrantyController {
 
     @GetMapping("/warranties")
     public ResponseEntity<List<WarrantyResponse>> getAllWarranties(
-            @RequestParam(required = false) Warranty.WarrantyStatus status) {
-        List<Warranty> warranties;
-        if (status != null) {
-            warranties = warrantyService.findByStatus(status);
-        } else {
-            warranties = warrantyService.findAll();
-        }
+            @RequestParam(required = false) Warranty.WarrantyStatus status,
+            @AuthenticationPrincipal AuthenticatedUser principal) {
+        List<Warranty> warranties = HeadhunterScope.isHeadhunter(principal)
+                ? warrantyService.findByHeadhunterId(HeadhunterScope.resolve(principal, null))
+                : (status != null ? warrantyService.findByStatus(status) : warrantyService.findAll());
         List<WarrantyResponse> response = warranties.stream()
+                .filter(w -> status == null || w.getStatus() == status)
                 .map(WarrantyResponse::fromEntity)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(response);

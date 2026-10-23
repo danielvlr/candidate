@@ -51,9 +51,9 @@ public class JobService {
         return jobs.map(jobMapper::toResponse);
     }
 
-    public JobResponse findById(Long id) {
-        Job job = jobRepository.findById(id)
-            .orElseThrow(() -> new ResourceNotFoundException("Vaga não encontrada com ID: " + id));
+    /** scopeHeadhunterId nulo = sem escopo; senão vaga de outro headhunter responde como inexistente. */
+    public JobResponse findById(Long id, Long scopeHeadhunterId) {
+        Job job = findVisibleJob(id, scopeHeadhunterId);
 
         // Incrementar contador de visualizações
         jobRepository.incrementViewsCount(id);
@@ -61,9 +61,26 @@ public class JobService {
         return jobMapper.toResponse(job);
     }
 
-    public JobDetailResponse findDetailById(Long id) {
-        Job job = jobRepository.findById(id)
+    @Transactional(readOnly = true)
+    public void assertJobVisible(Long id, Long scopeHeadhunterId) {
+        if (scopeHeadhunterId != null) {
+            findVisibleJob(id, scopeHeadhunterId);
+        }
+    }
+
+    private Job findVisibleJob(Long id, Long scopeHeadhunterId) {
+        return jobRepository.findById(id)
+            .filter(job -> isVisibleTo(job, scopeHeadhunterId))
             .orElseThrow(() -> new ResourceNotFoundException("Vaga não encontrada com ID: " + id));
+    }
+
+    private static boolean isVisibleTo(Job job, Long scopeHeadhunterId) {
+        return scopeHeadhunterId == null
+            || (job.getHeadhunter() != null && scopeHeadhunterId.equals(job.getHeadhunter().getId()));
+    }
+
+    public JobDetailResponse findDetailById(Long id, Long scopeHeadhunterId) {
+        Job job = findVisibleJob(id, scopeHeadhunterId);
 
         // Incrementar contador de visualizações
         jobRepository.incrementViewsCount(id);
@@ -93,8 +110,8 @@ public class JobService {
     }
 
     @Transactional(readOnly = true)
-    public Page<JobResponse> searchJobs(String search, Pageable pageable) {
-        Page<Job> jobs = jobRepository.searchJobs(search, pageable);
+    public Page<JobResponse> searchJobs(String search, Long scopeHeadhunterId, Pageable pageable) {
+        Page<Job> jobs = jobRepository.searchJobs(search, scopeHeadhunterId, pageable);
         return jobs.map(jobMapper::toResponse);
     }
 
@@ -120,8 +137,10 @@ public class JobService {
     }
 
     @Transactional(readOnly = true)
-    public List<JobResponse> findByStatus(Job.JobStatus status) {
-        List<Job> jobs = jobRepository.findByStatus(status);
+    public List<JobResponse> findByStatus(Job.JobStatus status, Long scopeHeadhunterId) {
+        List<Job> jobs = scopeHeadhunterId == null
+            ? jobRepository.findByStatus(status)
+            : jobRepository.findByStatusAndHeadhunterId(status, scopeHeadhunterId);
         return jobMapper.toResponseList(jobs);
     }
 

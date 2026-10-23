@@ -24,12 +24,17 @@ public interface JobRepository extends JpaRepository<Job, Long> {
     @Query("SELECT j FROM Job j LEFT JOIN FETCH j.client ORDER BY j.createdAt DESC")
     Page<Job> findAllWithClientOrderByCreatedAtDesc(Pageable pageable);
 
-    @Query("SELECT j FROM Job j WHERE " +
-           "LOWER(j.title) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(j.description) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(j.companyName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(j.skillsRequired) LIKE LOWER(CONCAT('%', :search, '%'))")
-    Page<Job> searchJobs(@Param("search") String search, Pageable pageable);
+    /** headhunterId nulo = sem escopo. CAST evita lower(bytea) no Postgres com parâmetro nulo. */
+    @Query("SELECT j FROM Job j LEFT JOIN j.headhunter h WHERE " +
+           "(:headhunterId IS NULL OR h.id = :headhunterId) AND (" +
+           "LOWER(j.title) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR " +
+           "LOWER(j.description) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR " +
+           "LOWER(j.companyName) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR " +
+           "LOWER(j.skillsRequired) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')))")
+    Page<Job> searchJobs(@Param("search") String search, @Param("headhunterId") Long headhunterId,
+                         Pageable pageable);
+
+    List<Job> findByStatusAndHeadhunterId(Job.JobStatus status, Long headhunterId);
 
     @Query("SELECT j FROM Job j LEFT JOIN j.client c LEFT JOIN j.headhunter h WHERE " +
            "(:location IS NULL OR LOWER(j.location) LIKE LOWER(CONCAT('%', CAST(:location AS string), '%'))) AND " +

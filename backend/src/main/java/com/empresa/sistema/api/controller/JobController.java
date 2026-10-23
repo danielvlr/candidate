@@ -46,22 +46,25 @@ public class JobController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<JobResponse> getJobById(@PathVariable Long id) {
-        JobResponse job = jobService.findById(id);
+    public ResponseEntity<JobResponse> getJobById(
+            @PathVariable Long id, @AuthenticationPrincipal AuthenticatedUser principal) {
+        JobResponse job = jobService.findById(id, HeadhunterScope.resolve(principal, null));
         return ResponseEntity.ok(job);
     }
 
     @GetMapping("/{id}/detail")
-    public ResponseEntity<JobDetailResponse> getJobDetail(@PathVariable Long id) {
-        JobDetailResponse jobDetail = jobService.findDetailById(id);
+    public ResponseEntity<JobDetailResponse> getJobDetail(
+            @PathVariable Long id, @AuthenticationPrincipal AuthenticatedUser principal) {
+        JobDetailResponse jobDetail = jobService.findDetailById(id, HeadhunterScope.resolve(principal, null));
         return ResponseEntity.ok(jobDetail);
     }
 
     @GetMapping("/search")
     public ResponseEntity<Page<JobResponse>> searchJobs(
             @RequestParam String q,
+            @AuthenticationPrincipal AuthenticatedUser principal,
             @PageableDefault(size = 20) Pageable pageable) {
-        Page<JobResponse> jobs = jobService.searchJobs(q, pageable);
+        Page<JobResponse> jobs = jobService.searchJobs(q, HeadhunterScope.resolve(principal, null), pageable);
         return ResponseEntity.ok(jobs);
     }
 
@@ -99,8 +102,9 @@ public class JobController {
 
     @GetMapping("/status/{status}")
     public ResponseEntity<List<JobResponse>> getJobsByStatus(
-            @PathVariable Job.JobStatus status) {
-        List<JobResponse> jobs = jobService.findByStatus(status);
+            @PathVariable Job.JobStatus status,
+            @AuthenticationPrincipal AuthenticatedUser principal) {
+        List<JobResponse> jobs = jobService.findByStatus(status, HeadhunterScope.resolve(principal, null));
         return ResponseEntity.ok(jobs);
     }
 
@@ -207,21 +211,27 @@ public class JobController {
 
     @GetMapping("/kanban")
     public ResponseEntity<Map<String, List<JobResponse>>> getAllJobsKanbanByStatus(
+            @AuthenticationPrincipal AuthenticatedUser principal,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate createdAfter,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate deadlineBefore,
             @RequestParam(required = false) Integer warrantyExpiringIn) {
-        Map<String, List<JobResponse>> result = jobService.getAllJobsKanbanByStatus(
-            createdAfter, deadlineBefore, warrantyExpiringIn);
+        Map<String, List<JobResponse>> result = HeadhunterScope.isHeadhunter(principal)
+            ? jobService.getJobsKanbanByStatus(HeadhunterScope.resolve(principal, null),
+                createdAfter, deadlineBefore, warrantyExpiringIn)
+            : jobService.getAllJobsKanbanByStatus(createdAfter, deadlineBefore, warrantyExpiringIn);
         return ResponseEntity.ok(result);
     }
 
     @GetMapping("/kanban/pipeline")
     public ResponseEntity<Map<String, List<JobResponse>>> getAllJobsKanbanByPipeline(
+            @AuthenticationPrincipal AuthenticatedUser principal,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate createdAfter,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate deadlineBefore,
             @RequestParam(required = false) Integer warrantyExpiringIn) {
-        Map<String, List<JobResponse>> result = jobService.getAllJobsKanbanByPipeline(
-            createdAfter, deadlineBefore, warrantyExpiringIn);
+        Map<String, List<JobResponse>> result = HeadhunterScope.isHeadhunter(principal)
+            ? jobService.getJobsKanbanByPipeline(HeadhunterScope.resolve(principal, null),
+                createdAfter, deadlineBefore, warrantyExpiringIn)
+            : jobService.getAllJobsKanbanByPipeline(createdAfter, deadlineBefore, warrantyExpiringIn);
         return ResponseEntity.ok(result);
     }
 

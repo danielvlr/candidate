@@ -6,6 +6,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import com.empresa.sistema.api.dto.request.ShortlistCreateRequest;
 import com.empresa.sistema.api.dto.response.ShortlistResponse;
 import com.empresa.sistema.domain.entity.Shortlist;
+import com.empresa.sistema.domain.service.JobService;
 import com.empresa.sistema.domain.service.ShortlistService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -22,9 +23,12 @@ import java.util.Map;
 public class ShortlistController {
 
     private final ShortlistService shortlistService;
+    private final JobService jobService;
 
     @GetMapping("/job/{jobId}")
-    public ResponseEntity<List<ShortlistResponse>> getShortlistsByJob(@PathVariable Long jobId) {
+    public ResponseEntity<List<ShortlistResponse>> getShortlistsByJob(
+            @PathVariable Long jobId, @AuthenticationPrincipal AuthenticatedUser principal) {
+        jobService.assertJobVisible(jobId, HeadhunterScope.resolve(principal, null));
         List<ShortlistResponse> shortlists = shortlistService.findByJobId(jobId);
         return ResponseEntity.ok(shortlists);
     }
@@ -32,7 +36,9 @@ public class ShortlistController {
     @GetMapping("/job/{jobId}/status/{status}")
     public ResponseEntity<List<ShortlistResponse>> getShortlistsByJobAndStatus(
             @PathVariable Long jobId,
-            @PathVariable Shortlist.ShortlistStatus status) {
+            @PathVariable Shortlist.ShortlistStatus status,
+            @AuthenticationPrincipal AuthenticatedUser principal) {
+        jobService.assertJobVisible(jobId, HeadhunterScope.resolve(principal, null));
         List<ShortlistResponse> shortlists = shortlistService.findByJobIdAndStatus(jobId, status);
         return ResponseEntity.ok(shortlists);
     }
