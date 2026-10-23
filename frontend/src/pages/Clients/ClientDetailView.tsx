@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiService } from '../../services/api';
 import { ClientDTO, ClientStatus, ClientType, JobDTO, TimelineEntryDTO } from '../../types/api';
-import { Badge, Button, Card, CardBody } from '../../components/ui';
+import { Badge, Button, Card, CardBody, useToast } from '../../components/ui';
 import { Timeline } from '../../components/timeline/Timeline';
 import { NewNoteModal } from '../../components/timeline/NewNoteModal';
 
@@ -57,6 +57,7 @@ type TimelineFilter =
 const ClientDetailView: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const { addToast } = useToast();
   const [client, setClient] = useState<ClientDTO | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -163,31 +164,37 @@ const ClientDetailView: React.FC = () => {
     }
   };
 
-  const handleActivate = async () => {
+  // Executa a ação e recarrega a empresa sem trocar a página pela tela de erro
+  const runStatusAction = async (
+    action: (clientId: number) => Promise<void>,
+    successTitle: string,
+    errorTitle: string
+  ) => {
     if (!client?.id) return;
+    const clientId = client.id;
+    setActionLoading(true);
     try {
-      setActionLoading(true);
-      await apiService.activateClient(client.id);
-      await loadClient(client.id);
-    } catch (err) {
-      setError('Erro ao ativar empresa');
+      await action(clientId);
+    } catch {
+      addToast({ type: 'error', title: errorTitle });
+      setActionLoading(false);
+      return;
+    }
+    addToast({ type: 'success', title: successTitle });
+    try {
+      setClient(await apiService.getClientById(clientId));
+    } catch {
+      addToast({ type: 'warning', title: 'Status atualizado, mas não foi possível recarregar a empresa' });
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleSuspend = async () => {
-    if (!client?.id) return;
-    try {
-      setActionLoading(true);
-      await apiService.suspendClient(client.id);
-      await loadClient(client.id);
-    } catch (err) {
-      setError('Erro ao suspender empresa');
-    } finally {
-      setActionLoading(false);
-    }
-  };
+  const handleActivate = () =>
+    runStatusAction((clientId) => apiService.activateClient(clientId), 'Empresa ativada', 'Erro ao ativar empresa');
+
+  const handleSuspend = () =>
+    runStatusAction((clientId) => apiService.suspendClient(clientId), 'Empresa suspensa', 'Erro ao suspender empresa');
 
   if (loading) {
     return (
@@ -223,10 +230,10 @@ const ClientDetailView: React.FC = () => {
                 />
               </svg>
               <p className="text-sm font-semibold text-gray-900 dark:text-white/90 mb-1">
-                Empresa nao encontrada
+                Empresa não encontrada
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                {error || 'Nao foi possivel carregar os dados desta empresa.'}
+                {error || 'Não foi possível carregar os dados desta empresa.'}
               </p>
               <Button variant="outline" size="sm" onClick={() => navigate('/clients')}>
                 Voltar para Empresas
@@ -342,7 +349,7 @@ const ClientDetailView: React.FC = () => {
         <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
           <nav className="flex gap-6 -mb-px">
             {([
-              { key: 'info', label: 'Informacoes' },
+              { key: 'info', label: 'Informações' },
               { key: 'vagas', label: `Vagas (${clientJobs.length})` },
               { key: 'atividade', label: 'Atividade' },
             ] as const).map((tab) => (
@@ -417,7 +424,7 @@ const ClientDetailView: React.FC = () => {
 
               <Card>
                 <CardBody>
-                  <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">Endereco</h2>
+                  <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">Endereço</h2>
                   {client.address || client.city || client.state ? (
                     <dl className="space-y-3">
                       {client.address && (
@@ -446,7 +453,7 @@ const ClientDetailView: React.FC = () => {
                       )}
                     </dl>
                   ) : (
-                    <p className="text-sm text-gray-400 dark:text-gray-500">Endereco nao informado.</p>
+                    <p className="text-sm text-gray-400 dark:text-gray-500">Endereço não informado.</p>
                   )}
                 </CardBody>
               </Card>

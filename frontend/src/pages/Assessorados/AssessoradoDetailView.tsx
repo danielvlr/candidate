@@ -17,6 +17,7 @@ import {
   CardBody,
   EmptyState,
   SkeletonCard,
+  useToast,
 } from '../../components/ui';
 
 type Tab = 'informacoes' | 'vagas' | 'historico';
@@ -97,6 +98,7 @@ const PHASE_OPTIONS = Object.values(AssessoradoPhase).filter(
 const AssessoradoDetailView: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const { addToast } = useToast();
 
   const [assessorado, setAssessorado] = useState<AssessoradoDTO | null>(null);
   const [loading, setLoading] = useState(true);
@@ -182,13 +184,25 @@ const AssessoradoDetailView: React.FC = () => {
 
   const handleChangePhase = async (phase: AssessoradoPhase) => {
     if (!id || !assessorado) return;
+    const assessoradoId = parseInt(id);
+    setChangingPhase(true);
     try {
-      setChangingPhase(true);
-      await apiService.changeAssessoradoPhase(parseInt(id), phase);
-      setAssessorado({ ...assessorado, currentPhase: phase });
+      // PATCH responde 204: atualiza a fase exibida e depois sincroniza com o servidor
+      await apiService.changeAssessoradoPhase(assessoradoId, phase);
+      setAssessorado((prev) => (prev ? { ...prev, currentPhase: phase } : prev));
       setPhaseDropdownOpen(false);
+      setHistory([]);
+      addToast({ type: 'success', title: `Fase alterada para ${PHASE_LABELS[phase]}` });
     } catch (err) {
       console.error('Error changing phase:', err);
+      addToast({ type: 'error', title: 'Erro ao alterar fase' });
+      setChangingPhase(false);
+      return;
+    }
+    try {
+      setAssessorado(await apiService.getAssessoradoById(assessoradoId));
+    } catch {
+      // fase já aplicada localmente; recarga é só sincronização
     } finally {
       setChangingPhase(false);
     }

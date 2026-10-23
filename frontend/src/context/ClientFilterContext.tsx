@@ -14,28 +14,55 @@ const ClientFilterContext = createContext<ClientFilterContextType | undefined>(u
 
 const STORAGE_KEY = 'camarmo_selectedClientId';
 
+const readStoredClientId = (): number | null => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (!stored) return null;
+    const parsed = Number(stored);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+const persistClientId = (id: number | null): void => {
+  try {
+    if (id === null) {
+      localStorage.removeItem(STORAGE_KEY);
+    } else {
+      localStorage.setItem(STORAGE_KEY, String(id));
+    }
+  } catch {
+    // storage indisponível: o filtro só não é lembrado
+  }
+};
+
 export const ClientFilterProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [clients, setClients] = useState<ClientDTO[]>([]);
-  const [selectedClientId, setSelectedClientIdState] = useState<number | null>(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? Number(stored) : null;
-  });
+  // Default é "Todas as Empresas" (null). Um valor salvo só é aplicado
+  // depois de confirmar que a empresa ainda existe na lista de ativas.
+  const [selectedClientId, setSelectedClientIdState] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     apiService.getActiveClients()
-      .then(setClients)
+      .then((loaded) => {
+        setClients(loaded);
+        const storedId = readStoredClientId();
+        const stillExists = storedId !== null && loaded.some(c => c.id === storedId);
+        if (stillExists) {
+          setSelectedClientIdState(storedId);
+        } else if (storedId !== null) {
+          persistClientId(null);
+        }
+      })
       .catch(() => setClients([]))
       .finally(() => setLoading(false));
   }, []);
 
   const setSelectedClientId = (id: number | null) => {
     setSelectedClientIdState(id);
-    if (id === null) {
-      localStorage.removeItem(STORAGE_KEY);
-    } else {
-      localStorage.setItem(STORAGE_KEY, String(id));
-    }
+    persistClientId(id);
   };
 
   const selectedClient = selectedClientId

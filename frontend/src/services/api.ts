@@ -60,7 +60,15 @@ class ApiService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      return await response.json();
+      // 204 ou 200 sem corpo: não há JSON para ler (evita "Unexpected end of JSON input")
+      if (response.status === 204) {
+        return undefined as T;
+      }
+      const body = await response.text();
+      if (body.trim() === '') {
+        return undefined as T;
+      }
+      return JSON.parse(body) as T;
     } catch (error) {
       console.error('API request failed:', error);
       throw error;

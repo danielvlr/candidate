@@ -4,6 +4,7 @@ import { apiService } from '../../services/api';
 import { JobHistoryDTO } from '../../types/api';
 import { useHeadhunterFilter } from '../../context/HeadhunterFilterContext';
 import { useClientFilter } from '../../context/ClientFilterContext';
+import { translateJobStatusText } from '../../utils/jobStatus';
 import {
   Badge,
   Card,
@@ -47,6 +48,7 @@ export default function HeadhunterDashboard() {
   const [openJobs, setOpenJobs] = useState<OpenJob[]>([]);
   const [closedJobs, setClosedJobs] = useState<ClosedJob[]>([]);
   const [recentHistory, setRecentHistory] = useState<(JobHistoryDTO & { jobTitle?: string })[]>([]);
+  const [totalJobs, setTotalJobs] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -63,7 +65,9 @@ export default function HeadhunterDashboard() {
         if (selectedClientId) {
           jobs = jobs.filter((j: any) => j.clientId === selectedClientId);
         }
-        const open = jobs.filter((j: any) => j.status === 'ACTIVE' || j.status === 'DRAFT' || j.status === 'PAUSED').map((j: any) => ({
+        setTotalJobs(jobs.length);
+        // "Vagas em Aberto" mostra só vagas ativas (pausadas e rascunhos ficam de fora)
+        const open = jobs.filter((j: any) => j.status === 'ACTIVE').map((j: any) => ({
           id: j.id, title: j.title, companyName: j.companyName, createdAt: j.createdAt,
           daysOpen: Math.floor((Date.now() - new Date(j.createdAt).getTime()) / 86400000),
           applicationsCount: j.applicationsCount || 0,
@@ -104,7 +108,6 @@ export default function HeadhunterDashboard() {
     return () => { stale = true; };
   }, [selectedHeadhunterId, selectedClientId]);
 
-  const totalJobs = openJobs.length + closedJobs.length;
   const totalCandidates = openJobs.reduce((sum, j) => sum + j.applicationsCount, 0);
   const urgentJobs = openJobs.filter((j) => j.daysOpen > 30).length;
   const guaranteeAlert = closedJobs.filter((j) => j.daysUntilGuaranteeEnd <= 30).length;
@@ -230,12 +233,12 @@ export default function HeadhunterDashboard() {
         <Card>
           <CardHeader>
             <h2 className="text-sm font-semibold text-gray-900 dark:text-white/90">
-              Ultimas Atualizacoes
+              Últimas Atualizações
             </h2>
           </CardHeader>
           {recentHistory.length === 0 ? (
             <CardBody>
-              <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">Nenhuma atualizacao recente.</p>
+              <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">Nenhuma atualização recente.</p>
             </CardBody>
           ) : (
             <div className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -255,7 +258,7 @@ export default function HeadhunterDashboard() {
                   }`} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{h.title}</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{translateJobStatusText(h.title)}</p>
                     </div>
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className="text-xs text-brand-600 dark:text-brand-400">{h.jobTitle || `Vaga #${h.jobId}`}</span>

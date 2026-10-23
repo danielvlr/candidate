@@ -32,7 +32,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   REJECTED: { label: 'Rejeitado', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
 };
 
-const JobApplicationsList: React.FC<{ jobId: number }> = ({ jobId }) => {
+const JobApplicationsList: React.FC<{ jobId: number; onChange?: () => void }> = ({ jobId, onChange }) => {
   const [apps, setApps] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showLink, setShowLink] = useState(false);
@@ -72,6 +72,7 @@ const JobApplicationsList: React.FC<{ jobId: number }> = ({ jobId }) => {
       setShowLink(false);
       setLoading(true);
       loadApps();
+      onChange?.();
     } catch (err) {
       console.error('Error linking candidate:', err);
     } finally { setLinking(false); }
@@ -204,7 +205,7 @@ const JobDetailView: React.FC = () => {
     if (tab === 'historico' || tab === 'candidatos') return tab;
     return 'detalhes';
   });
-  const [shortlistCount, setShortlistCount] = useState(0);
+  const [applicationsCount, setApplicationsCount] = useState(0);
   const [historyCount, setHistoryCount] = useState(0);
   const [showAddActivity, setShowAddActivity] = useState(false);
   const [showSendCandidates, setShowSendCandidates] = useState(false);
@@ -237,13 +238,13 @@ const JobDetailView: React.FC = () => {
       if (!id) return;
       const jobId = Number(id);
       try {
-        const [shortlistCounts, historyCounts] = await Promise.all([
-          apiService.getShortlistCounts(jobId),
+        // A aba "Candidatos Enviados" lista candidaturas, então o contador usa o total delas
+        const [applicationsPage, historyCounts] = await Promise.all([
+          apiService.getApplicationsByJob(jobId, { page: 0, size: 1 }),
           apiService.getJobHistoryCounts(jobId),
         ]);
-        const shortlistTotal = Object.values(shortlistCounts).reduce((a, b) => a + b, 0);
         const historyTotal = Object.values(historyCounts).reduce((a, b) => a + b, 0);
-        setShortlistCount(shortlistTotal);
+        setApplicationsCount(applicationsPage.totalElements ?? 0);
         setHistoryCount(historyTotal);
       } catch (err) {
         // counts are non-critical, ignore errors
@@ -275,29 +276,30 @@ const JobDetailView: React.FC = () => {
   const handleStatusChange = async (action: 'activate' | 'pause') => {
     if (!job?.id) return;
 
+    const jobId = job.id;
     setActionLoading(true);
     try {
-      switch (action) {
-        case 'activate':
-          await apiService.activateJob(job.id);
-          addToast({ type: 'success', title: 'Vaga ativada com sucesso' });
-          break;
-        case 'pause':
-          await apiService.pauseJob(job.id);
-          addToast({ type: 'success', title: 'Vaga pausada com sucesso' });
-          break;
+      if (action === 'activate') {
+        await apiService.activateJob(jobId);
+        addToast({ type: 'success', title: 'Vaga ativada com sucesso' });
+      } else {
+        await apiService.pauseJob(jobId);
+        addToast({ type: 'success', title: 'Vaga pausada com sucesso' });
       }
-
-      // Refresh job data
-      const updatedJob = await apiService.getJobById(job.id);
-      setJob(updatedJob);
-    } catch (err) {
+    } catch {
       const label = action === 'activate' ? 'ativar' : 'pausar';
-      setError(`Erro ao ${label} a vaga`);
-      addToast({
-        type: 'error',
-        title: `Erro ao ${label} vaga`,
-      });
+      addToast({ type: 'error', title: `Erro ao ${label} vaga` });
+      setActionLoading(false);
+      setConfirmModal(null);
+      return;
+    }
+
+    // A ação já gravou: falha ao recarregar não deve virar erro da ação
+    try {
+      setJob(await apiService.getJobById(jobId));
+      setTabRefreshKey((k) => k + 1);
+    } catch {
+      addToast({ type: 'warning', title: 'Status atualizado, mas não foi possível recarregar a vaga' });
     } finally {
       setActionLoading(false);
       setConfirmModal(null);
@@ -527,13 +529,13 @@ const JobDetailView: React.FC = () => {
               }`}
             >
               Candidatos Enviados
-              {shortlistCount > 0 && (
+              {applicationsCount > 0 && (
                 <span className={`inline-flex items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-semibold ${
                   activeTab === 'candidatos'
                     ? 'bg-brand-100 text-brand-700 dark:bg-brand-500/20 dark:text-brand-400'
                     : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
                 }`}>
-                  {shortlistCount}
+                  {applicationsCount}
                 </span>
               )}
             </button>
@@ -545,7 +547,7 @@ const JobDetailView: React.FC = () => {
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200'
               }`}
             >
-              Historico
+              Histórico
               {historyCount > 0 && (
                 <span className={`inline-flex items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-semibold ${
                   activeTab === 'historico'
@@ -561,7 +563,7 @@ const JobDetailView: React.FC = () => {
 
         {/* Tab: Candidatos */}
         {activeTab === 'candidatos' && (
-          <JobApplicationsList jobId={job.id!} />
+          <JobApplicationsList jobId={job.id!} onChange={() => setTabRefreshKey((k) => k + 1)} />
         )}
 
         {/* Tab: Historico */}
