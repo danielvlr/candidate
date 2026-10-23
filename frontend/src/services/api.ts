@@ -389,6 +389,12 @@ class ApiService {
     return this.request<ClientDTO[]>('/clients/status/ACTIVE');
   }
 
+  // Todas as empresas (qualquer status); o backend pagina, então pedimos uma página grande.
+  async getAllClients(): Promise<ClientDTO[]> {
+    const page = await this.request<PageResponse<ClientDTO>>('/clients?page=0&size=2000');
+    return page.content;
+  }
+
   async createClient(client: ClientDTO): Promise<ClientDTO> {
     return this.request<ClientDTO>('/clients', {
       method: 'POST',
@@ -542,6 +548,27 @@ class ApiService {
     const params = { name: query, ...pagination };
     const queryString = this.buildQueryParams(params);
     return this.request<PageResponse<HeadhunterDTO>>(`/headhunters/filter?${queryString}`);
+  }
+
+  async createHeadhunter(headhunter: HeadhunterDTO): Promise<HeadhunterDTO> {
+    return this.request<HeadhunterDTO>('/headhunters', {
+      method: 'POST',
+      body: JSON.stringify(headhunter),
+    });
+  }
+
+  async updateHeadhunter(id: number, headhunter: HeadhunterDTO): Promise<HeadhunterDTO> {
+    return this.request<HeadhunterDTO>(`/headhunters/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(headhunter),
+    });
+  }
+
+  async changeHeadhunterStatus(id: number, status: 'ACTIVE' | 'INACTIVE'): Promise<void> {
+    return this.request<void>(`/headhunters/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
   }
 
   // =====================

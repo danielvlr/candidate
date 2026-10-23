@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiService } from '../../services/api';
 import { useClientFilter } from '../../context/ClientFilterContext';
+import { useToast } from '../../components/ui';
 import { useListSelection } from '../../hooks/useListSelection';
 import {
   Badge,
@@ -20,8 +21,6 @@ interface Headhunter {
   phone?: string;
   status?: string;
   specialties?: string[];
-  candidatesCount?: number;
-  placementsCount?: number;
   createdAt?: string;
 }
 
@@ -45,8 +44,12 @@ const getGradient = (name: string) =>
   AVATAR_GRADIENTS[name.charCodeAt(0) % AVATAR_GRADIENTS.length];
 
 
+// O backend pagina (padrão 10); pedimos uma página grande para listar todos.
+const HEADHUNTERS_PAGE_SIZE = 1000;
+
 const HeadhunterList: React.FC = () => {
   const navigate = useNavigate();
+  const { addToast } = useToast();
   const { selectedClientId } = useClientFilter();
   const {
     selectedId: selectedHeadhunterId,
@@ -58,33 +61,38 @@ const HeadhunterList: React.FC = () => {
   } = useListSelection<Headhunter>();
   const [headhunters, setHeadhunters] = useState<Headhunter[]>([]);
   const [loading, setLoading] = useState(true);
+  const [totalElements, setTotalElements] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
+
+  const loadHeadhunters = useCallback(async () => {
+    try {
+      const res = await apiService.getHeadhunters({ page: 0, size: HEADHUNTERS_PAGE_SIZE });
+      let list = res.content;
+      let total = res.totalElements;
+      // Filtro global por cliente: mostrar apenas HHs com vagas no cliente selecionado.
+      if (selectedClientId) {
+        const jobsRes = await apiService.getJobs({ page: 0, size: 1000 }, { clientId: selectedClientId });
+        const hhIds = new Set(
+          (jobsRes.content || [])
+            .map((j: any) => j.headhunterId)
+            .filter((id: number | undefined): id is number => id != null),
+        );
+        list = list.filter((h) => h.id != null && hhIds.has(h.id));
+        total = list.length;
+      }
+      setHeadhunters(list);
+      setTotalElements(total);
+    } catch (err) {
+      console.error('Error loading headhunters:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedClientId]);
 
   useEffect(() => {
     setLoading(true);
-    const load = async () => {
-      try {
-        const res = await apiService.getHeadhunters();
-        let list = res.content;
-        // Filtro global por cliente: mostrar apenas HHs com vagas no cliente selecionado.
-        if (selectedClientId) {
-          const jobsRes = await apiService.getJobs({ page: 0, size: 1000 }, { clientId: selectedClientId });
-          const hhIds = new Set(
-            (jobsRes.content || [])
-              .map((j: any) => j.headhunterId)
-              .filter((id: number | undefined): id is number => id != null),
-          );
-          list = list.filter((h) => h.id != null && hhIds.has(h.id));
-        }
-        setHeadhunters(list);
-      } catch (err) {
-        console.error('Error loading headhunters:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, [selectedClientId]);
+    loadHeadhunters();
+  }, [loadHeadhunters]);
 
   const filteredHeadhunters = headhunters.filter(
     (h) =>
@@ -93,14 +101,19 @@ const HeadhunterList: React.FC = () => {
       (h.specialties ?? []).some((s) => s.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const handleStatusToggle = (id: number) => {
-    setHeadhunters((prev) =>
-      prev.map((h) =>
-        h.id === id
-          ? { ...h, status: h.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' }
-          : h
-      )
-    );
+  const handleStatusToggle = async (target: Headhunter) => {
+    if (target.id == null) return;
+    const nextStatus = target.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+    try {
+      await apiService.changeHeadhunterStatus(target.id, nextStatus);
+      await loadHeadhunters();
+      addToast({
+        type: 'success',
+        title: nextStatus === 'ACTIVE' ? 'Headhunter ativado' : 'Headhunter desativado',
+      });
+    } catch {
+      addToast({ type: 'error', title: 'Não foi possível alterar o status do headhunter' });
+    }
   };
 
   if (loading) {
@@ -178,7 +191,7 @@ const HeadhunterList: React.FC = () => {
               variant="secondary"
               size="sm"
               disabled={!single}
-              onClick={() => single?.id && handleStatusToggle(single.id)}
+              onClick={() => single && handleStatusToggle(single)}
             >
               {single?.status === 'ACTIVE' ? 'Desativar' : 'Ativar'}
             </Button>
@@ -207,7 +220,7 @@ const HeadhunterList: React.FC = () => {
         <CardHeader
           action={
             <span className="text-sm text-gray-500 dark:text-gray-400">
-              {filteredHeadhunters.length} headhunters
+              {searchTerm.trim() ? filteredHeadhunters.length : totalElements} headhunters
             </span>
           }
         >
@@ -272,14 +285,6 @@ const HeadhunterList: React.FC = () => {
                           {specialty}
                         </Badge>
                       ))}
-                    </div>
-                    <div className="flex items-center gap-3 mt-1">
-                      <p className="text-xs text-gray-400 dark:text-gray-500">
-                        {headhunter.candidatesCount} candidatos
-                      </p>
-                      <p className="text-xs text-gray-400 dark:text-gray-500">
-                        {headhunter.placementsCount} colocações
-                      </p>
                     </div>
                   </div>
                 </div>
