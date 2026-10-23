@@ -303,7 +303,7 @@ export const JobTimeline: React.FC<JobTimelineProps> = ({ jobId, onAddActivity, 
     return (
       <Card>
         <CardHeader>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white/90">Historico de Atividades</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white/90">Histórico de Atividades</h2>
         </CardHeader>
         <CardBody>
           <div className="space-y-4">
@@ -335,7 +335,7 @@ export const JobTimeline: React.FC<JobTimelineProps> = ({ jobId, onAddActivity, 
           </Button>
         }
       >
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white/90">Historico de Atividades</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white/90">Histórico de Atividades</h2>
       </CardHeader>
       <CardBody>
         {/* Filter tabs */}
@@ -360,7 +360,7 @@ export const JobTimeline: React.FC<JobTimelineProps> = ({ jobId, onAddActivity, 
             title="Nenhuma atividade encontrada"
             description={
               filter === 'all'
-                ? 'Ainda nao ha atividades registradas para esta vaga.'
+                ? 'Ainda não há atividades registradas para esta vaga.'
                 : 'Nenhuma atividade encontrada para o filtro selecionado.'
             }
             actionLabel={filter === 'all' ? 'Adicionar Primeira Atividade' : undefined}

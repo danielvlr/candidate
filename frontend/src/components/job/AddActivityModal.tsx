@@ -27,7 +27,7 @@ const HISTORY_TYPE_OPTIONS: { value: HistoryType; label: string }[] = [
   { value: HistoryType.OFFER_REJECTED, label: 'Proposta Recusada' },
   { value: HistoryType.CONTRACT_SIGNED, label: 'Contrato Assinado' },
   { value: HistoryType.CANDIDATE_STARTED, label: 'Candidato Contratado' },
-  { value: HistoryType.GUARANTEE_PERIOD, label: 'Periodo de Garantia' },
+  { value: HistoryType.GUARANTEE_PERIOD, label: 'Período de Garantia' },
   { value: HistoryType.OTHER, label: 'Outro' },
 ];
 
@@ -90,7 +90,7 @@ export const AddActivityModal: React.FC<AddActivityModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.title.trim()) {
-      setTitleError('Titulo e obrigatorio');
+      setTitleError('Título é obrigatório');
       return;
     }
     setTitleError('');
@@ -152,7 +152,7 @@ export const AddActivityModal: React.FC<AddActivityModalProps> = ({
           />
 
           <Input
-            label="Titulo"
+            label="Título"
             name="title"
             required
             placeholder="Descreva brevemente a atividade"
@@ -169,7 +169,7 @@ export const AddActivityModal: React.FC<AddActivityModalProps> = ({
               htmlFor="description"
               className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300"
             >
-              Descricao
+              Descrição
               <span className="ml-1.5 text-xs font-normal text-gray-400">(opcional)</span>
             </label>
             <textarea

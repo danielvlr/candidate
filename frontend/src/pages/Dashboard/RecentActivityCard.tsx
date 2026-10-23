@@ -212,15 +212,6 @@ export const RecentActivityCard: React.FC<RecentActivityCardProps> = ({
           <div className="flex items-center justify-between gap-2 mb-3 px-3 py-1.5 rounded-md bg-brand-50 dark:bg-brand-500/10 border border-brand-200 dark:border-brand-500/20">
             <span className="text-xs text-brand-700 dark:text-brand-300">
               {activeKpiLabel[activeKpi]}
-              {(activeKpi === 'warrantiesExpiring' || activeKpi === 'warrantiesBreached') && (
-                <button
-                  type="button"
-                  onClick={() => navigate('/warranties')}
-                  className="ml-3 underline hover:no-underline"
-                >
-                  ir para garantias →
-                </button>
-              )}
             </span>
             <button
               type="button"

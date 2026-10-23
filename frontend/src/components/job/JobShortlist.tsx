@@ -146,7 +146,7 @@ export const JobShortlist: React.FC<JobShortlistProps> = ({ jobId, onSendCandida
         {shortlist.length === 0 ? (
           <EmptyState
             title="Nenhum candidato enviado"
-            description="Ainda nao ha candidatos na shortlist desta vaga."
+            description="Ainda não há candidatos na shortlist desta vaga."
             actionLabel="Enviar Candidatos"
             onAction={onSendCandidates}
           />
