@@ -76,7 +76,9 @@ const NewUserModal: React.FC<NewUserModalProps> = ({
       password: form.password,
       role: form.role,
       headhunterId:
-        form.role === 'HEADHUNTER' && form.headhunterId ? Number(form.headhunterId) : null,
+        (form.role === 'HEADHUNTER' || form.role === 'CPARTNER') && form.headhunterId
+          ? Number(form.headhunterId)
+          : null,
     });
   };
 
@@ -124,9 +126,9 @@ const NewUserModal: React.FC<NewUserModalProps> = ({
           value={form.role}
           onChange={handleChange}
         />
-        {form.role === 'HEADHUNTER' && (
+        {(form.role === 'HEADHUNTER' || form.role === 'CPARTNER') && (
           <Select
-            label="Headhunter vinculado (opcional)"
+            label={form.role === 'CPARTNER' ? 'Senior vinculado (opcional)' : 'Headhunter vinculado (opcional)'}
             name="headhunterId"
             options={headhunterOptions}
             value={form.headhunterId}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiService } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import {
   AssessoradoDTO,
   AssessoradoCreateRequest,
@@ -36,6 +37,8 @@ const DEBOUNCE_MS = 400;
 const AssessoradoForm: React.FC<AssessoradoFormProps> = ({ mode }) => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
+  const isCpartner = user?.role === 'CPARTNER';
 
   // Form state
   const [candidateId, setCandidateId] = useState<number | null>(null);
@@ -65,6 +68,13 @@ const AssessoradoForm: React.FC<AssessoradoFormProps> = ({ mode }) => {
   const [pageLoading, setPageLoading] = useState(mode === 'edit');
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // CPARTNER cria assessorado sempre sob o próprio senior (o backend também força).
+  useEffect(() => {
+    if (isCpartner && mode === 'create') {
+      setSeniorId(user?.headhunterId ?? null);
+    }
+  }, [isCpartner, mode, user?.headhunterId]);
 
   // Load headhunters list for senior dropdown
   useEffect(() => {
@@ -342,7 +352,7 @@ const AssessoradoForm: React.FC<AssessoradoFormProps> = ({ mode }) => {
                 Senior Responsável
               </h3>
 
-              {mode === 'create' ? (
+              {mode === 'create' && !isCpartner ? (
                 <Select
                   label="Senior"
                   required

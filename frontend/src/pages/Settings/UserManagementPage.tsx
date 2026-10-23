@@ -122,7 +122,7 @@ const UserManagementPage: React.FC = () => {
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white/90">Usuários</h1>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              Defina quem é administrador ou headhunter. A mudança vale no próximo carregamento da página do usuário.
+              Defina quem é administrador, headhunter ou C-Partner (vinculado a um senior, que define os assessorados que ele enxerga). A mudança vale no próximo carregamento da página do usuário.
             </p>
           </div>
           <Button variant="primary" onClick={() => setNewUserOpen(true)}>
@@ -150,7 +150,7 @@ const UserManagementPage: React.FC = () => {
                     <tr className="border-b border-gray-200 text-left text-gray-500 dark:border-gray-700 dark:text-gray-400">
                       <th className="py-2 pr-4 font-medium">Usuário</th>
                       <th className="py-2 pr-4 font-medium">Perfil</th>
-                      <th className="py-2 pr-4 font-medium">Headhunter vinculado</th>
+                      <th className="py-2 pr-4 font-medium">Headhunter / senior vinculado</th>
                       <th className="py-2 pr-4 font-medium">Status</th>
                       <th className="py-2 font-medium">Ações</th>
                     </tr>
@@ -180,10 +180,10 @@ const UserManagementPage: React.FC = () => {
                             />
                           </td>
                           <td className="py-3 pr-4 min-w-[200px]">
-                            {u.role === 'HEADHUNTER' ? (
+                            {u.role === 'HEADHUNTER' || u.role === 'CPARTNER' ? (
                               <Select
                                 name={`headhunter-${u.id}`}
-                                aria-label={`Headhunter vinculado a ${u.fullName}`}
+                                aria-label={`${u.role === 'CPARTNER' ? 'Senior' : 'Headhunter'} vinculado a ${u.fullName}`}
                                 options={headhunterOptions}
                                 value={u.headhunterId != null ? String(u.headhunterId) : ''}
                                 disabled={busy}

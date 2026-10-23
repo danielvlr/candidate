@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import UnlinkedSeniorNotice from '../../components/auth/UnlinkedSeniorNotice';
 import { useNavigate } from 'react-router-dom';
 import {
   AssessoradoDTO,
@@ -147,6 +148,7 @@ const AssessoradoList: React.FC = () => {
 
   return (
     <div className="container mx-auto px-4 py-8 overflow-hidden">
+      <UnlinkedSeniorNotice />
       {/* Header */}
       <div className="mb-8 flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white/90">

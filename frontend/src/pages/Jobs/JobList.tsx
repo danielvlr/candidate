@@ -219,7 +219,8 @@ const JobList: React.FC = () => {
   // Reage também a invalidações pontuais do cache (handleDrop deleta a entry
   // do job movido pra forçar refetch do histórico daquele card).
   useEffect(() => {
-    if (viewMode !== 'kanban' || !jobs?.content?.length) return;
+    // CPARTNER não acessa o histórico interno das vagas (backend responde 403).
+    if (userRole === 'cpartner' || viewMode !== 'kanban' || !jobs?.content?.length) return;
     const relevantJobs = jobs.content.filter(j => j.id && j.status !== 'CLOSED' && !jobHistoryCache[j.id]);
     const idsToFetch = relevantJobs.map(j => j.id!).slice(0, 200);
     if (idsToFetch.length === 0) return;
@@ -232,7 +233,7 @@ const JobList: React.FC = () => {
         return next;
       });
     });
-  }, [viewMode, jobs?.content?.length, jobHistoryCache]);
+  }, [viewMode, jobs?.content?.length, jobHistoryCache, userRole]);
 
   // Infinite scroll sentinel
   const sentinelRef = useCallback((node: HTMLDivElement | null) => {

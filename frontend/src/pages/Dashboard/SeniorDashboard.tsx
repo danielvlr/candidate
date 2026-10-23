@@ -7,6 +7,7 @@ import {
   JobMatchDTO,
 } from '../../types/api';
 import { apiService } from '../../services/api';
+import UnlinkedSeniorNotice from '../../components/auth/UnlinkedSeniorNotice';
 import { formatLocalDate } from '../../utils/date';
 import {
   Badge,
@@ -173,6 +174,7 @@ const SeniorDashboard: React.FC = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      <UnlinkedSeniorNotice />
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white/90">
