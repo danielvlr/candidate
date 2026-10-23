@@ -10,6 +10,9 @@ import RoleSelector from "../components/development/RoleSelector";
 import ClientSelector from "../components/header/ClientSelector";
 import HeadhunterSelector from "../components/header/HeadhunterSelector";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
+import { useUserRole } from "../context/UserRoleContext";
+import { useHeadhunterFilter } from "../context/HeadhunterFilterContext";
+import type { CandidateDTO, ClientDTO, JobDTO } from "../types/api";
 
 const routeTitleMap: Record<string, string> = {
   "/": "Dashboard",
@@ -18,6 +21,12 @@ const routeTitleMap: Record<string, string> = {
   "/jobs": "Vagas",
   "/jobs/create": "Nova Vaga",
   "/headhunters": "Headhunters",
+  "/clients": "Empresas",
+  "/clients/new": "Nova Empresa",
+  "/assessorados": "Assessorados",
+  "/assessorados/new": "Novo Assessorado",
+  "/settings/jestor": "Integração Jestor",
+  "/settings/users": "Usuários",
   "/profile": "Perfil",
   "/calendar": "Calendário",
   "/blank": "Em Branco",
@@ -30,6 +39,46 @@ interface SearchResult {
   subtitle: string;
 }
 
+// Rotas dinâmicas (com :id): a primeira regra que casar define o título.
+const dynamicRouteTitles: ReadonlyArray<{ pattern: RegExp; title: string }> = [
+  { pattern: /^\/candidates\/[^/]+\/edit$/, title: "Editar Candidato" },
+  { pattern: /^\/candidates\/[^/]+$/, title: "Detalhe do Candidato" },
+  { pattern: /^\/jobs\/[^/]+$/, title: "Detalhe da Vaga" },
+  { pattern: /^\/clients\/[^/]+\/edit$/, title: "Editar Empresa" },
+  { pattern: /^\/clients\/[^/]+$/, title: "Detalhe da Empresa" },
+  { pattern: /^\/assessorados\/[^/]+\/edit$/, title: "Editar Assessorado" },
+  { pattern: /^\/assessorados\/[^/]+$/, title: "Detalhe do Assessorado" },
+  { pattern: /^\/headhunters\/[^/]+$/, title: "Detalhe do Headhunter" },
+];
+
+const resolvePageTitle = (pathname: string): string =>
+  routeTitleMap[pathname]
+  ?? dynamicRouteTitles.find(({ pattern }) => pattern.test(pathname))?.title
+  ?? "Dashboard";
+
+const GLOBAL_SEARCH_LIMIT = 5;
+// Teto de vagas do headhunter carregadas para filtrar a busca global no cliente.
+const HEADHUNTER_JOBS_FETCH_SIZE = 500;
+
+const matchesQuery = (query: string, ...fields: Array<string | undefined>): boolean =>
+  fields.some(field => (field ?? '').toLowerCase().includes(query));
+
+/**
+ * HEADHUNTER só pode ver as próprias vagas: /jobs/search não aplica escopo, então
+ * buscamos pelo /jobs/filter com headhunterId e filtramos o texto no cliente.
+ */
+const searchScopedJobs = async (query: string, headhunterId: number | null): Promise<JobDTO[]> => {
+  if (headhunterId === null) {
+    const page = await apiService.searchJobs(query, { page: 0, size: GLOBAL_SEARCH_LIMIT });
+    return page.content || [];
+  }
+  const page = await apiService.getJobs({ page: 0, size: HEADHUNTER_JOBS_FETCH_SIZE }, { headhunterId });
+  const q = query.toLowerCase();
+  return (page.content || [])
+    .filter(j => j.headhunterId === headhunterId && matchesQuery(q, j.title, j.companyName))
+    .slice(0, GLOBAL_SEARCH_LIMIT);
+};
+
 const AppHeader: React.FC = () => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -41,12 +90,13 @@ const AppHeader: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const pageTitle = (() => {
-    if (routeTitleMap[location.pathname]) return routeTitleMap[location.pathname];
-    if (/^\/candidates\/[^/]+\/edit$/.test(location.pathname)) return "Editar Candidato";
-    if (/^\/jobs\/[^/]+$/.test(location.pathname)) return "Detalhe da Vaga";
-    return "Dashboard";
-  })();
+  const { userRole } = useUserRole();
+  const { selectedHeadhunterId } = useHeadhunterFilter();
+  // CPARTNER não acessa candidatos nem empresas; HEADHUNTER só vê as próprias vagas.
+  const canSearchCandidatesAndClients = userRole !== 'cpartner';
+  const jobsScopeHeadhunterId = userRole === 'headhunter' ? selectedHeadhunterId : null;
+
+  const pageTitle = resolvePageTitle(location.pathname);
 
   const handleToggle = () => {
     if (window.innerWidth >= 1024) {
@@ -70,16 +120,24 @@ const AppHeader: React.FC = () => {
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     searchTimeoutRef.current = setTimeout(async () => {
       try {
-        const results: SearchResult[] = [];
         const [jobs, candidates, clients] = await Promise.all([
-          apiService.searchJobs(query, { page: 0, size: 5 }),
-          apiService.searchCandidates(query, { page: 0, size: 5 }),
-          apiService.getActiveClients(),
+          searchScopedJobs(query, jobsScopeHeadhunterId),
+          canSearchCandidatesAndClients
+            ? apiService.searchCandidates(query, { page: 0, size: GLOBAL_SEARCH_LIMIT }).then(page => page.content || [])
+            : Promise.resolve<CandidateDTO[]>([]),
+          canSearchCandidatesAndClients
+            ? apiService.getActiveClients()
+            : Promise.resolve<ClientDTO[]>([]),
         ]);
-        (jobs.content || []).forEach(j => results.push({ type: 'job', id: j.id!, title: j.title, subtitle: j.companyName || 'Vaga' }));
-        (candidates.content || []).forEach(c => results.push({ type: 'candidate', id: c.id!, title: c.fullName, subtitle: c.headline || c.email }));
         const q = query.toLowerCase();
-        clients.filter(c => c.companyName.toLowerCase().includes(q)).slice(0, 5).forEach(c => results.push({ type: 'client', id: c.id!, title: c.companyName, subtitle: c.industry || 'Empresa' }));
+        const results: SearchResult[] = [
+          ...jobs.map((j): SearchResult => ({ type: 'job', id: j.id!, title: j.title, subtitle: j.companyName || 'Vaga' })),
+          ...candidates.map((c): SearchResult => ({ type: 'candidate', id: c.id!, title: c.fullName, subtitle: c.headline || c.email })),
+          ...clients
+            .filter(c => matchesQuery(q, c.companyName))
+            .slice(0, GLOBAL_SEARCH_LIMIT)
+            .map((c): SearchResult => ({ type: 'client', id: c.id!, title: c.companyName, subtitle: c.industry || 'Empresa' })),
+        ];
         setSearchResults(results);
         setSearchOpen(results.length > 0);
       } catch { setSearchResults([]); }
@@ -197,7 +255,7 @@ const AppHeader: React.FC = () => {
                 value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value)}
                 onFocus={() => searchResults.length > 0 && setSearchOpen(true)}
-                placeholder="Buscar candidatos, vagas, empresas..."
+                placeholder={canSearchCandidatesAndClients ? "Buscar candidatos, vagas, empresas..." : "Buscar vagas..."}
                 className="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-200 bg-transparent py-2.5 pl-12 pr-14 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:bg-white/[0.03] dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 xl:w-[430px]"
               />
               <button className="absolute right-2.5 top-1/2 inline-flex -translate-y-1/2 items-center gap-0.5 rounded-lg border border-gray-200 bg-gray-50 px-[7px] py-[4.5px] text-xs -tracking-[0.2px] text-gray-500 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-400">
