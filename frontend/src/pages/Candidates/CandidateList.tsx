@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiService } from '../../services/api';
 import { CandidateDTO, PageResponse, CandidateFilters, PaginationParams } from '../../types/api';
-import { Badge, Button, Card, CardHeader, CardBody, EmptyState, Pagination, SkeletonCard } from '../../components/ui';
+import { Badge, Button, Card, CardHeader, CardBody, EmptyState, Pagination, SkeletonCard, useToast } from '../../components/ui';
 import { useListSelection } from '../../hooks/useListSelection';
 import { useClientFilter } from '../../context/ClientFilterContext';
 import InviteCandidateModal from '../../components/candidate/InviteCandidateModal';
@@ -63,6 +63,7 @@ const originVariant: Record<string, string> = {
 const CandidateList: React.FC = () => {
   const navigate = useNavigate();
   const { selectedClientId } = useClientFilter();
+  const { addToast } = useToast();
   const { selectedId: selectedCandidateId, selectedCount, handleRowClick, handleRowMouseDown, clearSelection, isSelected } = useListSelection<CandidateDTO>();
   const [candidates, setCandidates] = useState<PageResponse<CandidateDTO> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -140,23 +141,29 @@ const CandidateList: React.FC = () => {
     fetchCandidates(0);
   };
 
+  // Falha na ação vira toast: não troca a lista inteira pela tela de erro
   const handleActivateCandidate = async (id: number) => {
     try {
       await apiService.activateCandidate(id);
-      fetchCandidates(currentPage);
-    } catch (err) {
-      setError('Erro ao ativar candidato');
+    } catch {
+      addToast({ type: 'error', title: 'Erro ao ativar candidato' });
+      return;
     }
+    addToast({ type: 'success', title: 'Candidato ativado' });
+    fetchCandidates(currentPage);
   };
 
   const handleBlacklistCandidate = async (id: number) => {
     const reason = prompt('Motivo para blacklist (opcional):');
+    if (reason === null) return;
     try {
       await apiService.blacklistCandidate(id, reason || undefined);
-      fetchCandidates(currentPage);
-    } catch (err) {
-      setError('Erro ao blacklistar candidato');
+    } catch {
+      addToast({ type: 'error', title: 'Erro ao bloquear candidato' });
+      return;
     }
+    addToast({ type: 'success', title: 'Candidato bloqueado' });
+    fetchCandidates(currentPage);
   };
 
   if (loading) {
