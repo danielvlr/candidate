@@ -2,6 +2,10 @@ package com.empresa.sistema.api.controller;
 
 import com.empresa.sistema.domain.entity.JobApplication;
 import com.empresa.sistema.domain.service.JobApplicationService;
+import com.empresa.sistema.domain.service.JobService;
+import com.empresa.sistema.security.AuthenticatedUser;
+import com.empresa.sistema.security.HeadhunterScope;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -20,6 +24,9 @@ public class JobApplicationController {
 
     @Autowired
     private JobApplicationService jobApplicationService;
+
+    @Autowired
+    private JobService jobService;
 
     @PostMapping
     public ResponseEntity<JobApplication> applyForJob(@RequestBody Map<String, Object> request) {
@@ -40,7 +47,9 @@ public class JobApplicationController {
     @GetMapping("/job/{jobId}")
     public ResponseEntity<Page<JobApplication>> getApplicationsByJob(
             @PathVariable Long jobId,
+            @AuthenticationPrincipal AuthenticatedUser principal,
             @PageableDefault(size = 20) Pageable pageable) {
+        jobService.assertJobVisible(jobId, HeadhunterScope.resolve(principal, null));
         Page<JobApplication> applications = jobApplicationService.findByJobId(jobId, pageable);
         return ResponseEntity.ok(applications);
     }

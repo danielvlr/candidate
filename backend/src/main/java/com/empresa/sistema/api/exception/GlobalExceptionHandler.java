@@ -9,10 +9,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -120,16 +126,51 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(error);
     }
 
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        return clientError(HttpStatus.BAD_REQUEST, "Requisição inválida",
+            "Valor inválido para o parâmetro '" + ex.getName() + "'");
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ErrorResponse> handleMissingParameter(MissingServletRequestParameterException ex) {
+        return clientError(HttpStatus.BAD_REQUEST, "Requisição inválida",
+            "Parâmetro obrigatório ausente: '" + ex.getParameterName() + "'");
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleNotReadable(HttpMessageNotReadableException ex) {
+        return clientError(HttpStatus.BAD_REQUEST, "Requisição inválida",
+            "Corpo da requisição ausente ou mal formatado");
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNoResource(NoResourceFoundException ex) {
+        return clientError(HttpStatus.NOT_FOUND, "Recurso não encontrado", "Rota não encontrada");
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex) {
+        return clientError(HttpStatus.METHOD_NOT_ALLOWED, "Método não permitido",
+            "Método " + ex.getMethod() + " não suportado nesta rota");
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleMediaTypeNotSupported(HttpMediaTypeNotSupportedException ex) {
+        return clientError(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Tipo de conteúdo não suportado",
+            "Envie o corpo como application/json");
+    }
+
+    /** Detalhe só no log do servidor: a resposta nunca expõe mensagem de exceção interna. */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(Exception ex) {
-        ex.printStackTrace();
-        ErrorResponse error = new ErrorResponse(
-            HttpStatus.INTERNAL_SERVER_ERROR.value(),
-            "Erro interno do servidor",
-            ex.getMessage() != null ? ex.getMessage() : "Ocorreu um erro inesperado",
-            LocalDateTime.now()
-        );
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        log.error("unexpected_error", ex);
+        return clientError(HttpStatus.INTERNAL_SERVER_ERROR, "Erro interno do servidor", "Erro interno do servidor");
+    }
+
+    private static ResponseEntity<ErrorResponse> clientError(HttpStatus status, String error, String message) {
+        ErrorResponse body = new ErrorResponse(status.value(), error, message, LocalDateTime.now());
+        return ResponseEntity.status(status).body(body);
     }
 
     // Classes para resposta de erro

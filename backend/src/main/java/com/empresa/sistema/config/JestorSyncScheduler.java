@@ -4,14 +4,14 @@ import com.empresa.sistema.integration.jestor.JestorSyncService;
 import com.empresa.sistema.integration.jestor.SyncResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 
 @Component
-@ConditionalOnProperty(name = "jestor.api-token")
+@Conditional(JestorTokenConfiguredCondition.class)
 public class JestorSyncScheduler {
 
     private static final Logger log = LoggerFactory.getLogger(JestorSyncScheduler.class);

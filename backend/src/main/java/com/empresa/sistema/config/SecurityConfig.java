@@ -18,6 +18,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -59,6 +60,8 @@ public class SecurityConfig {
                                 antMatcher("/error")
                         ).permitAll()
                         .requestMatchers(antMatcher("/api/v1/users/**")).hasRole("ADMIN")
+                        .requestMatchers(adminOnlyMatchers()).hasRole("ADMIN")
+                        .requestMatchers(antMatcher("/api/v1/assessorados/**")).hasAnyRole("ADMIN", "CPARTNER")
                         .anyRequest().authenticated())
                 .exceptionHandling(e -> e
                         .authenticationEntryPoint((req, res, ex) ->
@@ -69,6 +72,34 @@ public class SecurityConfig {
                                         "Você não tem permissão para acessar este recurso")))
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
+    }
+
+    /**
+     * Operações administrativas: cadastro de headhunters, integração Jestor, regras de garantia
+     * e ciclo de vida das vagas. Leituras de headhunters e regras seguem abertas a qualquer logado.
+     */
+    private static RequestMatcher[] adminOnlyMatchers() {
+        return new RequestMatcher[]{
+                antMatcher("/api/v1/jestor/**"),
+                antMatcher(HttpMethod.POST, "/api/v1/headhunters/**"),
+                antMatcher(HttpMethod.PUT, "/api/v1/headhunters/**"),
+                antMatcher(HttpMethod.PATCH, "/api/v1/headhunters/**"),
+                antMatcher(HttpMethod.DELETE, "/api/v1/headhunters/**"),
+                antMatcher(HttpMethod.POST, "/api/v1/warranty-rules/**"),
+                antMatcher(HttpMethod.PUT, "/api/v1/warranty-rules/**"),
+                antMatcher(HttpMethod.PATCH, "/api/v1/warranty-rules/**"),
+                antMatcher(HttpMethod.DELETE, "/api/v1/warranty-rules/**"),
+                antMatcher(HttpMethod.POST, "/api/v1/jobs"),
+                antMatcher(HttpMethod.PUT, "/api/v1/jobs/*"),
+                antMatcher(HttpMethod.DELETE, "/api/v1/jobs/*"),
+                antMatcher(HttpMethod.PATCH, "/api/v1/jobs/*/pause"),
+                antMatcher(HttpMethod.PATCH, "/api/v1/jobs/*/activate"),
+                antMatcher(HttpMethod.PATCH, "/api/v1/jobs/*/close"),
+                antMatcher(HttpMethod.POST, "/api/v1/jobs/*/close"),
+                antMatcher(HttpMethod.PATCH, "/api/v1/jobs/*/status"),
+                antMatcher(HttpMethod.POST, "/api/v1/jobs/expire-jobs"),
+                antMatcher(HttpMethod.POST, "/api/v1/jobs/promote-expired-warranty")
+        };
     }
 
     /** Evita que o Spring Boot registre o filtro JWT uma segunda vez fora da cadeia de segurança. */

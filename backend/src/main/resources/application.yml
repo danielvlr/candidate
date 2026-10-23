@@ -43,8 +43,8 @@ spring:
             required: true
 
 jestor:
-  api-url: ${JESTOR_API_URL:https://b13f0dd1a22d45898b1b79eed549be20.api.jestor.com}
-  api-token: ${JESTOR_API_TOKEN:MThkNTA1NTEwNmU0Zjdh5a84fa96c6MTcyNjY2ODY5MWZhNzkw}
+  api-url: ${JESTOR_API_URL:}
+  api-token: ${JESTOR_API_TOKEN:}
   sync-cron: ${JESTOR_SYNC_CRON:0 */30 * * * *}
   jobs-table: ${JESTOR_JOBS_TABLE:1qsbzdrzg3ca0srnvins_}
   clients-table: ${JESTOR_CLIENTS_TABLE:hxinwt2e5xz2cxmp___2d}
