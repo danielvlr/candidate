@@ -10,6 +10,8 @@ export interface AuthUser {
   role: AuthRole;
   headhunterId: number | null;
   active: boolean;
+  /** true quando a senha foi definida por um admin e precisa ser trocada no primeiro acesso. */
+  mustChangePassword: boolean;
 }
 
 export interface StoredSession {

@@ -1,6 +1,7 @@
 package com.empresa.sistema.api.controller;
 
 import com.empresa.sistema.api.dto.auth.AuthResponse;
+import com.empresa.sistema.api.dto.auth.ChangePasswordRequest;
 import com.empresa.sistema.api.dto.auth.ForgotPasswordRequest;
 import com.empresa.sistema.api.dto.auth.LoginRequest;
 import com.empresa.sistema.api.dto.auth.ResetPasswordRequest;
@@ -35,6 +36,12 @@ public class AuthController {
     @GetMapping("/me")
     public ResponseEntity<UserResponse> me(@AuthenticationPrincipal AuthenticatedUser principal) {
         return ResponseEntity.ok(authService.me(principal.id()));
+    }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<UserResponse> changePassword(@AuthenticationPrincipal AuthenticatedUser principal,
+                                                       @Valid @RequestBody ChangePasswordRequest request) {
+        return ResponseEntity.ok(authService.changePassword(principal.id(), request));
     }
 
     @PostMapping("/forgot-password")

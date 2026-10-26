@@ -22,6 +22,7 @@ import {
   AssessoradoHistoryDTO,
   JobMatchDTO,
   HeadhunterDTO,
+  HeadhunterAccessDTO,
   WarrantyDTO,
   WarrantyRuleDTO,
   SyncResultDTO,
@@ -594,6 +595,14 @@ class ApiService {
     return this.request<void>(`/headhunters/${id}/status`, {
       method: 'PATCH',
       body: JSON.stringify({ status }),
+    });
+  }
+
+  /** Admin define a senha do headhunter; cria o acesso (usuário) se ainda não existir. */
+  async setHeadhunterPassword(id: number, newPassword: string): Promise<HeadhunterAccessDTO> {
+    return this.request<HeadhunterAccessDTO>(`/headhunters/${id}/password`, {
+      method: 'PATCH',
+      body: JSON.stringify({ newPassword }),
     });
   }
 

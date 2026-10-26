@@ -16,7 +16,7 @@ function FullScreenLoader() {
 
 /** Só renderiza o conteúdo com usuário autenticado; senão manda para /signin guardando a rota de origem. */
 export function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { status, signedOutByUser } = useAuth();
+  const { status, user, signedOutByUser } = useAuth();
   const location = useLocation();
 
   if (status === 'loading') {
@@ -26,6 +26,25 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
     // "Sair" não guarda a rota: o próximo usuário não deve herdar a última página do anterior.
     const state = signedOutByUser ? undefined : { from: location };
     return <Navigate to="/signin" replace state={state} />;
+  }
+  if (user?.mustChangePassword) {
+    return <Navigate to="/change-password" replace />;
+  }
+  return <>{children}</>;
+}
+
+/** Tela de troca obrigatória: exige login e só fica acessível enquanto a troca estiver pendente. */
+export function PasswordChangeRoute({ children }: { children: ReactNode }) {
+  const { status, user } = useAuth();
+
+  if (status === 'loading') {
+    return <FullScreenLoader />;
+  }
+  if (status === 'unauthenticated') {
+    return <Navigate to="/signin" replace />;
+  }
+  if (!user?.mustChangePassword) {
+    return <Navigate to="/" replace />;
   }
   return <>{children}</>;
 }

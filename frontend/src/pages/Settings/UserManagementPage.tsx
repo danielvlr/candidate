@@ -6,6 +6,7 @@ import type { HeadhunterDTO } from '../../types/api';
 import { useAuth } from '../../context/AuthContext';
 import { Badge, Button, Card, CardBody, Input, Select, useToast } from '../../components/ui';
 import NewUserModal from './NewUserModal';
+import SetPasswordModal from '../../components/auth/SetPasswordModal';
 
 const ROLE_OPTIONS: { value: AuthRole; label: string }[] = [
   { value: 'ADMIN', label: 'Administrador' },
@@ -26,6 +27,7 @@ const UserManagementPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [newUserOpen, setNewUserOpen] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [passwordTarget, setPasswordTarget] = useState<AuthUser | null>(null);
 
   useEffect(() => {
     Promise.all([usersApi.list(), apiService.getHeadhunters({ page: 0, size: 1000 })])
@@ -99,6 +101,14 @@ const UserManagementPage: React.FC = () => {
     } finally {
       setSavingId(null);
     }
+  };
+
+  const setUserPassword = async (newPassword: string) => {
+    if (!passwordTarget) return;
+    const updated = await usersApi.setPassword(passwordTarget.id, newPassword);
+    replaceUser(updated);
+    setPasswordTarget(null);
+    addToast({ type: 'success', title: 'Senha alterada', message: updated.fullName });
   };
 
   const createUser = async (payload: UserCreate) => {
@@ -198,7 +208,16 @@ const UserManagementPage: React.FC = () => {
                               {u.active ? 'Ativo' : 'Inativo'}
                             </Badge>
                           </td>
-                          <td className="py-3">
+                          <td className="py-3 whitespace-nowrap">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="mr-2"
+                              disabled={busy}
+                              onClick={() => setPasswordTarget(u)}
+                            >
+                              Alterar senha
+                            </Button>
                             <Button
                               variant="secondary"
                               size="sm"
@@ -219,6 +238,14 @@ const UserManagementPage: React.FC = () => {
           </CardBody>
         </Card>
       </div>
+      <SetPasswordModal
+        isOpen={passwordTarget !== null}
+        title="Alterar senha"
+        description={`Defina uma nova senha para ${passwordTarget?.fullName ?? ''}. O usuário deverá trocá-la no próximo acesso.`}
+        confirmLabel="Alterar senha"
+        onClose={() => setPasswordTarget(null)}
+        onSubmit={setUserPassword}
+      />
       <NewUserModal
         isOpen={newUserOpen}
         saving={creating}

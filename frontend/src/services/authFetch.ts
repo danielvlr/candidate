@@ -4,6 +4,7 @@ import { API_BASE_URL } from './authApi';
 import { clearSession, getToken } from './authStorage';
 
 export const UNAUTHORIZED_EVENT = 'auth:unauthorized';
+export const PASSWORD_CHANGE_REQUIRED_EVENT = 'auth:password-change-required';
 
 // Endpoints que não devem disparar logout em caso de 401 (ex.: senha errada no login).
 const AUTH_EXEMPT_PATHS = ['/auth/login', '/auth/forgot-password', '/auth/reset-password', '/public/'];
@@ -55,6 +56,19 @@ export function installAuthFetch(): void {
       clearSession();
       window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT));
     }
+    if (response.status === 403 && (await isPasswordChangeRequired(response))) {
+      window.dispatchEvent(new CustomEvent(PASSWORD_CHANGE_REQUIRED_EVENT));
+    }
     return response;
   };
+}
+
+/** 403 com code PASSWORD_CHANGE_REQUIRED: o backend bloqueia tudo até a senha ser trocada. */
+async function isPasswordChangeRequired(response: Response): Promise<boolean> {
+  try {
+    const body = await response.clone().json();
+    return body?.code === 'PASSWORD_CHANGE_REQUIRED';
+  } catch {
+    return false;
+  }
 }

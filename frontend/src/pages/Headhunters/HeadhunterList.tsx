@@ -5,6 +5,7 @@ import { useClientFilter } from '../../context/ClientFilterContext';
 import { useHeadhunterFilter } from '../../context/HeadhunterFilterContext';
 import { useToast } from '../../components/ui';
 import { useListSelection } from '../../hooks/useListSelection';
+import SetPasswordModal from '../../components/auth/SetPasswordModal';
 import {
   Badge,
   Button,
@@ -23,6 +24,8 @@ interface Headhunter {
   status?: string;
   specialties?: string[];
   createdAt?: string;
+  /** false quando ainda não existe usuário (acesso) vinculado. */
+  hasAccess?: boolean;
 }
 
 const getInitials = (name: string) =>
@@ -65,6 +68,7 @@ const HeadhunterList: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [totalElements, setTotalElements] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
+  const [passwordTarget, setPasswordTarget] = useState<Headhunter | null>(null);
 
   const loadHeadhunters = useCallback(async () => {
     try {
@@ -116,6 +120,18 @@ const HeadhunterList: React.FC = () => {
     } catch {
       addToast({ type: 'error', title: 'Não foi possível alterar o status do headhunter' });
     }
+  };
+
+  const handleSetPassword = async (newPassword: string) => {
+    if (!passwordTarget || passwordTarget.id == null) return;
+    const result = await apiService.setHeadhunterPassword(passwordTarget.id, newPassword);
+    setPasswordTarget(null);
+    await loadHeadhunters();
+    addToast({
+      type: 'success',
+      title: result.accessCreated ? 'Acesso criado' : 'Senha alterada',
+      message: passwordTarget.fullName,
+    });
   };
 
   if (loading) {
@@ -208,6 +224,14 @@ const HeadhunterList: React.FC = () => {
             <Button
               variant="ghost"
               size="sm"
+              disabled={!single}
+              onClick={() => single && setPasswordTarget(single)}
+            >
+              {single && single.hasAccess === false ? 'Criar acesso' : 'Alterar senha'}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               disabled={!hasSelection}
               onClick={clearSelection}
             >
@@ -277,6 +301,7 @@ const HeadhunterList: React.FC = () => {
                       >
                         {headhunter.status === 'ACTIVE' ? 'Ativo' : 'Inativo'}
                       </Badge>
+                      {headhunter.hasAccess === false && <Badge variant="inactive">Sem acesso</Badge>}
                     </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
                       {headhunter.email}
@@ -295,6 +320,19 @@ const HeadhunterList: React.FC = () => {
           </div>
         )}
       </Card>
+
+      <SetPasswordModal
+        isOpen={passwordTarget !== null}
+        title={passwordTarget?.hasAccess === false ? 'Criar acesso' : 'Alterar senha'}
+        description={
+          passwordTarget?.hasAccess === false
+            ? `${passwordTarget.fullName} ainda não tem acesso. Defina a senha inicial; ele deverá trocá-la no primeiro acesso.`
+            : `Defina uma nova senha para ${passwordTarget?.fullName ?? ''}. Ele deverá trocá-la no próximo acesso.`
+        }
+        confirmLabel={passwordTarget?.hasAccess === false ? 'Criar acesso' : 'Alterar senha'}
+        onClose={() => setPasswordTarget(null)}
+        onSubmit={handleSetPassword}
+      />
     </div>
   );
 };

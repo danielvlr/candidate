@@ -59,6 +59,14 @@ export const authApi = {
     return call<AuthUser>('/auth/me', { headers: { Authorization: `Bearer ${token}` } });
   },
 
+  /** Troca a própria senha; devolve o usuário atualizado (mustChangePassword = false). */
+  changePassword(currentPassword: string, newPassword: string): Promise<AuthUser> {
+    return call<AuthUser>('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+  },
+
   forgotPassword(email: string): Promise<{ message: string }> {
     return call('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) });
   },

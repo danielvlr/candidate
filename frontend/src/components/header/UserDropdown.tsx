@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "../../context/AuthContext";
+import ChangePasswordModal from "../auth/ChangePasswordModal";
 
 const ROLE_LABEL: Record<string, string> = {
   ADMIN: "Administrador",
@@ -21,6 +22,7 @@ export default function UserDropdown() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -83,6 +85,17 @@ export default function UserDropdown() {
           <button
             type="button"
             role="menuitem"
+            onClick={() => {
+              setIsOpen(false);
+              setPasswordModalOpen(true);
+            }}
+            className="mt-2 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-theme-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5"
+          >
+            Alterar senha
+          </button>
+          <button
+            type="button"
+            role="menuitem"
             onClick={handleLogout}
             className="mt-2 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-theme-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5"
           >
@@ -90,6 +103,7 @@ export default function UserDropdown() {
           </button>
         </div>
       )}
+      <ChangePasswordModal isOpen={passwordModalOpen} onClose={() => setPasswordModalOpen(false)} />
     </div>
   );
 }

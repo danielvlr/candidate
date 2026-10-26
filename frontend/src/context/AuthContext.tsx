@@ -1,6 +1,6 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { authApi } from '../services/authApi';
-import { UNAUTHORIZED_EVENT } from '../services/authFetch';
+import { PASSWORD_CHANGE_REQUIRED_EVENT, UNAUTHORIZED_EVENT } from '../services/authFetch';
 import {
   AuthUser,
   clearSession,
@@ -18,6 +18,8 @@ interface AuthContextType {
   signedOutByUser: boolean;
   login: (email: string, password: string, rememberMe: boolean) => Promise<AuthUser>;
   logout: () => void;
+  /** Troca a própria senha e atualiza o usuário/sessão (desliga mustChangePassword). */
+  changePassword: (currentPassword: string, newPassword: string) => Promise<AuthUser>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -79,9 +81,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return session.user;
   }, []);
 
+  // 403 PASSWORD_CHANGE_REQUIRED: marca o usuário para o ProtectedRoute redirecionar a /change-password.
+  useEffect(() => {
+    const onRequired = () =>
+      setUser((prev) => {
+        if (!prev || prev.mustChangePassword) return prev;
+        const next = { ...prev, mustChangePassword: true };
+        updateSessionUser(next);
+        return next;
+      });
+    window.addEventListener(PASSWORD_CHANGE_REQUIRED_EVENT, onRequired);
+    return () => window.removeEventListener(PASSWORD_CHANGE_REQUIRED_EVENT, onRequired);
+  }, []);
+
+  const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
+    const updated = await authApi.changePassword(currentPassword, newPassword);
+    updateSessionUser(updated);
+    setUser(updated);
+    return updated;
+  }, []);
+
   const value = useMemo(
-    () => ({ user, status, signedOutByUser, login, logout }),
-    [user, status, signedOutByUser, login, logout],
+    () => ({ user, status, signedOutByUser, login, logout, changePassword }),
+    [user, status, signedOutByUser, login, logout, changePassword],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

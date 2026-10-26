@@ -1,8 +1,10 @@
 package com.empresa.sistema.api.dto.request;
 
+import com.empresa.sistema.api.dto.auth.PasswordRules;
 import com.empresa.sistema.domain.entity.Headhunter;
 import jakarta.validation.constraints.*;
 import lombok.Data;
+import lombok.ToString;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -51,4 +53,9 @@ public class HeadhunterCreateRequest {
     private String biography;
 
     private String profilePictureUrl;
+
+    @NotBlank(message = "Senha inicial é obrigatória")
+    @Size(min = PasswordRules.MIN_LENGTH, max = PasswordRules.MAX_LENGTH, message = PasswordRules.SIZE_MESSAGE)
+    @ToString.Exclude
+    private String initialPassword;
 }

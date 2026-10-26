@@ -1,5 +1,6 @@
 package com.empresa.sistema.api.controller;
 
+import com.empresa.sistema.api.dto.auth.AdminPasswordRequest;
 import com.empresa.sistema.api.dto.auth.UserCreateRequest;
 import com.empresa.sistema.api.dto.auth.UserResponse;
 import com.empresa.sistema.api.dto.auth.UserRoleUpdateRequest;
@@ -37,6 +38,12 @@ public class UserController {
                                                    @Valid @RequestBody UserRoleUpdateRequest request,
                                                    @AuthenticationPrincipal AuthenticatedUser principal) {
         return ResponseEntity.ok(userService.updateRole(id, request, principal.id()));
+    }
+
+    @PatchMapping("/{id}/password")
+    public ResponseEntity<UserResponse> setPassword(@PathVariable Long id,
+                                                    @Valid @RequestBody AdminPasswordRequest request) {
+        return ResponseEntity.ok(userService.setPasswordByAdmin(id, request.newPassword()));
     }
 
     @PatchMapping("/{id}/activate")

@@ -5,6 +5,7 @@ import type { HeadhunterDTO } from '../../types/api';
 import { Input, Textarea, Select, Button, Card, CardBody, useToast } from '../../components/ui';
 import { getErrorMessage } from '../../services/apiError';
 import { useHeadhunterFilter } from '../../context/HeadhunterFilterContext';
+import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from '../../utils/passwordPolicy';
 
 interface HeadhunterFormProps {
   mode: 'create' | 'edit';
@@ -18,6 +19,8 @@ interface HeadhunterFormState {
   fixedCost: string;
   variableCost: string;
   responsibleAreas: string;
+  /** Só no modo de criação. */
+  initialPassword: string;
 }
 
 const SENIORITY_OPTIONS = [
@@ -35,9 +38,11 @@ const EMPTY_FORM: HeadhunterFormState = {
   fixedCost: '0',
   variableCost: '0',
   responsibleAreas: '',
+  initialPassword: '',
 };
 
 const toFormState = (hh: HeadhunterDTO): HeadhunterFormState => ({
+  initialPassword: '',
   fullName: hh.fullName,
   email: hh.email,
   phone: hh.phone ?? '',
@@ -47,9 +52,10 @@ const toFormState = (hh: HeadhunterDTO): HeadhunterFormState => ({
   responsibleAreas: hh.responsibleAreas ?? '',
 });
 
-const toPayload = (form: HeadhunterFormState): HeadhunterDTO => {
+const toPayload = (form: HeadhunterFormState, mode: 'create' | 'edit'): HeadhunterDTO => {
   const phoneDigits = form.phone.replace(/\D/g, '');
   return {
+    ...(mode === 'create' ? { initialPassword: form.initialPassword } : {}),
     fullName: form.fullName.trim(),
     email: form.email.trim(),
     phone: phoneDigits || undefined,
@@ -60,7 +66,10 @@ const toPayload = (form: HeadhunterFormState): HeadhunterDTO => {
   };
 };
 
-const validate = (form: HeadhunterFormState): string | null => {
+const validate = (form: HeadhunterFormState, mode: 'create' | 'edit'): string | null => {
+  if (mode === 'create' && form.initialPassword.length < MIN_PASSWORD_LENGTH) {
+    return `A senha inicial deve ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.`;
+  }
   const phoneDigits = form.phone.replace(/\D/g, '');
   if (phoneDigits && !/^\d{10,11}$/.test(phoneDigits)) return 'Telefone deve ter 10 ou 11 dígitos.';
   const variable = Number(form.variableCost);
@@ -101,7 +110,7 @@ const HeadhunterForm: React.FC<HeadhunterFormProps> = ({ mode }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const validationError = validate(formData);
+    const validationError = validate(formData, mode);
     if (validationError) {
       setError(validationError);
       return;
@@ -109,7 +118,7 @@ const HeadhunterForm: React.FC<HeadhunterFormProps> = ({ mode }) => {
     setSaving(true);
     setError(null);
     try {
-      const payload = toPayload(formData);
+      const payload = toPayload(formData, mode);
       if (mode === 'create') {
         await apiService.createHeadhunter(payload);
         addToast({ type: 'success', title: 'Headhunter criado com sucesso' });
@@ -200,6 +209,21 @@ const HeadhunterForm: React.FC<HeadhunterFormProps> = ({ mode }) => {
                   onChange={handleChange}
                   placeholder="Ex: 11999998888"
                 />
+                {mode === 'create' && (
+                  <Input
+                    label="Senha inicial"
+                    required
+                    type="password"
+                    name="initialPassword"
+                    autoComplete="new-password"
+                    minLength={MIN_PASSWORD_LENGTH}
+                    maxLength={MAX_PASSWORD_LENGTH}
+                    value={formData.initialPassword}
+                    onChange={handleChange}
+                    placeholder={`Mínimo de ${MIN_PASSWORD_LENGTH} caracteres`}
+                    helperText="O headhunter deverá trocá-la no primeiro acesso."
+                  />
+                )}
                 <Select
                   label="Senioridade"
                   name="seniority"
