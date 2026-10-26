@@ -45,7 +45,8 @@ spring:
 jestor:
   api-url: ${JESTOR_API_URL:}
   api-token: ${JESTOR_API_TOKEN:}
-  sync-cron: ${JESTOR_SYNC_CRON:0 */30 * * * *}
+  sync-cron: ${JESTOR_SYNC_CRON:0 0 8,18 * * *}
+  sync-zone: ${JESTOR_SYNC_ZONE:America/Sao_Paulo}
   jobs-table: ${JESTOR_JOBS_TABLE:1qsbzdrzg3ca0srnvins_}
   clients-table: ${JESTOR_CLIENTS_TABLE:hxinwt2e5xz2cxmp___2d}
   candidates-table: ${JESTOR_CANDIDATES_TABLE:a3m7z8bs7swvw9ipyey11}
