@@ -21,7 +21,8 @@ public class JestorSyncScheduler {
         this.syncService = syncService;
     }
 
-    @Scheduled(cron = "${jestor.sync-cron:0 */30 * * * *}")
+    // Padrão: 2x ao dia (08h e 18h de Brasília); o Render roda em UTC, por isso o zone explícito.
+    @Scheduled(cron = "${jestor.sync-cron:0 0 8,18 * * *}", zone = "${jestor.sync-zone:America/Sao_Paulo}")
     public void scheduledSync() {
         log.info("Starting scheduled Jestor sync...");
         try {
