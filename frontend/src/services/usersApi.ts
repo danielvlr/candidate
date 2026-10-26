@@ -31,6 +31,14 @@ export const usersApi = {
     return call<AuthUser>(`/users/${id}/${active ? 'activate' : 'deactivate'}`, { method: 'PATCH' });
   },
 
+  /** Admin define a senha; o usuário será obrigado a trocá-la no próximo acesso. */
+  setPassword(id: number, newPassword: string): Promise<AuthUser> {
+    return call<AuthUser>(`/users/${id}/password`, {
+      method: 'PATCH',
+      body: JSON.stringify({ newPassword }),
+    });
+  },
+
   updateRole(id: number, update: UserRoleUpdate): Promise<AuthUser> {
     return call<AuthUser>(`/users/${id}/role`, { method: 'PATCH', body: JSON.stringify(update) });
   },

@@ -553,6 +553,15 @@ export interface HeadhunterDTO {
   profilePictureUrl?: string;
   createdAt?: string;
   updatedAt?: string;
+  /** Resposta: já existe usuário (acesso) vinculado ao headhunter. */
+  hasAccess?: boolean;
+  /** Somente na criação: senha inicial do usuário do headhunter. */
+  initialPassword?: string;
+}
+
+export interface HeadhunterAccessDTO {
+  accessCreated: boolean;
+  user: { id: number; email: string; mustChangePassword: boolean };
 }
 
 // Jestor Sync Types

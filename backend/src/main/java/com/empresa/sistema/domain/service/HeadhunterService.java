@@ -6,7 +6,10 @@ import com.empresa.sistema.api.dto.response.HeadhunterResponse;
 import com.empresa.sistema.api.dto.response.HeadhunterHistoryResponse;
 import com.empresa.sistema.api.mapper.HeadhunterMapper;
 import com.empresa.sistema.api.mapper.HeadhunterHistoryMapper;
+import com.empresa.sistema.api.dto.response.HeadhunterAccessResponse;
+import com.empresa.sistema.domain.entity.AppUser;
 import com.empresa.sistema.domain.entity.Headhunter;
+import com.empresa.sistema.domain.repository.AppUserRepository;
 import com.empresa.sistema.domain.entity.HeadhunterHistory;
 import com.empresa.sistema.domain.repository.HeadhunterRepository;
 import com.empresa.sistema.domain.repository.HeadhunterHistoryRepository;
@@ -19,6 +22,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -29,24 +34,41 @@ public class HeadhunterService {
     private final HeadhunterHistoryRepository historyRepository;
     private final HeadhunterMapper headhunterMapper;
     private final HeadhunterHistoryMapper historyMapper;
-
+    private final AppUserRepository userRepository;
+    private final HeadhunterAccessService accessService;
 
     public Page<HeadhunterResponse> findAll(Pageable pageable) {
-        return headhunterRepository.findAll(pageable)
-                .map(headhunterMapper::toResponse);
+        return withAccess(headhunterRepository.findAll(pageable));
     }
 
     public Page<HeadhunterResponse> findWithFilters(String name, String email,
                                               Headhunter.Seniority seniority,
                                               Headhunter.HeadhunterStatus status,
                                               Pageable pageable) {
-        return headhunterRepository.findWithFilters(name, email, seniority, status, pageable)
-                .map(headhunterMapper::toResponse);
+        return withAccess(headhunterRepository.findWithFilters(name, email, seniority, status, pageable));
     }
 
     public Optional<HeadhunterResponse> findById(Long id) {
         return headhunterRepository.findById(id)
-                .map(headhunterMapper::toResponse);
+                .map(hh -> withAccess(headhunterMapper.toResponse(hh),
+                        userRepository.findFirstByHeadhunterId(hh.getId()).isPresent()));
+    }
+
+    /** Define a senha do usuário do headhunter (cria o acesso se ainda não existir). Só ADMIN. */
+    public HeadhunterAccessResponse setPassword(Long id, String newPassword) {
+        return accessService.setPassword(id, newPassword);
+    }
+
+    private Page<HeadhunterResponse> withAccess(Page<Headhunter> page) {
+        Set<Long> withUser = userRepository
+                .findByHeadhunterIdIn(page.getContent().stream().map(Headhunter::getId).toList())
+                .stream().map(AppUser::getHeadhunterId).collect(Collectors.toSet());
+        return page.map(hh -> withAccess(headhunterMapper.toResponse(hh), withUser.contains(hh.getId())));
+    }
+
+    private static HeadhunterResponse withAccess(HeadhunterResponse response, boolean hasAccess) {
+        response.setHasAccess(hasAccess);
+        return response;
     }
 
     public Optional<HeadhunterResponse> findByEmail(String email) {
@@ -83,11 +105,14 @@ public class HeadhunterService {
 
         headhunter = headhunterRepository.save(headhunter);
 
+        // Mesma transação: se o usuário falhar, o headhunter também é desfeito.
+        accessService.provisionForNewHeadhunter(headhunter, request.getInitialPassword());
+
         // Criar histórico
         createHistory(headhunter, HeadhunterHistory.ActionType.CREATED,
                 "Headhunter criado no sistema", "admin@sistema.com", null, null);
 
-        return headhunterMapper.toResponse(headhunter);
+        return withAccess(headhunterMapper.toResponse(headhunter), true);
     }
 
     public HeadhunterResponse update(Long id, HeadhunterUpdateRequest request) {

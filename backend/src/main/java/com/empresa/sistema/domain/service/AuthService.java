@@ -2,7 +2,9 @@ package com.empresa.sistema.domain.service;
 
 import com.empresa.sistema.domain.repository.HeadhunterRepository;
 import com.empresa.sistema.api.dto.auth.AuthResponse;
+import com.empresa.sistema.api.dto.auth.ChangePasswordRequest;
 import com.empresa.sistema.api.dto.auth.LoginRequest;
+import com.empresa.sistema.domain.service.exception.BusinessException;
 import com.empresa.sistema.api.dto.auth.UserResponse;
 import com.empresa.sistema.domain.entity.AppUser;
 import com.empresa.sistema.domain.repository.AppUserRepository;
@@ -75,6 +77,35 @@ public class AuthService {
                 .map(this::linkHeadhunterIfMissing)
                 .map(UserResponse::from)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
+    }
+
+    /**
+     * Troca a própria senha. Desliga {@code mustChangePassword}; como a flag é lida do banco a cada request
+     * (não vai no token), o token atual continua válido e não é preciso emitir outro.
+     */
+    @Transactional
+    public UserResponse changePassword(Long userId, ChangePasswordRequest request) {
+        AppUser user = userRepository.findById(userId)
+                .filter(AppUser::isActive)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
+        String rateKey = "change-password:" + userId;
+        if (!rateLimiter.isAllowed(rateKey, MAX_FAILED_LOGINS)) {
+            throw new TooManyRequestsException("Muitas tentativas. Aguarde alguns minutos e tente novamente.");
+        }
+        if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
+            rateLimiter.recordAttempt(rateKey);
+            throw new BusinessException("A senha atual está incorreta");
+        }
+        if (request.currentPassword().equals(request.newPassword())) {
+            throw new BusinessException("A nova senha deve ser diferente da senha atual");
+        }
+        rateLimiter.reset(rateKey);
+        AppUser updated = userRepository.save(user.toBuilder()
+                .passwordHash(passwordEncoder.encode(request.newPassword()))
+                .mustChangePassword(false)
+                .build());
+        log.info("password_changed_by_user userId={}", updated.getId());
+        return UserResponse.from(updated);
     }
 
     /**

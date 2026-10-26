@@ -110,6 +110,19 @@ class PasswordResetServiceTest {
     }
 
     @Test
+    void resetPasswordTurnsOffMustChangePassword() {
+        user.setMustChangePassword(true);
+        stubToken("raw-token", LocalDateTime.now().plusMinutes(10), null);
+
+        service.resetPassword("raw-token", "nova-senha-123");
+
+        ArgumentCaptor<AppUser> savedUser = ArgumentCaptor.forClass(AppUser.class);
+        verify(userRepository).save(savedUser.capture());
+        assertThat(savedUser.getValue().isMustChangePassword()).isFalse();
+        user.setMustChangePassword(false);
+    }
+
+    @Test
     void resetPasswordRejectsExpiredToken() {
         stubToken("raw-token", LocalDateTime.now().minusMinutes(1), null);
 

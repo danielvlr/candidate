@@ -1,5 +1,7 @@
 package com.empresa.sistema.api.controller;
 
+import com.empresa.sistema.api.dto.auth.AdminPasswordRequest;
+import com.empresa.sistema.api.dto.response.HeadhunterAccessResponse;
 import com.empresa.sistema.api.dto.request.HeadhunterCreateRequest;
 import com.empresa.sistema.api.dto.request.HeadhunterUpdateRequest;
 import com.empresa.sistema.api.dto.response.HeadhunterResponse;
@@ -121,6 +123,13 @@ public class HeadhunterController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();
         }
+    }
+
+    /** Admin define a senha do headhunter; cria o acesso se ele ainda não tiver (restrito a ADMIN no SecurityConfig). */
+    @PatchMapping("/{id}/password")
+    public ResponseEntity<HeadhunterAccessResponse> setPassword(@PathVariable Long id,
+                                                                @Valid @RequestBody AdminPasswordRequest request) {
+        return ResponseEntity.ok(headhunterService.setPassword(id, request.newPassword()));
     }
 
     @DeleteMapping("/{id}")

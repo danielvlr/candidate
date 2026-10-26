@@ -121,7 +121,10 @@ public class PasswordResetService {
         AppUser user = token.getUser();
         LocalDateTime now = LocalDateTime.now();
 
-        userRepository.save(user.toBuilder().passwordHash(passwordEncoder.encode(newPassword)).build());
+        userRepository.save(user.toBuilder()
+                .passwordHash(passwordEncoder.encode(newPassword))
+                .mustChangePassword(false)
+                .build());
         tokenRepository.invalidateOpenTokens(user.getId(), now);
         log.info("password_reset_success userId={}", user.getId());
     }

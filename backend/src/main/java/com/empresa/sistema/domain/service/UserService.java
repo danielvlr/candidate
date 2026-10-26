@@ -70,6 +70,18 @@ public class UserService {
         return request.headhunterId() != null ? request.headhunterId() : user.getHeadhunterId();
     }
 
+    /** Admin define a senha de outro usuário; ele será obrigado a trocá-la no próximo acesso. */
+    @Transactional
+    public UserResponse setPasswordByAdmin(Long id, String newPassword) {
+        AppUser user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
+        AppUser updated = user.toBuilder()
+                .passwordHash(passwordEncoder.encode(newPassword))
+                .mustChangePassword(true)
+                .build();
+        return UserResponse.from(userRepository.save(updated));
+    }
+
     @Transactional
     public UserResponse setActive(Long id, boolean active, Long actingUserId) {
         if (!active && id.equals(actingUserId)) {

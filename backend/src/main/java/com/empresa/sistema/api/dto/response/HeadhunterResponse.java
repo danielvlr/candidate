@@ -29,4 +29,6 @@ public class HeadhunterResponse {
     private String profilePictureUrl;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    /** Indica se já existe usuário (acesso ao sistema) vinculado; preenchido pelo service. */
+    private Boolean hasAccess;
 }

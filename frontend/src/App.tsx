@@ -30,7 +30,8 @@ import { UserRoleProvider, useUserRole } from "./context/UserRoleContext";
 import { ClientFilterProvider } from "./context/ClientFilterContext";
 import { HeadhunterFilterProvider } from "./context/HeadhunterFilterContext";
 import RoleBasedRoute from "./components/auth/RoleBasedRoute";
-import { ProtectedRoute, PublicOnlyRoute } from "./components/auth/ProtectedRoute";
+import { PasswordChangeRoute, ProtectedRoute, PublicOnlyRoute } from "./components/auth/ProtectedRoute";
+import ChangePassword from "./pages/AuthPages/ChangePassword";
 import { AuthProvider } from "./context/AuthContext";
 // import WarrantyDashboard from "./pages/Warranty/WarrantyDashboard";
 // import WarrantyRules from "./pages/Warranty/WarrantyRules";
@@ -246,6 +247,7 @@ export default function App() {
             <Route path="/signin" element={<PublicOnlyRoute><SignIn /></PublicOnlyRoute>} />
             <Route path="/forgot-password" element={<PublicOnlyRoute><ForgotPassword /></PublicOnlyRoute>} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/change-password" element={<PasswordChangeRoute><ChangePassword /></PasswordChangeRoute>} />
 
             {/* Fallback Route */}
             <Route path="*" element={<ProtectedRoute><Blank /></ProtectedRoute>} />

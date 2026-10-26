@@ -39,6 +39,15 @@ public class AppUser {
     @Column(name = "headhunter_id")
     private Long headhunterId;
 
+    /**
+     * Senha definida por terceiro (admin): o usuário precisa trocá-la no próximo acesso.
+     * O default no DDL é obrigatório: com ddl-auto=update, ALTER TABLE ... NOT NULL sem default
+     * falha no Postgres quando a tabela já tem linhas.
+     */
+    @Column(name = "must_change_password", nullable = false, columnDefinition = "boolean default false")
+    @Builder.Default
+    private boolean mustChangePassword = false;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
