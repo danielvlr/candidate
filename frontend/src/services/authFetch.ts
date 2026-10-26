@@ -50,13 +50,16 @@ export function installAuthFetch(): void {
       headers.set('Authorization', `Bearer ${token}`);
     }
 
+    // Só reage ao 403 de troca de senha se a chamada usou o token da sessão atual.
+    const usedSessionToken = !!token && headers.get('Authorization') === `Bearer ${token}`;
+
     const response = await originalFetch(input, { ...init, headers });
 
     if (response.status === 401 && !isExempt(url)) {
       clearSession();
       window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT));
     }
-    if (response.status === 403 && (await isPasswordChangeRequired(response))) {
+    if (response.status === 403 && usedSessionToken && (await isPasswordChangeRequired(response))) {
       window.dispatchEvent(new CustomEvent(PASSWORD_CHANGE_REQUIRED_EVENT));
     }
     return response;
